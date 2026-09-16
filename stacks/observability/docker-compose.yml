@@ -1,0 +1,61 @@
+services:
+  # Push notifications for systemd unit failures and anything else you want to alert on.
+  gotify:
+    image: gotify/server:2.5.0
+    restart: unless-stopped
+    ports:
+      - "${WG_IP:-10.44.0.2}:8070:80"   # public via VPS Caddy at gotify.malice.biz
+    environment:
+      GOTIFY_DEFAULTUSER_PASS: ${GOTIFY_DEFAULTUSER_PASS}
+    volumes:
+      - ./state/gotify:/app/data
+
+  # Stacks: start/stop, edit compose, exec. Files stay plain YAML in /opt/stacks so git review still works.
+  dockge:
+    image: louislam/dockge:1.4.2
+    restart: unless-stopped
+    ports:
+      - "${WG_IP:-10.44.0.2}:5001:5001"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /opt/stacks:/opt/stacks
+      - ./state/dockge:/app/data
+
+  # REMOVED 2026-09-10: Uptime Kuma ditched (uptime-kuma service deleted).
+
+  # Host metrics and the disk >85% alert, in a GUI instead of df piped through awk.
+  beszel:
+    image: henrygd/beszel:0.9
+    restart: unless-stopped
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    ports:
+      - "${WG_IP:-10.44.0.2}:8090:8090"
+    volumes:
+      - ./state/beszel:/beszel_data
+
+  beszel-agent:
+    image: henrygd/beszel-agent:0.9
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      PORT: 45876
+      KEY: ${BESZEL_KEY}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+
+  # S.M.A.R.T. disk health history and alerts.
+  # DISABLED 2026-09-10: pinned tags v0.8.x don't exist upstream (only :latest),
+  # and SMART inside a virtio VM sees almost nothing anyway. Re-enable with a
+  # pinned digest if bare-metal ever happens.
+  # scrutiny:
+  #   image: ghcr.io/analogj/scrutiny:v0.8.1
+  #   restart: unless-stopped
+  #   privileged: true
+  #   ports:
+  #     - "${WG_IP:-10.44.0.2}:8086:8080"
+  #   environment:
+  #     COLLECTOR_CRON_SCHEDULE: "0 * * * *"
+  #   volumes:
+  #     - /run/udev:/run/udev:ro
+  #     - ./state/scrutiny:/opt/scrutiny/config

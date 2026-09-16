@@ -1,0 +1,12 @@
+[Unit]
+Description=Restic backup
+After=docker.service
+RequiresMountsFor=/mnt/data
+OnFailure=notify@%n.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/homelab-backup
+Environment=HOME=/root XDG_CACHE_HOME=/root/.cache
+Nice=10
+IOSchedulingClass=best-effort

@@ -1,0 +1,30 @@
+# Template for /etc/wireguard/chill0.conf on the VPS (0600, real file NEVER in git).
+# Static two-peer link to chill-01. Replaces the wg-easy container -- see MIGRATION.md
+# stage 2 for the cutover order and the mandatory nftables pre-flight.
+#
+# Named chill0, NOT wg0: the VPS's wg0 is the 10.30 arr tunnel and is load-bearing.
+# nftables.conf's `iifname != "wg0"` refers to that one and stays correct.
+#
+# Port 51824, not 51822: wg-easy publishes 51822/udp, so a kernel interface cannot bind it
+# while the container is alive. A fresh port makes this a prepare-then-flip instead of a
+# stop-and-pray. 51822 has no special meaning; do not move back.
+#
+# BEFORE enabling: add an input accept for 51824/udp to the live ruleset. 51822 only ever
+# worked because Docker inserted its own accept when publishing the port. A kernel interface
+# gets none, the handshake fails, and you debug it with every public vhost already down.
+#
+# No PostUp masquerade here. The host now holds 10.44.0.1 itself, so Caddy originates from
+# inside chill-01's AllowedIPs natively -- that is what makes chill-fw.service unnecessary.
+# Reply SNAT for DNAT'd internet traffic is already handled by homelab_nat's postrouting rule.
+
+[Interface]
+Address = 10.44.0.1/24
+ListenPort = 51824
+PrivateKey = REPLACE_WITH_VPS_PRIVATE_KEY
+
+# chill-01. No Endpoint line on purpose: it has no stable address, so it always dials first
+# and WireGuard learns where it is from the authenticated packet. That is precisely why this
+# link needs no DDNS and survives every home IP rotation.
+[Peer]
+PublicKey = REPLACE_WITH_CHILL01_PUBLIC_KEY
+AllowedIPs = 10.44.0.2/32

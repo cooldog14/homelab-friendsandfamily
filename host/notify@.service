@@ -1,0 +1,8 @@
+[Unit]
+Description=Alert that %i failed
+
+# Reusable: add "OnFailure=notify@%n.service" to any unit. Success stays silent.
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/homelab.env
+ExecStart=/usr/bin/curl -fsS -X POST -F "message=%i failed on %H" -F "priority=5" ${ALERT_URL}

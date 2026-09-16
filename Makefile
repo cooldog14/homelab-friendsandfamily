@@ -1,0 +1,58 @@
+HOST ?= deploy@10.44.0.2
+# VPS via the vps-ingress SSH alias (port 4522 + key in ~/.ssh/config); 22 is closed.
+VPS_SSH ?= ssh vps-ingress
+STACKS = apps comms docs edge observability photos
+RETIRED_STACKS = media privacy
+
+# git is the source of truth; Dockge is for logs and restarts, not for editing YAML behind git's back.
+deploy:
+	ssh $(HOST) 'cd /opt/src/nix-infra && git pull --ff-only && for s in $(RETIRED_STACKS); do if [ -f /opt/stacks/$$s/docker-compose.yml ]; then (cd /opt/stacks/$$s && sudo docker compose -p $$s down --remove-orphans); fi; done && sudo rsync -a --delete --exclude .env --exclude state/ chill/stacks/ /opt/stacks/ && for s in $(STACKS); do (cd /opt/stacks/$$s && sudo docker compose -p $$s up -d --pull missing --remove-orphans); done'
+	# NOTE: --pull missing (not always): the CLI flag overrides compose pull_policy, and redlib is a
+	# local source build (pull_policy: never) that --pull always would try to fetch from a registry.
+	# Retired stack state/.env survives; only containers and git-owned config are removed.
+
+host:
+	rsync -a bootstrap.sh host $(HOST):/tmp/chill/
+	ssh $(HOST) 'cd /tmp/chill && sudo sh bootstrap.sh'
+
+vps:
+	# Split layout: this ships Caddyfile + sites/chill.caddy only.
+	# sites/arr.caddy (jellyfin/requests -> arr LXC, live-managed) is untouched.
+	# First run after the split seeds arr.caddy from the live stanzas (done
+	# 2026-09-12); later runs are safe. bootstrap.sh validates + reloads Caddy.
+	# NOTE: no rsync on the VPS — ship via tar over ssh.
+	tar -c -C vps . | $(VPS_SSH) 'rm -rf /tmp/chill-vps && mkdir -p /tmp/chill-vps && tar -x -C /tmp/chill-vps'
+	$(VPS_SSH) 'cd /tmp/chill-vps && sh bootstrap.sh'
+
+backup-now:
+	ssh $(HOST) 'sudo systemctl start homelab-backup && journalctl -u homelab-backup -n 30 --no-pager'
+
+# The only backup test that counts: get files back out and look at them.
+# Covers a pg_dump (immich) and a sqlite .backup (gotify).
+restore-test:
+	ssh $(HOST) "sudo sh -c 'set -a; . /etc/homelab.env; restic restore latest --target /tmp/rt --include /opt/dumps/immich.sql --include /opt/dumps/gotify.db; head -c 300 /tmp/rt/opt/dumps/immich.sql; echo; sqlite3 /tmp/rt/opt/dumps/gotify.db \"PRAGMA integrity_check;\"; rm -rf /tmp/rt'"
+
+# Is the VPS<->chill-01 link alive? "latest handshake" older than a couple of
+# minutes means trouble. Phones are on Tailscale, not here — use `tailscale status`.
+# NOTE: until MIGRATION.md stage 2, the 10.44 link lives inside the wg-easy
+# container, so plain `wg show` on the VPS sees only the 10.30 arr tunnel. After
+# stage 2 both are kernel interfaces and `sudo wg show` alone covers them.
+tunnel:
+	$(VPS_SSH) 'cd /opt/vps && sudo docker compose exec -T wg-easy wg show'
+
+check:
+	for s in $(STACKS); do (cd stacks/$$s && docker compose config -q); done
+	shellcheck bootstrap.sh host/backup.sh host/backup-watchdog.sh host/public-check.sh vps/bootstrap.sh
+
+# The private Caddyfile is a bind mount, so `make deploy` copies it but the
+# running container never re-reads it. Validate first: a bad file makes reload
+# a no-op and leaves the old config serving, which looks like "my edit did nothing".
+edge-reload:
+	ssh $(HOST) 'cd /opt/stacks/edge && sudo docker compose exec -T caddy caddy validate --config /etc/caddy/Caddyfile && sudo docker compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile'
+
+# Generate a GoAccess traffic report from VPS Caddy logs and open it locally.
+traffic:
+	$(VPS_SSH) 'goaccess /var/log/caddy/access.log --log-format=CADDY --no-progress -o -' > traffic-report.html
+	@echo "Report written to traffic-report.html"
+
+.PHONY: deploy host vps backup-now restore-test tunnel check edge-reload traffic
