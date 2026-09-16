@@ -77,9 +77,8 @@ edge runs private Caddy.
 
 ## deploy
 
-make deploy pulls git on chill-01.
-It syncs chill/stacks to /opt/stacks.
-It starts active stacks.
+make deploy ships local stacks to chill-01.
+It downs retired stacks, then syncs and starts active stacks.
 
 make vps updates the VPS.
 It owns public Caddy and homelab_nat.
@@ -129,8 +128,7 @@ VM 101 is chill-01.
 
 ## hard rules
 
-Never delete the chill-01 WireGuard peer.
-Never delete /opt/vps/state.
+Never delete the chill0 WireGuard peer or /etc/wireguard on either box.
 Never flush the VPS nftables ruleset.
 Never bind Docker services to 0.0.0.0 unless the exception is documented.
 Never add public base URLs to private-only services.

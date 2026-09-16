@@ -37,11 +37,10 @@ restore-test:
 
 # Is the VPS<->chill-01 link alive? "latest handshake" older than a couple of
 # minutes means trouble. Phones are on Tailscale, not here — use `tailscale status`.
-# NOTE: until MIGRATION.md stage 2, the 10.44 link lives inside the wg-easy
-# container, so plain `wg show` on the VPS sees only the 10.30 arr tunnel. After
-# stage 2 both are kernel interfaces and `sudo wg show` alone covers them.
+# Static kernel link on chill0:51824 (stage 2); `sudo wg show` also covers the
+# 10.30 arr tunnel on wg0.
 tunnel:
-	$(VPS_SSH) 'cd /opt/vps && sudo docker compose exec -T wg-easy wg show'
+	$(VPS_SSH) 'sudo wg show chill0'
 
 check:
 	for s in $(STACKS); do (cd stacks/$$s && docker compose config -q); done
