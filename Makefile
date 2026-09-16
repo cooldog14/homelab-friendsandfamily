@@ -47,10 +47,11 @@ check:
 	shellcheck bootstrap.sh host/backup.sh host/backup-watchdog.sh host/public-check.sh vps/bootstrap.sh
 
 # The private Caddyfile is a bind mount, so `make deploy` copies it but the
-# running container never re-reads it. Validate first: a bad file makes reload
-# a no-op and leaves the old config serving, which looks like "my edit did nothing".
+# running container never re-reads it. Restart (not `caddy reload`, which was
+# observed silently keeping the old config on 2026-09-16): a stale file looks
+# like "my edit did nothing". Validate first for a loud failure instead.
 edge-reload:
-	ssh $(HOST) 'cd /opt/stacks/edge && sudo docker compose exec -T caddy caddy validate --config /etc/caddy/Caddyfile && sudo docker compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile'
+	ssh $(HOST) 'cd /opt/stacks/edge && sudo docker compose exec -T caddy caddy validate --config /etc/caddy/Caddyfile && sudo docker compose -p edge restart caddy'
 
 # Generate a GoAccess traffic report from VPS Caddy logs and open it locally.
 traffic:
