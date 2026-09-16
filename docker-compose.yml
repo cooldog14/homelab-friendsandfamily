@@ -1,0 +1,312 @@
+services:
+  jellyfin:
+    image: jellyfin/jellyfin:10.11
+    container_name: jellyfin
+    user: "1000:1000"
+    ports:
+      - "127.0.0.1:8096:8096"
+    volumes:
+      - ./jellyfin-config:/config
+      - ./jellyfin-cache:/cache
+      - ${DATA_LOCATION}:/data
+    restart: unless-stopped
+    environment:
+      TZ: ${TIMEZONE}
+
+  gluetun:
+    image: qmcgaw/gluetun:v3.41.1
+    container_name: gluetun
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun
+    ports:
+      - "127.0.0.1:8701:8701"
+      - "6881:6881"
+      - "6881:6881/udp"
+      - "127.0.0.1:9696:9696"
+      - "127.0.0.1:8191:8191"
+      - "127.0.0.1:5030:5030"
+    volumes:
+      - ./gluetun:/gluetun
+    environment:
+      VPN_SERVICE_PROVIDER: custom
+      VPN_TYPE: wireguard
+      WIREGUARD_PRIVATE_KEY: ${WIREGUARD_PRIVATE_KEY}
+      WIREGUARD_ADDRESSES: ${WIREGUARD_ADDRESSES}
+      VPN_ENDPOINT_IP: ${VPN_ENDPOINT_IP}
+      VPN_ENDPOINT_PORT: ${VPN_ENDPOINT_PORT}
+      FIREWALL_VPN_INPUT_PORTS: ${FIREWALL_VPN_INPUT_PORTS:-6881}
+      FIREWALL_OUTBOUND_SUBNETS: "172.18.0.0/16"
+      WIREGUARD_PUBLIC_KEY: ${VPS_WG_PUBKEY}
+      TZ: ${TIMEZONE}
+    restart: unless-stopped
+
+  qbittorrent:
+    image: lscr.io/linuxserver/qbittorrent:5.2.2
+    network_mode: "service:gluetun"
+    depends_on:
+      - gluetun
+    environment:
+      PUID: "1000"
+      PGID: "1000"
+      TZ: ${TIMEZONE}
+      WEBUI_PORT: "8701"
+      WEBUI_ADDRESS: "0.0.0.0"
+      WEBUI_EXTERNAL_ACCESS: "true"
+    volumes:
+      - ./qbittorrent:/config
+      - ${DATA_LOCATION}:/data
+    restart: unless-stopped
+
+  prowlarr:
+    image: lscr.io/linuxserver/prowlarr:2.4.0
+    restart: unless-stopped
+    network_mode: "service:gluetun"
+    depends_on:
+      - gluetun
+    environment:
+      PUID: "1000"
+      PGID: "1000"
+      TZ: ${TIMEZONE}
+    volumes:
+      - ./prowlarr:/config
+
+  flaresolverr:
+    image: ghcr.io/flaresolverr/flaresolverr:v3.5.0
+    network_mode: "service:gluetun"
+    depends_on:
+      - gluetun
+    environment:
+      TZ: ${TIMEZONE}
+      LOG_LEVEL: info
+      HEADLESS: "true"
+      BROWSER_TIMEOUT: "120000"
+      MAX_TIMEOUT: "120000"
+    restart: unless-stopped
+
+  radarr:
+    image: lscr.io/linuxserver/radarr:6.2.1
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:7878:7878"
+    environment:
+      PUID: "1000"
+      PGID: "1000"
+      TZ: ${TIMEZONE}
+    volumes:
+      - ./radarr:/config
+      - ${DATA_LOCATION}:/data
+
+  sonarr:
+    image: lscr.io/linuxserver/sonarr:4.0.17
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8989:8989"
+    environment:
+      PUID: "1000"
+      PGID: "1000"
+      TZ: ${TIMEZONE}
+    volumes:
+      - ./sonarr:/config
+      - ${DATA_LOCATION}:/data
+
+  bazarr:
+    image: lscr.io/linuxserver/bazarr:1.5.6
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:6767:6767"
+    environment:
+      PUID: "1000"
+      PGID: "1000"
+      TZ: ${TIMEZONE}
+    volumes:
+      - ./bazarr:/config
+      - ${DATA_LOCATION}:/data
+
+  jellyseerr:
+    image: fallenbagel/jellyseerr:2.7.3
+    environment:
+      TZ: ${TIMEZONE}
+      LOG_LEVEL: info
+    ports:
+      - "127.0.0.1:5055:5055"
+    volumes:
+      - ./jellyseerr:/app/config
+    restart: unless-stopped
+    depends_on:
+      - jellyfin
+      - radarr
+      - sonarr
+
+  navidrome:
+    image: deluan/navidrome:0.63.2
+    container_name: navidrome
+    user: "1000:1000"
+    ports:
+      - "127.0.0.1:4533:4533"
+    environment:
+      TZ: ${TIMEZONE}
+      ND_ENABLEINSIGHTSCOLLECTOR: "false"
+      ND_ENABLESHARING: "false"
+      ND_LOGLEVEL: info
+      ND_MUSICFOLDER: /music
+      ND_SCANNER_SCHEDULE: "@every 1h"
+    volumes:
+      - ./navidrome:/data
+      - ${DATA_LOCATION}/media/music:/music:ro
+    restart: unless-stopped
+
+  wrtag:
+    image: sentriz/wrtag:v0.30.0
+    container_name: wrtag
+    user: "1000:1000"
+    ports:
+      - "127.0.0.1:7373:7373"
+    environment:
+      WRTAG_PATH_FORMAT: '/mnt/data/media/music/clean/{{ artists .Release.Artists | sort | join "; " | safepath }}/({{ .Release.ReleaseGroup.FirstReleaseDate.Year }}) {{ .Release.Title | safepath }}{{ if not (eq .ReleaseDisambiguation "") }} ({{ .ReleaseDisambiguation | safepath }}){{ end }}/{{ if gt (len .Release.Media) 1 }}d{{ pad0 2 .Media.Position }} {{ end }}{{ pad0 2 .Track.Position }}.{{ .Media.TrackCount | pad0 2 }} {{ if .IsCompilation }}{{ artistsString .Track.Artists | safepath }} - {{ end }}{{ .Track.Title | safepath }}{{ .Ext }}'
+      WRTAG_WEB_API_KEY: ${WRTAG_WEB_API_KEY}
+      WRTAG_WEB_LISTEN_ADDR: ":7373"
+      WRTAG_WEB_DB_PATH: /data/wrtag.db
+      WRTAG_WEB_NUM_WORKERS: "4"
+      WRTAG_WEB_AUTH: "disabled"
+      WRTAG_LOG_LEVEL: "info"
+      WRTAG_ADDON: "lyrics lrclib genius musixmatch"
+      WRTAG_KEEP_FILE: "origin.yaml,*.cue,*.log"
+      WRTAG_COVER_UPGRADE: "true"
+    volumes:
+      - ./wrtag:/data
+      - ${DATA_LOCATION}:/mnt/data
+    restart: unless-stopped
+
+  octo-fiesta:
+    image: ghcr.io/v1ck3s/octo-fiesta:v0.8
+    container_name: octo-fiesta
+    user: "1000:1000"
+    ports:
+      - "127.0.0.1:5274:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: "http://+:8080"
+      Library__DownloadPath: /app/downloads
+      Subsonic__Url: "http://navidrome:4533"
+      Subsonic__AdminUsername: ${SUBSONIC_ADMIN_USERNAME}
+      Subsonic__AdminPassword: ${SUBSONIC_ADMIN_PASSWORD}
+      Subsonic__MusicService: ${MUSIC_SERVICE:-Deezer}
+      Subsonic__StorageMode: Permanent
+      Subsonic__DownloadMode: Track
+      Subsonic__AutoUpgradeQuality: "false"
+      Subsonic__DisableLibraryScan: "false"
+      Subsonic__EnableExternalPlaylists: "true"
+      Subsonic__PlaylistsDirectory: playlists
+      Subsonic__ExplicitFilter: All
+      Subsonic__FolderTemplate: "{artist}/({year}) {album}/{track} - {title}"
+      Deezer__Arl: ${DEEZER_ARL:-}
+      Deezer__ArlFallback: ${DEEZER_ARL_FALLBACK:-}
+      Deezer__Quality: "flac"
+      Qobuz__UserAuthToken: ${QOBUZ_USER_AUTH_TOKEN:-}
+      Qobuz__UserId: ${QOBUZ_USER_ID:-}
+      Qobuz__Quality: ${QOBUZ_QUALITY:-}
+      Tidal__TokenStore: /config/tidal-tokens.json
+      Tidal__Quality: ${TIDAL_QUALITY:-}
+      Tidal__ClientId: ${TIDAL_CLIENT_ID:-}
+      Tidal__ClientSecret: ${TIDAL_CLIENT_SECRET:-}
+      Tidal__AccessToken: ${TIDAL_ACCESS_TOKEN:-}
+      Tidal__RefreshToken: ${TIDAL_REFRESH_TOKEN:-}
+      Tidal__UserId: ${TIDAL_USER_ID:-}
+      Tidal__CountryCode: ${TIDAL_COUNTRY_CODE:-}
+      SquidWTF__Source: ${SQUIDWTF_SOURCE:-Qobuz}
+      SquidWTF__Quality: ${SQUIDWTF_QUALITY:-}
+      SquidWTF__InstanceTimeoutSeconds: ${SQUIDWTF_INSTANCE_TIMEOUT:-5}
+      Yandex__OAuthToken: ${YANDEX_OAUTH_TOKEN:-}
+      Yandex__Quality: ${YANDEX_QUALITY:-}
+      Yandex__Language: ${YANDEX_LANGUAGE:-}
+      Yandex__IncludeUnavailable: ${YANDEX_INCLUDE_UNAVAILABLE_TRACKS:-false}
+    volumes:
+      - ${DATA_LOCATION}/media/music/clean:/app/downloads
+      - ./octo-fiesta:/config
+    depends_on:
+      - navidrome
+    restart: unless-stopped
+
+  feishin:
+    image: ghcr.io/jeffvli/feishin:1.12.1
+    container_name: feishin
+    ports:
+      - "127.0.0.1:9180:9180"
+    environment:
+      SERVER_NAME: "malice.biz"
+      SERVER_TYPE: subsonic
+      SERVER_URL: "https://fiesta.malice.biz"
+      SERVER_LOCK: "true"
+      ANALYTICS_DISABLED: "true"
+    depends_on:
+      - octo-fiesta
+    restart: unless-stopped
+
+  dufs:
+    image: sigoden/dufs:v0.46.0
+    container_name: dufs
+    user: "1000:1000"
+    ports:
+      - "127.0.0.1:5000:5000"
+    environment:
+      TZ: ${TIMEZONE}
+      DUFS_SERVE_PATH: /uploads
+      DUFS_BIND: 0.0.0.0
+      DUFS_PORT: "5000"
+      DUFS_ALLOW_UPLOAD: "true"
+      DUFS_ALLOW_SEARCH: "true"
+      DUFS_ALLOW_DELETE: "false"
+      DUFS_ALLOW_SYMLINK: "false"
+      DUFS_ALLOW_ARCHIVE: "false"
+      DUFS_HIDDEN: ".*,lost+found"
+      DUFS_AUTH: "${DUFS_USER}:${DUFS_PASSWORD}@/:rw"
+    volumes:
+      - ${DATA_LOCATION}/downloads/uploads:/uploads
+    restart: unless-stopped
+
+  slskd:
+    build:
+      context: .
+      dockerfile: Dockerfile.slskd
+    image: local/slskd-wrtag:0.26.0
+    container_name: slskd
+    user: "1000:1000"
+    network_mode: "service:gluetun"
+    depends_on:
+      - gluetun
+      - wrtag
+    environment:
+      TZ: ${TIMEZONE}
+      SLSKD_CONFIG: /app/slskd.yml
+      SLSKD_UMASK: "0002"
+      SLSKD_SLSK_USERNAME: ${SLSKD_SLSK_USERNAME}
+      SLSKD_SLSK_PASSWORD: ${SLSKD_SLSK_PASSWORD}
+      SLSKD_SLSK_LISTEN_PORT: ${SLSK_LISTEN_PORT:-50300}
+      SLSKD_DOWNLOADS_DIR: /data/downloads/slskd/complete
+      SLSKD_INCOMPLETE_DIR: /data/downloads/slskd/incomplete
+      SLSKD_SHARED_DIR: /data/media/music
+      SLSKD_API_KEY: ${SLSKD_API_KEY}
+      SLSKD_WRTAG_API_KEY: ${WRTAG_WEB_API_KEY}
+      SLSKD_REMOTE_CONFIGURATION: "false"
+      SLSKD_REMOTE_FILE_MANAGEMENT: "false"
+    volumes:
+      - ./slskd:/app
+      - ./config/slskd/slskd.yml:/app/slskd.yml:ro
+      - ./config/slskd/autotag.sh:/app/scripts/autotag.sh:ro
+      - ${DATA_LOCATION}:/data
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2.8.4-alpine
+    network_mode: host
+    restart: unless-stopped
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  caddy_data:
+  caddy_config:
