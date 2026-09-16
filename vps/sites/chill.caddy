@@ -1,0 +1,43 @@
+# chill-owned public vhosts (10.44.0.2 backends). Deployed by `make vps`.
+# NOTE: multi-line blocks required — the Caddyfile `import` directive
+# rejects single-line `host { ... }` blocks in imported files.
+# arr-owned stanzas (jellyfin/requests -> 10.30.0.5) live in
+# /etc/caddy/sites/arr.caddy ON THE BOX ONLY — never commit them here.
+gotify.malice.biz {
+	reverse_proxy 10.44.0.2:8070
+}
+files.malice.biz {
+	reverse_proxy 10.44.0.2:8085
+}
+photos.malice.biz {
+	reverse_proxy 10.44.0.2:2283
+}
+paperless.malice.biz {
+	reverse_proxy 10.44.0.2:8092
+}
+stirling.malice.biz {
+	reverse_proxy 10.44.0.2:8091
+}
+kavita.malice.biz {
+	reverse_proxy 10.44.0.2:8094
+}
+neko.malice.biz {
+	reverse_proxy 10.44.0.2:8097
+}
+screego.malice.biz {
+	reverse_proxy 10.44.0.2:5050
+}
+
+# wg-easy admin UI: WireGuard peers only, everyone else gets 403.
+# The UI listens on 127.0.0.1:51821 inside the VPS docker net via Caddy.
+vpn.malice.biz {
+	@wgonly {
+		remote_ip 10.44.0.0/24 127.0.0.1/32
+	}
+	handle @wgonly {
+		reverse_proxy localhost:51821
+	}
+	handle {
+		respond "wireguard peers only" 403
+	}
+}

@@ -1,0 +1,7 @@
+[Unit]
+Description=Backup watchdog (fails loudly if nightly backup goes silent)
+OnFailure=notify@%n.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/homelab-backup-watchdog

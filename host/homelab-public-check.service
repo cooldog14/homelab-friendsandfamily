@@ -1,0 +1,8 @@
+[Unit]
+Description=Black-box check of public vhosts (fails loudly on non-2xx/3xx)
+OnFailure=notify@%n.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/homelab-public-check
+Nice=10

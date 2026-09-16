@@ -1,0 +1,19 @@
+# Mirrors live /etc/systemd/system/chill-fw.service (VPS).
+# Load-bearing: the 10.44 host route (Caddy -> chill-01 via the wg-easy
+# container's static IP) plus the DOCKER-USER bypass. Without the ACCEPT,
+# Docker's trailing DROP kills ALL DNAT'd traffic to chill-01 (Mumble outage,
+# 2h debug 2026-09-11). Installed + enabled by vps/bootstrap.sh.
+[Unit]
+Description=Chill firewall helpers (10.44 route + docker bypass)
+After=docker.service nftables.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/sbin/ip route replace 10.44.0.0/24 via 172.27.0.2
+ExecStart=/bin/sh -c "/usr/sbin/iptables -C DOCKER-USER -d 10.44.0.0/24 -j ACCEPT || /usr/sbin/iptables -I DOCKER-USER -d 10.44.0.0/24 -j ACCEPT"
+ExecStop=/usr/sbin/iptables -D DOCKER-USER -d 10.44.0.0/24 -j ACCEPT
+
+[Install]
+WantedBy=multi-user.target
