@@ -21,22 +21,17 @@
 		dns cloudflare {env.CF_API_TOKEN}
 	}
 
-	# {labels.3} is the leftmost label: dockge.h.malice.biz -> "dockge"
-	# (0 is the TLD, so 1=malice, 2=h, 3=the service).
-	# The destination is {svcport}, NOT {port}: {port} is Caddy's own shorthand
-	# for the request port and would silently proxy to the wrong place.
-	# Unmatched names MUST land on the sentinel: without a `default`, map leaves
-	# {svcport} unset, the literal "{svcport}" != "" is true, and unknown names
-	# proxy to :0 (502) instead of hitting the 404 below. Verified 2026-09-16.
-	map {labels.3} {svcport} {
-		dockge 5001
-		beszel 8090
-		default 0
+	# Exact host matchers, NOT map: map leaves {svcport} unset for unknown names
+	# (its `default` line is silently dropped — verified 2026-09-16), and an
+	# unset placeholder makes `!= ""` true, proxying unknowns to :0 (502).
+	# Two names = two matchers; extend the same way, keep the 404 last.
+	@dockge host dockge.h.malice.biz
+	handle @dockge {
+		reverse_proxy {env.UPSTREAM}:5001
 	}
-
-	@known expression `{svcport} != "0"`
-	handle @known {
-		reverse_proxy {env.UPSTREAM}:{svcport}
+	@beszel host beszel.h.malice.biz
+	handle @beszel {
+		reverse_proxy {env.UPSTREAM}:8090
 	}
 	handle {
 		respond "unknown private service" 404
