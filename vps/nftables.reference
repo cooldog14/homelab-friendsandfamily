@@ -1,0 +1,57 @@
+# Reference snapshot of the LIVE `inet firewall` table on the VPS, 2026-09-16.
+# Source: `nft list table inet firewall` (comments stripped by nft).
+# This table is live-managed in /etc/nftables.conf — NOT owned by
+# vps/nftables.conf (homelab_nat). Do not apply this file; it exists so the
+# stage-2 WireGuard cutover can be reasoned about from git.
+# Full ruleset backup lives at /root/ruleset.2026-09-16.bak on the VPS.
+table inet firewall {
+	chain input {
+		type filter hook input priority filter; policy drop;
+		ct state established,related accept
+		iif "lo" accept
+		ip protocol icmp limit rate 10/second burst 5 packets accept
+		ip protocol icmp drop
+		tcp dport 4522 ct state new limit rate 5/minute burst 5 packets accept
+		tcp dport 4522 drop
+		udp dport 51820 accept
+		udp dport 51822 accept
+		tcp dport 443 accept
+		tcp dport 80 accept
+	}
+
+	chain forward {
+		type filter hook forward priority filter; policy drop;
+		tcp flags & (syn | rst) == syn tcp option maxseg size set 1220
+		ct state established,related accept
+		iifname "eth0" oifname "wg0" ct state new accept
+		iifname "wg0" ip daddr 10.44.0.0/24 accept
+		iifname "wg0" oifname "eth0" accept
+		iifname "eth0" udp dport 51820 accept
+		ip daddr 10.44.0.0/24 accept
+		iifname "br-*" oifname "eth0" accept
+	}
+
+	chain prerouting {
+		type nat hook prerouting priority dstnat; policy accept;
+		iifname "eth0" tcp dport 25565 dnat ip to 10.30.0.3
+		iifname "eth0" tcp dport 6881 dnat ip to 10.30.0.4
+		iifname "eth0" udp dport 6881 dnat ip to 10.30.0.4
+		iifname "eth0" tcp dport 52000 dnat ip to 10.44.0.2
+		iifname "eth0" udp dport 52000 dnat ip to 10.44.0.2
+		iifname "eth0" tcp dport 3478 dnat ip to 10.44.0.2
+		iifname "eth0" udp dport 3478 dnat ip to 10.44.0.2
+		iifname "eth0" udp dport 52100-52200 dnat ip to 10.44.0.2
+		iifname "wg0" ip daddr 194.58.47.21 tcp dport 52000 dnat ip to 10.44.0.2
+		iifname "wg0" ip daddr 194.58.47.21 udp dport 52000 dnat ip to 10.44.0.2
+		iifname "wg0" ip daddr 194.58.47.21 tcp dport 3478 dnat ip to 10.44.0.2
+		iifname "wg0" ip daddr 194.58.47.21 udp dport 3478 dnat ip to 10.44.0.2
+		iifname "wg0" ip daddr 194.58.47.21 udp dport 52100-52200 dnat ip to 10.44.0.2
+	}
+
+	chain postrouting {
+		type nat hook postrouting priority srcnat; policy accept;
+		oifname "wg0" masquerade
+		oifname "eth0" ip saddr 10.30.0.0/24 masquerade
+		oifname "eth0" ip saddr 10.44.0.0/24 masquerade
+	}
+}
