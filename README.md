@@ -9,9 +9,9 @@ Tailscale connects personal devices to private services.
 ## hosts
 
 The VPS is public.
-It runs Caddy, nftables, Docker, CrowdSec, and wg-easy.
+It runs Caddy, nftables, Docker, and CrowdSec.
 It owns public TLS.
-It stores WireGuard state in /opt/vps/state.
+It holds 10.44.0.1 on kernel interface chill0 (51824/udp, static config in /etc/wireguard).
 
 chill-01 is private.
 It has address 10.44.0.2 on WireGuard.
@@ -69,8 +69,7 @@ No secrets in git.
 Secrets live in .env files and host config files.
 Keep secret files mode 0600.
 
-Do not delete the chill-01 WireGuard peer.
-Do not delete /opt/vps/state.
+Do not delete the chill0 WireGuard peer or /etc/wireguard on either box.
 Do not put a peer endpoint inside AllowedIPs.
 Do not expose admin surfaces publicly.
 Keep Tailscale key expiry disabled for chill-01.

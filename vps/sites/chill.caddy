@@ -27,17 +27,3 @@ neko.malice.biz {
 screego.malice.biz {
 	reverse_proxy 10.44.0.2:5050
 }
-
-# wg-easy admin UI: WireGuard peers only, everyone else gets 403.
-# The UI listens on 127.0.0.1:51821 inside the VPS docker net via Caddy.
-vpn.malice.biz {
-	@wgonly {
-		remote_ip 10.44.0.0/24 127.0.0.1/32
-	}
-	handle @wgonly {
-		reverse_proxy localhost:51821
-	}
-	handle {
-		respond "wireguard peers only" 403
-	}
-}
