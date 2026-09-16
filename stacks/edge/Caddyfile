@@ -25,12 +25,16 @@
 	# (0 is the TLD, so 1=malice, 2=h, 3=the service).
 	# The destination is {svcport}, NOT {port}: {port} is Caddy's own shorthand
 	# for the request port and would silently proxy to the wrong place.
+	# Unmatched names MUST land on the sentinel: without a `default`, map leaves
+	# {svcport} unset, the literal "{svcport}" != "" is true, and unknown names
+	# proxy to :0 (502) instead of hitting the 404 below. Verified 2026-09-16.
 	map {labels.3} {svcport} {
 		dockge 5001
 		beszel 8090
+		default 0
 	}
 
-	@known expression `{svcport} != ""`
+	@known expression `{svcport} != "0"`
 	handle @known {
 		reverse_proxy {env.UPSTREAM}:{svcport}
 	}
