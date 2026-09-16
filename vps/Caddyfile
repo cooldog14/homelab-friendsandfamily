@@ -1,5 +1,5 @@
 {
-	email admin@malice.biz
+	email admin@1x8.me
 	log {
 		output file /var/log/caddy/access.log {
 			roll_size 50mb

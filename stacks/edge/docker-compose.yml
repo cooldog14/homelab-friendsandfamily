@@ -1,6 +1,6 @@
 # Private front door on the tailnet: HTTPS and real names for the services that
 # were bare http://10.44.0.2:<port> URLs before. Nothing here is public — the VPS
-# Caddy still owns every *.malice.biz vhost, and this file must never duplicate one.
+# Caddy still owns every public *.1x8.me vhost, and this file must never duplicate one.
 # Binds ONLY to the Tailscale address, so reaching it needs a tailnet device,
 # exactly like the WireGuard-only rule it replaces.
 # .env (0600, live-only, never in git): TS_IP, INFOMANIAK_API_TOKEN, UPSTREAM

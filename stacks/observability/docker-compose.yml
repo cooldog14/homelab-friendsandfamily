@@ -4,7 +4,7 @@ services:
     image: gotify/server:2.5.0
     restart: unless-stopped
     ports:
-      - "${WG_IP:-10.44.0.2}:8070:80"   # public via VPS Caddy at gotify.malice.biz
+      - "${WG_IP:-10.44.0.2}:8070:80"   # public via VPS Caddy at gotify.1x8.me
     environment:
       GOTIFY_DEFAULTUSER_PASS: ${GOTIFY_DEFAULTUSER_PASS}
     volumes:

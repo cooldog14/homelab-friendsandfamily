@@ -5,7 +5,7 @@
 # The map below is now THE authority for private ports. AGENTS.md points here
 # instead of keeping its own copy.
 #
-# Public *.malice.biz vhosts live on the VPS in vps/sites/chill.caddy. Never
+# Public *.1x8.me vhosts live on the VPS in vps/sites/chill.caddy. Never
 # duplicate one into this file: two Caddies racing for the same name means two
 # ACME orders and a rate-limited afternoon.
 #
