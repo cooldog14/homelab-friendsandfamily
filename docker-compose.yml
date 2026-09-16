@@ -3,6 +3,8 @@ services:
     image: jellyfin/jellyfin:10.11
     container_name: jellyfin
     user: "1000:1000"
+    group_add:
+      - "100000" # arr LXC /dev/dri passthrough (unprivileged mapping)
     ports:
       - "127.0.0.1:8096:8096"
     volumes:
@@ -261,7 +263,7 @@ services:
       DUFS_ALLOW_SYMLINK: "false"
       DUFS_ALLOW_ARCHIVE: "false"
       DUFS_HIDDEN: ".*,lost+found"
-      DUFS_AUTH: "${DUFS_USER}:${DUFS_PASSWORD}@/:rw"
+      DUFS_AUTH: "admin:${DUFS_ADMIN_PASSWORD}@/:rw|user:${DUFS_USER_PASSWORD}@/:rw"
     volumes:
       - ${DATA_LOCATION}/downloads/uploads:/uploads
     restart: unless-stopped

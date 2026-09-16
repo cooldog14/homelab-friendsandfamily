@@ -1,0 +1,80 @@
+soulseek:
+  # username/password come from SLSKD_SLSK_USERNAME/SLSKD_SLSK_PASSWORD env.
+  # Do NOT put literals here: YAML beats env in slskd's hierarchy and ${} is not expanded.
+  listen_port: 50300
+  diagnostic_level: "Info"
+  distributed_network:
+    disabled: false
+    disable_children: false
+    child_limit: 25
+
+directories:
+  # Matches compose env SLSKD_INCOMPLETE_DIR / SLSKD_DOWNLOADS_DIR
+  # (${DATA_LOCATION}:/data, i.e. /mnt/data on arr).
+  incomplete: /data/downloads/slskd/incomplete
+  downloads: /data/downloads/slskd/complete
+
+shares:
+  directories:
+    - "[Music]/data/media/music"
+  filters:
+    - \.ini$
+    - Thumbs.db$
+    - \.DS_Store$
+  cache:
+    storage_mode: memory
+    retention: 10080
+
+transfers:
+  global:
+    upload:
+      slots: 20
+      speed_limit: ~
+    download:
+      slots: 500
+      speed_limit: ~
+
+filters:
+  search:
+    request:
+      - ^.{1,2}$
+
+web:
+  port: 5030
+  https:
+    disabled: true
+  url_base: /
+  authentication:
+    disabled: true
+
+# Matches compose env SLSKD_REMOTE_CONFIGURATION / SLSKD_REMOTE_FILE_MANAGEMENT.
+remote_configuration: false
+remote_file_management: false
+
+retention:
+  transfers:
+    upload:
+      succeeded: 1440
+      errored: 30
+      cancelled: 5
+    download:
+      succeeded: 1440
+      errored: 20160
+      cancelled: 5
+  files:
+    incomplete: 43200
+  logs: 30
+
+metrics:
+  enabled: true
+  url: /metrics
+  authentication:
+    disabled: false
+
+integrations:
+  scripts:
+    autotag:
+      on:
+        - DownloadDirectoryComplete
+      run:
+        command: "/app/scripts/autotag.sh"
