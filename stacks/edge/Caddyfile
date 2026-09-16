@@ -1,27 +1,28 @@
-# Private vhosts, tailnet-only. ONE wildcard cert for *.h.1x8.me via DNS-01
-# (Infomaniak API), so no name here needs an inbound port and public DNS needs
-# exactly one record: *.h.1x8.me A <chill-01 Tailscale IP>.
+# Private vhosts, tailnet-only. ONE wildcard cert for *.h.malice.biz via DNS-01,
+# so no name here needs an inbound port and public DNS needs exactly one record:
+# *.h.malice.biz A <chill-01 Tailscale IP>. More specific than the existing
+# *.malice.biz -> VPS wildcard, so it wins without disturbing it.
 #
 # The map below is now THE authority for private ports. AGENTS.md points here
 # instead of keeping its own copy.
 #
-# Public *.1x8.me vhosts live on the VPS in vps/sites/chill.caddy. Never
+# Public *.malice.biz vhosts live on the VPS in vps/sites/chill.caddy. Never
 # duplicate one into this file: two Caddies racing for the same name means two
 # ACME orders and a rate-limited afternoon.
 #
 # Cockpit (:9090) is deliberately absent. It is break-glass, so it must not
 # depend on this container being healthy — keep reaching it by IP:port.
 {
-	email admin@1x8.me
+	email admin@malice.biz
 }
 
-*.h.1x8.me {
+*.h.malice.biz {
 	tls {
-		dns infomaniak {env.INFOMANIAK_API_TOKEN}
+		dns cloudflare {env.CF_API_TOKEN}
 	}
 
-	# {labels.3} is the leftmost label: dockge.h.1x8.me -> "dockge"
-	# (0 is the TLD, so 1=1x8, 2=h, 3=the service).
+	# {labels.3} is the leftmost label: dockge.h.malice.biz -> "dockge"
+	# (0 is the TLD, so 1=malice, 2=h, 3=the service).
 	# The destination is {svcport}, NOT {port}: {port} is Caddy's own shorthand
 	# for the request port and would silently proxy to the wrong place.
 	map {labels.3} {svcport} {
