@@ -3,28 +3,27 @@
 # rejects single-line `host { ... }` blocks in imported files.
 # arr-owned stanzas (jellyfin/requests -> 10.30.0.5) live in
 # /etc/caddy/sites/arr.caddy ON THE BOX ONLY — never commit them here.
-# (arr stays on malice.biz; everything chill-owned is on 1x8.me.)
-gotify.1x8.me {
+gotify.malice.biz {
 	reverse_proxy 10.44.0.2:8070
 }
-files.1x8.me {
+files.malice.biz {
 	reverse_proxy 10.44.0.2:8085
 }
-photos.1x8.me {
+photos.malice.biz {
 	reverse_proxy 10.44.0.2:2283
 }
-paperless.1x8.me {
+paperless.malice.biz {
 	reverse_proxy 10.44.0.2:8092
 }
-stirling.1x8.me {
+stirling.malice.biz {
 	reverse_proxy 10.44.0.2:8091
 }
-kavita.1x8.me {
+kavita.malice.biz {
 	reverse_proxy 10.44.0.2:8094
 }
-neko.1x8.me {
+neko.malice.biz {
 	reverse_proxy 10.44.0.2:8097
 }
-screego.1x8.me {
+screego.malice.biz {
 	reverse_proxy 10.44.0.2:5050
 }

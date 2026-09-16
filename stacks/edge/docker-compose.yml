@@ -1,12 +1,12 @@
 # Private front door on the tailnet: HTTPS and real names for the services that
 # were bare http://10.44.0.2:<port> URLs before. Nothing here is public — the VPS
-# Caddy still owns every public *.1x8.me vhost, and this file must never duplicate one.
+# Caddy still owns every *.malice.biz vhost, and this file must never duplicate one.
 # Binds ONLY to the Tailscale address, so reaching it needs a tailnet device,
 # exactly like the WireGuard-only rule it replaces.
-# .env (0600, live-only, never in git): TS_IP, INFOMANIAK_API_TOKEN, UPSTREAM
+# .env (0600, live-only, never in git): TS_IP, CF_API_TOKEN, UPSTREAM
 services:
   caddy:
-    image: cmunroe/caddy-dns:infomaniak-2.11.4
+    image: ghcr.io/caddybuilds/caddy-cloudflare:2.11.4-alpine
     restart: unless-stopped
     ports:
       # Default is 127.0.0.1, not empty and not 0.0.0.0: a missing .env must
@@ -19,9 +19,9 @@ services:
       - "${TS_IP:-127.0.0.1}:80:80"
     environment:
       # DNS-01 only, so no inbound port is ever needed. Token is scoped to
-      # domain:read + dns:read + dns:write (manager.infomaniak.com -> API).
-      # Unset means no cert, which is loud and harmless — not a wide-open listener.
-      INFOMANIAK_API_TOKEN: ${INFOMANIAK_API_TOKEN:-unset}
+      # Zone:DNS:Edit on malice.biz and nothing else. Unset means no cert,
+      # which is loud and harmless — not a wide-open listener.
+      CF_API_TOKEN: ${CF_API_TOKEN:-unset}
       # Where Caddy proxies to. Stays 10.44.0.2 permanently: WireGuard keeps
       # carrying VPS<->chill-01, so this address never goes away. (An earlier
       # draft had this flipping to the Tailscale IP mid-migration — it does not.)

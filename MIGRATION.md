@@ -112,13 +112,6 @@ after the switch.
 
 Fully additive. wg-easy keeps running, nothing public changes, rollback is one command.
 
-> 2026-09-16: Cloudflare dropped. Private zone is now `*.h.1x8.me` at
-> Infomaniak; edge image is `cmunroe/caddy-dns:infomaniak-2.11.4` with
-> `dns infomaniak {env.INFOMANIAK_API_TOKEN}`. Token scopes: `domain:read`,
-> `dns:read`, `dns:write` (manager.infomaniak.com -> API). The
-> `*.h.malice.biz` history below stays as record; substitute `1x8.me` and
-> `INFOMANIAK_API_TOKEN` going forward.
-
 1. `make host` — installs `tailscale`, adds the ufw `tailscale0` allowance, enables
    `tailscaled`. It does **not** authenticate; that stays manual.
 2. On chill-01: `tailscale up --accept-dns=false --hostname=chill-01`, then `tailscale ip -4`.
@@ -128,11 +121,10 @@ Fully additive. wg-easy keeps running, nothing public changes, rollback is one c
 4. Enroll phone and laptop from the devices themselves. **Disable key expiry on chill-01** in
    the admin console — an expired key takes private access down for reasons unrelated to your
    network. Consider tailnet lock if you want the control plane unable to insert a node.
-5. Write `stacks/edge/.env` (0600): `TS_IP` from step 2, `INFOMANIAK_API_TOKEN`
-   (manager.infomaniak.com -> API, scopes `domain:read`, `dns:read`, `dns:write`),
+5. Write `stacks/edge/.env` (0600): `TS_IP` from step 2, `CF_API_TOKEN` from stage 0,
    `UPSTREAM=10.44.0.2`.
 6. `make deploy`. Watch the first start in Dockge — the wildcard cert is issued over DNS-01 and
-   takes a minute. A bad `INFOMANIAK_API_TOKEN` shows up here as an ACME failure loop.
+   takes a minute. A bad `CF_API_TOKEN` shows up here as an ACME failure loop.
 7. Verify from the phone on cellular: `https://immich.h.malice.biz` loads with a valid cert.
    Install it as a PWA — the thing plain HTTP could not do.
 8. Verify the path is direct: `tailscale ping chill-01` should report a direct connection, not

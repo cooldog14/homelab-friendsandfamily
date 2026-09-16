@@ -21,26 +21,26 @@ It does not accept internet traffic directly.
 
 ## public services
 
-files.1x8.me
-photos.1x8.me
-gotify.1x8.me
-paperless.1x8.me
-stirling.1x8.me
-kavita.1x8.me
-neko.1x8.me
-screego.1x8.me
+files.malice.biz
+photos.malice.biz
+gotify.malice.biz
+paperless.malice.biz
+stirling.malice.biz
+kavita.malice.biz
+neko.malice.biz
+screego.malice.biz
 
 Mumble uses TCP and UDP port 64738.
 
 ## private services
 
 Private names use the tailnet Caddy.
-They are under h.1x8.me.
+They are under h.malice.biz.
 The map lives in stacks/edge/Caddyfile.
 Unknown private names return 404.
 
-dockge.h.1x8.me
-beszel.h.1x8.me
+dockge.h.malice.biz
+beszel.h.malice.biz
 
 Cockpit stays raw.
 Use 10.44.0.2:9090.
