@@ -35,12 +35,12 @@ Mumble uses TCP and UDP port 64738.
 ## private services
 
 Private names use the tailnet Caddy.
-They are under h.malice.biz.
+They are under h.1x8.me.
 The map lives in stacks/edge/Caddyfile.
 Unknown private names return 404.
 
-dockge.h.malice.biz
-beszel.h.malice.biz
+dockge.h.1x8.me
+beszel.h.1x8.me
 
 Cockpit stays raw.
 Use 10.44.0.2:9090.

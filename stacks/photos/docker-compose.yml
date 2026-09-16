@@ -3,9 +3,9 @@ services:
     image: ghcr.io/immich-app/immich-server:v3.2.0
     restart: unless-stopped
     ports:
-      # Public via VPS Caddy at photos.malice.biz (2026-09-15), AND private at
-      # immich.h.malice.biz. Prefer the private name from your own devices: public
-      # uploads hairpin through the VPS and eat its bandwidth twice.
+      # Public via VPS Caddy at photos.malice.biz. Kept public (share links);
+      # the tailnet edge stays minimal (dockge + beszel only), so there is no
+      # private immich name — uploads from your own devices hairpin via the VPS.
       - "${WG_IP:-10.44.0.2}:2283:2283"
     environment:
       DB_HOSTNAME: immich-db
