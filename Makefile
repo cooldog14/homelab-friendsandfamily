@@ -5,10 +5,11 @@ STACKS = apps comms docs edge observability photos
 RETIRED_STACKS = media privacy
 
 # git is the source of truth; Dockge is for logs and restarts, not for editing YAML behind git's back.
-# Source is /opt/src/homelab-friendsandfamily (this repo). First run on a box
-# cloned from nix-infra: git clone https://codeberg.org/frcs/homelab-friendsandfamily /opt/src/homelab-friendsandfamily
+# Ship the local working tree (commit + push first). No git pull on the host,
+# so no deploy-key scoping issue when splitting repos.
 deploy:
-	ssh $(HOST) 'cd /opt/src/homelab-friendsandfamily && git pull --ff-only && for s in $(RETIRED_STACKS); do if [ -f /opt/stacks/$$s/docker-compose.yml ]; then (cd /opt/stacks/$$s && sudo docker compose -p $$s down --remove-orphans); fi; done && sudo rsync -a --delete --exclude .env --exclude state/ stacks/ /opt/stacks/ && for s in $(STACKS); do (cd /opt/stacks/$$s && sudo docker compose -p $$s up -d --pull missing --remove-orphans); done'
+	rsync -a --delete stacks/ $(HOST):/tmp/chill-stacks/
+	ssh $(HOST) 'for s in $(RETIRED_STACKS); do if [ -f /opt/stacks/$$s/docker-compose.yml ]; then (cd /opt/stacks/$$s && sudo docker compose -p $$s down --remove-orphans); fi; done && sudo rsync -a --delete --exclude .env --exclude state/ /tmp/chill-stacks/ /opt/stacks/ && for s in $(STACKS); do (cd /opt/stacks/$$s && sudo docker compose -p $$s up -d --pull missing --remove-orphans); done'
 	# NOTE: --pull missing (not always): the CLI flag overrides compose pull_policy, and redlib is a
 	# local source build (pull_policy: never) that --pull always would try to fetch from a registry.
 	# Retired stack state/.env survives; only containers and git-owned config are removed.
