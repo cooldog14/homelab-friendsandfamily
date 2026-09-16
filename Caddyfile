@@ -6,11 +6,15 @@ requests.malice.biz {
 	reverse_proxy 127.0.0.1:5055
 }
 
-player.malice.biz {
+# NOTE: player/fiesta/upload are served as plain HTTP on purpose.
+# The VPS edge terminates public TLS and reverse-proxies to these names
+# over the LAN (192.168.1.118:80). An https:// site here would 308-loop
+# through the edge and force (failing) local ACME issuance.
+http://player.malice.biz {
 	reverse_proxy 127.0.0.1:9180
 }
 
-fiesta.malice.biz {
+http://fiesta.malice.biz {
 	@cors_preflight method OPTIONS
 	handle @cors_preflight {
 		header Access-Control-Allow-Origin "https://player.malice.biz"
@@ -25,6 +29,10 @@ fiesta.malice.biz {
 	reverse_proxy 127.0.0.1:5274
 }
 
-upload.malice.biz {
+http://upload.malice.biz {
 	reverse_proxy 127.0.0.1:5000
+}
+
+http://nvdr.malice.biz {
+	reverse_proxy 127.0.0.1:4533
 }

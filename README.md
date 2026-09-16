@@ -81,6 +81,16 @@ Copy .env.example to .env.
 Fill the secrets there.
 Do not commit .env.
 
+## slskd config
+
+`config/slskd/slskd.yml` and `config/slskd/autotag.sh` are tracked in git.
+They were ported from chill (`/opt/stacks/media`) and adapted for arr paths
+(slskd sees `/data`, wrtag sees `/mnt/data`).
+
+slskd's YAML beats env vars, so `directories`, `shares`, and
+`remote_configuration` in `slskd.yml` must stay in sync with the compose env
+(`SLSKD_*_DIR`, `SLSKD_SHARED_DIR`, `SLSKD_REMOTE_*`).
+
 ## music ingest
 
 scripts/ingest-music.sh imports stable uploads into the music library.
