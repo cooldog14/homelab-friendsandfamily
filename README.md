@@ -21,14 +21,14 @@ It does not accept internet traffic directly.
 
 ## public services
 
-files.malice.biz
-photos.malice.biz
-gotify.malice.biz
-paperless.malice.biz
-stirling.malice.biz
-kavita.malice.biz
-neko.malice.biz
-screego.malice.biz
+files.1x8.me
+photos.1x8.me
+gotify.1x8.me
+paperless.1x8.me
+stirling.1x8.me
+kavita.1x8.me
+neko.1x8.me
+screego.1x8.me
 
 Mumble uses TCP and UDP port 64738.
 

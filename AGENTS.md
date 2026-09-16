@@ -36,14 +36,14 @@ Home has no inbound internet port.
 
 The source of truth is vps/sites/chill.caddy.
 
-files.malice.biz goes to 10.44.0.2:8085.
-photos.malice.biz goes to 10.44.0.2:2283.
-gotify.malice.biz goes to 10.44.0.2:8070.
-paperless.malice.biz goes to 10.44.0.2:8092.
-stirling.malice.biz goes to 10.44.0.2:8091.
-kavita.malice.biz goes to 10.44.0.2:8094.
-neko.malice.biz goes to 10.44.0.2:8097.
-screego.malice.biz goes to 10.44.0.2:5050.
+files.1x8.me goes to 10.44.0.2:8085.
+photos.1x8.me goes to 10.44.0.2:2283.
+gotify.1x8.me goes to 10.44.0.2:8070.
+paperless.1x8.me goes to 10.44.0.2:8092.
+stirling.1x8.me goes to 10.44.0.2:8091.
+kavita.1x8.me goes to 10.44.0.2:8094.
+neko.1x8.me goes to 10.44.0.2:8097.
+screego.1x8.me goes to 10.44.0.2:5050.
 
 Mumble uses nftables.
 Port 64738 TCP and UDP goes to chill-01.

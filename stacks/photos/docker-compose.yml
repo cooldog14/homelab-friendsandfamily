@@ -3,7 +3,7 @@ services:
     image: ghcr.io/immich-app/immich-server:v3.2.0
     restart: unless-stopped
     ports:
-      # Public via VPS Caddy at photos.malice.biz. Kept public (share links);
+      # Public via VPS Caddy at photos.1x8.me. Kept public (share links);
       # the tailnet edge stays minimal (dockge + beszel only), so there is no
       # private immich name — uploads from your own devices hairpin via the VPS.
       - "${WG_IP:-10.44.0.2}:2283:2283"

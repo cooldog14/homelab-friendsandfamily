@@ -17,7 +17,7 @@ services:
     restart: unless-stopped
     shm_size: "2gb"
     ports:
-      - "${WG_IP:-10.44.0.2}:8097:8080"   # public via VPS Caddy at neko.malice.biz
+      - "${WG_IP:-10.44.0.2}:8097:8080"   # public via VPS Caddy at neko.1x8.me
       - "${WG_IP:-10.44.0.2}:52000:52000/udp"
       - "${WG_IP:-10.44.0.2}:52000:52000/tcp"
     environment:
@@ -41,7 +41,7 @@ services:
     restart: unless-stopped
     network_mode: host
     environment:
-      SCREEGO_EXTERNAL_IP: "dns:screego.malice.biz"
+      SCREEGO_EXTERNAL_IP: "dns:screego.1x8.me"
       SCREEGO_SECRET: ${SCREEGO_SECRET}
       SCREEGO_SERVER_ADDRESS: "10.44.0.2:5050"
       SCREEGO_TRUST_PROXY_HEADERS: "true"
