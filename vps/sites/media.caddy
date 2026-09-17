@@ -23,7 +23,7 @@ fiesta.malice.biz {
 	reverse_proxy 10.44.0.2:5274
 }
 upload.malice.biz {
-	reverse_proxy 10.44.0.2:8085
+	reverse_proxy 10.44.0.2:8087
 }
 nvdr.malice.biz {
 	reverse_proxy 10.44.0.2:4533

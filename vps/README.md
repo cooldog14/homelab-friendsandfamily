@@ -14,7 +14,6 @@ The deploy prunes Caddy site files to match git.
 Routes live in sites.
 All backends point to 10.44.0.2.
 
-- files.malice.biz
 - photos.malice.biz
 - paperless.malice.biz
 - stirling.malice.biz
@@ -27,6 +26,8 @@ All backends point to 10.44.0.2.
 - fiesta.malice.biz
 - upload.malice.biz
 - nvdr.malice.biz
+
+upload.malice.biz serves only /mnt/data/downloads/uploads.
 
 Gotify is private.
 Use gotify.h.malice.biz.

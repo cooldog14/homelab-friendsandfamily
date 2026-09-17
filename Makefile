@@ -8,9 +8,9 @@ RETIRED_STACKS = privacy
 # git is the source of truth; Dockge is for logs and restarts, not for editing YAML behind git's back.
 # Ship the local working tree (commit + push first). No git pull on the host,
 # so no deploy-key scoping issue when splitting repos.
-deploy:
+deploy: sync-public-sites
 	rsync -a --delete stacks/ $(HOST):/tmp/chill-stacks/
-	ssh $(HOST) 'for s in $(RETIRED_STACKS); do if [ -f /opt/stacks/$$s/docker-compose.yml ]; then (cd /opt/stacks/$$s && sudo docker compose -p $$s down --remove-orphans); fi; done && sudo rsync -a --delete --exclude .env --exclude state/ /tmp/chill-stacks/ /opt/stacks/ && sudo mkdir -p /opt/stacks/apps/state/filebrowser-quantum /opt/stacks/edge/state/home /opt/stacks/media/state && sudo chown -R 1000:1000 /opt/stacks/apps/state/filebrowser-quantum /opt/stacks/media/state && for s in $(STACKS); do (cd /opt/stacks/$$s && sudo docker compose -p $$s up -d --pull missing --remove-orphans); done'
+	ssh $(HOST) 'for s in $(RETIRED_STACKS); do if [ -f /opt/stacks/$$s/docker-compose.yml ]; then (cd /opt/stacks/$$s && sudo docker compose -p $$s down --remove-orphans); fi; done && sudo rsync -a --delete --exclude .env --exclude state/ /tmp/chill-stacks/ /opt/stacks/ && sudo mkdir -p /opt/stacks/apps/state/filebrowser-quantum /opt/stacks/apps/state/filebrowser-upload /opt/stacks/edge/state/home /opt/stacks/media/state && sudo chown -R 1000:1000 /opt/stacks/apps/state/filebrowser-quantum /opt/stacks/apps/state/filebrowser-upload /opt/stacks/media/state && for s in $(STACKS); do (cd /opt/stacks/$$s && sudo docker compose -p $$s up -d --pull missing --remove-orphans); done'
 	# NOTE: --pull missing (not always): the CLI flag overrides compose pull_policy, and redlib is a
 	# local source build (pull_policy: never) that --pull always would try to fetch from a registry.
 	# Retired stack state/.env survives; only containers and git-owned config are removed.
@@ -24,14 +24,18 @@ vps:
 	# NOTE: no rsync on the VPS — ship via tar over ssh.
 	tar -c -C vps . | $(VPS_SSH) 'rm -rf /tmp/chill-vps && mkdir -p /tmp/chill-vps && tar -x -C /tmp/chill-vps'
 	$(VPS_SSH) 'cd /tmp/chill-vps && sh bootstrap.sh'
+	tar -c -C vps/sites . | ssh $(HOST) 'sudo rm -rf /opt/homelab-public-sites && sudo mkdir -p /opt/homelab-public-sites && sudo tar -x -C /opt/homelab-public-sites'
+
+sync-public-sites:
+	tar -c -C vps/sites . | ssh $(HOST) 'sudo rm -rf /opt/homelab-public-sites && sudo mkdir -p /opt/homelab-public-sites && sudo tar -x -C /opt/homelab-public-sites'
 
 backup-now:
 	ssh $(HOST) 'sudo systemctl start homelab-backup && journalctl -u homelab-backup -n 30 --no-pager'
 
-# The only backup test that counts: get files back out and look at them.
-# Covers a pg_dump (immich) and a sqlite .backup (gotify).
+# The only backup test that counts: get files back out and validate them.
+# Checks dumps, key config, VPS pull, and cheap photo-tree presence.
 restore-test:
-	ssh $(HOST) "sudo sh -c 'set -a; . /etc/homelab.env; restic restore latest --target /tmp/rt --include /opt/dumps/immich.sql --include /opt/dumps/gotify.db; head -c 300 /tmp/rt/opt/dumps/immich.sql; echo; sqlite3 /tmp/rt/opt/dumps/gotify.db \"PRAGMA integrity_check;\"; rm -rf /tmp/rt'"
+	ssh $(HOST) 'sudo sh -c '\''set -eu; set -a; . /etc/homelab.env; set +a; rt=/opt/restore-test; cleanup() { rm -rf "$$rt"; }; trap cleanup EXIT; rm -rf "$$rt"; mkdir -p "$$rt"; chill_include=; if restic ls latest /opt/vps-backup/wireguard/chill0.conf >/dev/null 2>&1; then chill_include="--include /opt/vps-backup/wireguard/chill0.conf"; fi; restic restore latest --target "$$rt" --include /opt/dumps/immich.sql --include /opt/dumps/paperless.sql --include /opt/dumps/gotify.db --include /etc/homelab.env --include /etc/wireguard/wg0.conf --include /opt/vps-backup/Caddyfile --include /opt/vps-backup/nftables.conf $$chill_include; test -s "$$rt/opt/dumps/immich.sql"; grep -q "PostgreSQL database dump" "$$rt/opt/dumps/immich.sql"; test -s "$$rt/opt/dumps/paperless.sql"; grep -q "PostgreSQL database dump" "$$rt/opt/dumps/paperless.sql"; test -s "$$rt/opt/dumps/gotify.db"; sqlite3 "$$rt/opt/dumps/gotify.db" "PRAGMA integrity_check;" | grep -qx ok; test -s "$$rt/etc/homelab.env"; grep -Eq "^[A-Z0-9_]+=" "$$rt/etc/homelab.env"; test -s "$$rt/etc/wireguard/wg0.conf"; grep -q "^\[Interface\]" "$$rt/etc/wireguard/wg0.conf"; test -s "$$rt/opt/vps-backup/Caddyfile"; grep -q "import /etc/caddy/sites/[*].caddy" "$$rt/opt/vps-backup/Caddyfile"; test -s "$$rt/opt/vps-backup/nftables.conf"; grep -q "homelab_nat" "$$rt/opt/vps-backup/nftables.conf"; if [ -n "$$chill_include" ]; then test -s "$$rt/opt/vps-backup/wireguard/chill0.conf"; grep -q "^\[Interface\]" "$$rt/opt/vps-backup/wireguard/chill0.conf"; fi; restic ls latest /mnt/fast/photos >/dev/null; echo "restore-test ok"'\'''
 
 # Is the VPS<->chill-01 link alive? "latest handshake" older than a couple of
 # minutes means trouble. Phones are on Tailscale, not here — use `tailscale status`.
@@ -56,4 +60,4 @@ traffic:
 	ssh $(HOST) 'sudo mkdir -p /opt/stacks/edge/state/home && sudo install -m 644 /tmp/homelab-traffic-report.html /opt/stacks/edge/state/home/traffic.html && rm -f /tmp/homelab-traffic-report.html'
 	@echo "Report written to $(TRAFFIC_REPORT) and published to https://home.h.malice.biz/status/traffic.html"
 
-.PHONY: deploy host vps backup-now restore-test tunnel check edge-reload traffic
+.PHONY: deploy host vps sync-public-sites backup-now restore-test tunnel check edge-reload traffic

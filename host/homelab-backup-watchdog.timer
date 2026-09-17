@@ -1,8 +1,8 @@
 [Unit]
-Description=Weekly backup watchdog
+Description=Daily backup watchdog
 
 [Timer]
-OnCalendar=weekly
+OnCalendar=daily
 RandomizedDelaySec=1h
 Persistent=true
 

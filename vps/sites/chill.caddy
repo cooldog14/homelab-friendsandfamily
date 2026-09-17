@@ -1,9 +1,6 @@
 # chill-01 public vhosts (10.44.0.2 backends). Deployed by `make vps`.
 # NOTE: multi-line blocks required — the Caddyfile `import` directive
 # rejects single-line `host { ... }` blocks in imported files.
-files.malice.biz {
-	reverse_proxy 10.44.0.2:8085
-}
 photos.malice.biz {
 	reverse_proxy 10.44.0.2:2283
 }
