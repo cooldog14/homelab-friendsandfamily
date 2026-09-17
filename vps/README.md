@@ -42,6 +42,7 @@ Use gotify.h.malice.biz.
 
 Run make traffic.
 It reads VPS Caddy logs and writes traffic-report.html locally.
+It also publishes the report to home.h.malice.biz/status/traffic.html.
 It covers HTTP routes only.
 It does not cover nftables-only ports.
 
