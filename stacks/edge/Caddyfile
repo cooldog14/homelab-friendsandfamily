@@ -31,6 +31,10 @@
 	handle @dockge {
 		reverse_proxy {env.UPSTREAM}:5001
 	}
+	@gotify host gotify.h.malice.biz
+	handle @gotify {
+		reverse_proxy {env.UPSTREAM}:8070
+	}
 	@beszel host beszel.h.malice.biz
 	handle @beszel {
 		reverse_proxy {env.UPSTREAM}:8090
