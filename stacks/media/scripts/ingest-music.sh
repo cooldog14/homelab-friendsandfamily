@@ -53,7 +53,7 @@ notify() {
 
 on_error() {
   status=$?
-  notify "Music ingest failed" "arr music ingest failed on $(hostname) at line $1 (exit $status)." 5
+  notify "Music ingest failed" "media music ingest failed on $(hostname) at line $1 (exit $status)." 5
   exit "$status"
 }
 trap 'on_error "$LINENO"' ERR
@@ -74,7 +74,7 @@ for src in "${SOURCES[@]}"; do
       false
     fi
     mv "$entry" "$DEST/"
-    moved_names+=("${entry#$DATA_ROOT/}")
+    moved_names+=("${entry#"$DATA_ROOT"/}")
   done < <(find "$src" -mindepth 1 -maxdepth 1 -print0)
   find "$src" -mindepth 1 -type d -empty -delete 2>/dev/null || true
 done

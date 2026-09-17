@@ -1,21 +1,37 @@
-# arr
+# media
 
-Media stack for LXC 203 on normandie.
+Media stack on chill-01 VM 101.
 
 ## public routes
 
-- jellyfin.malice.biz -> 127.0.0.1:8096
-- requests.malice.biz -> 127.0.0.1:5055
-- player.malice.biz -> 127.0.0.1:9180
-- fiesta.malice.biz -> 127.0.0.1:5274
-- upload.malice.biz -> 127.0.0.1:5000
+The VPS owns TLS and proxies these to `10.44.0.2`.
 
-These routes are defined in Caddyfile.
+- jellyfin.malice.biz -> 10.44.0.2:8096
+- requests.malice.biz -> 10.44.0.2:5055
+- player.malice.biz -> 10.44.0.2:9180
+- fiesta.malice.biz -> 10.44.0.2:5274
+- upload.malice.biz -> 10.44.0.2:5000
+- nvdr.malice.biz -> 10.44.0.2:4533
+
+The source of truth is `../../vps/sites/media.caddy`.
+
+## private routes
+
+Admin routes are tailnet-only under `h.malice.biz`.
+
+- qbittorrent.h.malice.biz -> 10.44.0.2:8701
+- prowlarr.h.malice.biz -> 10.44.0.2:9696
+- radarr.h.malice.biz -> 10.44.0.2:7878
+- sonarr.h.malice.biz -> 10.44.0.2:8989
+- bazarr.h.malice.biz -> 10.44.0.2:6767
+- slskd.h.malice.biz -> 10.44.0.2:5030
+- wrtag.h.malice.biz -> 10.44.0.2:7373
+
+The source of truth is `../edge/Caddyfile`.
 
 ## compose services
 
 - jellyfin
-- gluetun
 - qbittorrent
 - prowlarr
 - flaresolverr
@@ -29,63 +45,35 @@ These routes are defined in Caddyfile.
 - feishin
 - dufs
 - slskd
-- caddy
 
 ## deploy
 
-Enter the LXC.
+Run from the repo root.
 
-    ssh root@100.90.216.64 "pct exec 203 -- bash"
-
-Run Compose from the arr directory.
-
-    cd /opt/arr
-    docker compose pull --ignore-buildable
-    docker compose up -d --build
+    make deploy
 
 ## data
 
-DATA_LOCATION defaults to /mnt/data.
+`DATA_LOCATION` defaults to `/mnt/data`.
 
-- movies: /mnt/data/media/movies
-- tv: /mnt/data/media/tv
-- music: /mnt/data/media/music
-- uploads: /mnt/data/downloads/uploads
-- slskd complete: /mnt/data/downloads/slskd/complete
-- slskd incomplete: /mnt/data/downloads/slskd/incomplete
+- movies: `/mnt/data/media/movies`
+- tv: `/mnt/data/media/tv`
+- music: `/mnt/data/media/music`
+- uploads: `/mnt/data/downloads/uploads`
+- slskd complete: `/mnt/data/downloads/slskd/complete`
+- slskd incomplete: `/mnt/data/downloads/slskd/incomplete`
 
-Containers mount the shared data tree as /data where possible.
+Containers mount the shared data tree as `/data` where possible.
 
-## local state
+## state and secrets
 
-These paths are container state and stay out of git.
+Copy `.env.example` to `.env` on chill-01 and fill the secrets there.
 
-- .env
-- jellyfin-config
-- jellyfin-cache
-- radarr
-- sonarr
-- prowlarr
-- bazarr
-- jellyseerr
-- qbittorrent
-- gluetun
-- navidrome
-- octo-fiesta
-- slskd
-- wrtag
-
-## env
-
-Copy .env.example to .env.
-Fill the secrets there.
-Do not commit .env.
+Container state lives under `state/`; deploy excludes it.
 
 ## slskd config
 
 `config/slskd/slskd.yml` and `config/slskd/autotag.sh` are tracked in git.
-They were ported from chill (`/opt/stacks/media`) and adapted for arr paths
-(slskd sees `/data`, wrtag sees `/mnt/data`).
 
 slskd's YAML beats env vars, so `directories`, `shares`, and
 `remote_configuration` in `slskd.yml` must stay in sync with the compose env
@@ -93,15 +81,11 @@ slskd's YAML beats env vars, so `directories`, `shares`, and
 
 ## music ingest
 
-scripts/ingest-music.sh imports stable uploads into the music library.
-
-Upload path:
-
-    /mnt/data/downloads/uploads
+`scripts/ingest-music.sh` imports stable uploads into the music library.
 
 Env file:
 
-    /etc/arr-music-ingest.env
+    /etc/media-music-ingest.env
 
 Required values:
 
@@ -110,23 +94,15 @@ Required values:
     GOTIFY_URL='https://gotify.malice.biz/message?token=APP_TOKEN'
     IMPORT_MIN_AGE_MINUTES='2'
 
-Install cron for the UID 1000 user.
+Cron line for the UID 1000 user:
 
-    user=$(getent passwd 1000 | cut -d: -f1)
-    sudo crontab -u "$user" -e
-
-Cron line:
-
-    */5 * * * * set -a; . /etc/arr-music-ingest.env; set +a; flock -n /tmp/arr-music-ingest.lock /opt/arr/scripts/ingest-music.sh
+    */5 * * * * set -a; . /etc/media-music-ingest.env; set +a; flock -n /tmp/media-music-ingest.lock /opt/stacks/media/scripts/ingest-music.sh
 
 Self-check:
 
-    /opt/arr/scripts/ingest-music.sh --self-check
+    /opt/stacks/media/scripts/ingest-music.sh --self-check
 
 ## notes
 
-Gluetun provides networking for qbittorrent, prowlarr, flaresolverr, and slskd.
-slskd builds from Dockerfile.slskd.
-Caddy uses host networking and Caddyfile.
-dufs serves the upload directory.
-DUFS_ALLOW_DELETE stays false.
+WireGuard is not part of this stack. The only WireGuard left is VPS to chill-01.
+DUFS serves the upload directory. `DUFS_ALLOW_DELETE` stays false.

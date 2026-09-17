@@ -54,9 +54,11 @@ sql_backup /opt/stacks/observability/state/gotify/gotify.db /opt/dumps/gotify.db
 sql_backup /opt/stacks/observability/state/dockge/dockge.db /opt/dumps/dockge.db
 sql_backup /opt/stacks/observability/state/beszel/data.db /opt/dumps/beszel.db
 
-restic backup /opt /mnt/data /mnt/fast/photos /etc /root/.ssh --exclude /mnt/data/media/downloads
-# DELIBERATE OMISSIONS (audit 2026-09-12): /mnt/archive and /mnt/pool hold
-# arr-LXC-owned TV/movies/torrents (~1.3T) — re-downloadable, not backed up.
+restic backup /opt /mnt/data /mnt/fast/photos /etc /root/.ssh \
+  --exclude /mnt/data/downloads \
+  --exclude /mnt/data/media/movies \
+  --exclude /mnt/data/media/tv
+# DELIBERATE OMISSIONS: downloads, movies, and TV are re-downloadable bulk media.
 # RESTIC_PRUNE=0 for an append-only remote: a popped host then cannot delete its own backups.
 case "${RESTIC_PRUNE:-1}" in 1) restic forget --prune --keep-daily 7 --keep-weekly 4 --keep-monthly 6 ;; esac
 # Success marker for the watchdog timer (a disabled timer fails silently otherwise).

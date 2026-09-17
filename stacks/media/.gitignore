@@ -1,15 +1,2 @@
 .env
-/jellyfin-config/
-/jellyfin-cache/
-/gluetun/
-/qbittorrent/
-/prowlarr/
-/radarr/
-/sonarr/
-/bazarr/
-/jellyseerr/
-/navidrome/
-/octo-fiesta/
-/slskd/
-/wrtag/
-/dufs/
+/state/

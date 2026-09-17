@@ -1,8 +1,7 @@
 # Private front door on the tailnet: HTTPS and real names for the services that
 # were bare http://10.44.0.2:<port> URLs before. Nothing here is public — the VPS
 # Caddy still owns every *.malice.biz vhost, and this file must never duplicate one.
-# Binds ONLY to the Tailscale address, so reaching it needs a tailnet device,
-# exactly like the WireGuard-only rule it replaces.
+# Binds ONLY to the Tailscale address, so reaching it needs a tailnet device.
 # .env (0600, live-only, never in git): TS_IP, CF_API_TOKEN, UPSTREAM
 services:
   caddy:
@@ -22,12 +21,12 @@ services:
       # Zone:DNS:Edit on malice.biz and nothing else. Unset means no cert,
       # which is loud and harmless — not a wide-open listener.
       CF_API_TOKEN: ${CF_API_TOKEN:-unset}
-      # Where Caddy proxies to. Stays 10.44.0.2 permanently: WireGuard keeps
-      # carrying VPS<->chill-01, so this address never goes away. (An earlier
-      # draft had this flipping to the Tailscale IP mid-migration — it does not.)
+      # Where Caddy proxies to. Stays 10.44.0.2 because WireGuard is the
+      # infrastructure link between VPS and chill-01.
       UPSTREAM: ${UPSTREAM:-10.44.0.2}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./home:/srv/home:ro
       # Holds the wildcard cert + ACME account key. Losing it re-issues on next
       # boot (rate limits permitting); it is not a peer database, so it is not sacred.
       - ./state/caddy:/data

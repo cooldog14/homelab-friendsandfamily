@@ -1,13 +1,9 @@
 # Template for /etc/wireguard/chill0.conf on the VPS (0600, real file NEVER in git).
-# Static two-peer link to chill-01. Replaces the wg-easy container -- see MIGRATION.md
-# stage 2 for the cutover order and the mandatory nftables pre-flight.
+# Static two-peer link to chill-01.
 #
-# Named chill0, NOT wg0: the VPS's wg0 is the 10.30 arr tunnel and is load-bearing.
-# nftables.conf's `iifname != "wg0"` refers to that one and stays correct.
+# Named chill0 so the only remaining WireGuard link says what it is.
 #
-# Port 51824, not 51822: wg-easy publishes 51822/udp, so a kernel interface cannot bind it
-# while the container is alive. A fresh port makes this a prepare-then-flip instead of a
-# stop-and-pray. 51822 has no special meaning; do not move back.
+# Port 51824. 51822 was old container WireGuard; do not move back.
 #
 # BEFORE enabling: add an input accept for 51824/udp to the live ruleset. 51822 only ever
 # worked because Docker inserted its own accept when publishing the port. A kernel interface

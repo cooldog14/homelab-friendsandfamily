@@ -6,11 +6,25 @@ set -eu
 # /etc/homelab.env lives on the host, not in git (only needed for nothing here;
 # kept for symmetry in case ALERT handling moves in-script later).
 FAIL=0
-# Keep in sync with the reverse_proxy lines in vps/sites/chill.caddy.
-for url in https://files.malice.biz https://photos.malice.biz https://gotify.malice.biz https://paperless.malice.biz https://stirling.malice.biz https://kavita.malice.biz https://neko.malice.biz https://screego.malice.biz; do
+# Keep in sync with the reverse_proxy lines in vps/sites/*.caddy.
+for url in \
+  https://files.malice.biz \
+  https://photos.malice.biz \
+  https://gotify.malice.biz \
+  https://paperless.malice.biz \
+  https://stirling.malice.biz \
+  https://kavita.malice.biz \
+  https://neko.malice.biz \
+  https://screego.malice.biz \
+  https://jellyfin.malice.biz \
+  https://requests.malice.biz \
+  https://player.malice.biz \
+  https://fiesta.malice.biz \
+  https://upload.malice.biz \
+  https://nvdr.malice.biz; do
   code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 20 "$url" 2>/dev/null || echo 000)
   case "$code" in
-    2*|3*) echo "ok $code $url" ;;
+    2*|3*|401) echo "ok $code $url" ;;
     *) echo "FAIL $code $url" >&2; FAIL=1 ;;
   esac
 done

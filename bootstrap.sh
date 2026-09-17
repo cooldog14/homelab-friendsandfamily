@@ -17,7 +17,10 @@ apt-get update
 # wireguard is permanent, not transitional: wg0 carries the VPS return path for
 # chill public vhosts. Tailscale is for roaming devices only.
 # Both are installed on purpose -- see MIGRATION.md for why the split exists.
-apt-get install -y cockpit docker-ce docker-compose-plugin git qemu-guest-agent restic sqlite3 tailscale ufw unattended-upgrades wireguard
+apt-get install -y docker-ce docker-compose-plugin git qemu-guest-agent restic sqlite3 tailscale ufw unattended-upgrades wireguard
+systemctl disable --now cockpit.socket 2>/dev/null || true
+rm -rf /etc/systemd/system/cockpit.socket.d
+apt-get purge -y cockpit cockpit-bridge cockpit-system cockpit-ws 2>/dev/null || true
 
 install -d /opt/stacks /opt/dumps
 # Restart docker only when its config actually changed: an unconditional
@@ -40,11 +43,8 @@ mkdir -p /mnt/data /mnt/fast /mnt/archive /mnt/pool && mount -a
 printf 'net.ipv4.ip_forward=1\n' > /etc/sysctl.d/99-homelab.conf
 sysctl --system > /dev/null
 
-# 22 is for LAN admin. Everything else arrives over the wg0 tunnel to the VPS.
-# Compose binds services to 10.44.0.2, and docker publishes past ufw anyway.
-# Cockpit is WG-only too: override the vendor socket (0.0.0.0:9090) to 10.44.0.2.
-mkdir -p /etc/systemd/system/cockpit.socket.d
-printf '[Socket]\nListenStream=\nListenStream=10.44.0.2:9090\n' > /etc/systemd/system/cockpit.socket.d/wg-only.conf
+# 22 is for LAN admin. Humans use Tailscale/private Caddy for admin apps.
+# Public app traffic arrives over the wg0 tunnel from the VPS.
 # AdGuard-era residue: no :53 listener anymore, drop the stale allows (ignore if absent).
 ufw delete allow 53/tcp 2>/dev/null || true
 ufw delete allow 53/udp 2>/dev/null || true
@@ -57,12 +57,9 @@ else
   echo "daemon.json unchanged, skipping docker restart"
 fi
 systemctl reload ssh
-systemctl enable --now cockpit.socket qemu-guest-agent tailscaled homelab-backup.timer homelab-backup-watchdog.timer homelab-public-check.timer
-# Rebind cockpit.socket if the wg-only drop-in changed (enable --now is a no-op when active).
-systemctl restart cockpit.socket
-# wg0 is a wg-easy client config (a `chill-01` peer pinned to 10.44.0.2),
-# not a static tunnel: create it in the wg-easy UI, save as /etc/wireguard/wg0.conf
-# (0600), then: systemctl enable --now wg-quick@wg0
+systemctl enable --now qemu-guest-agent tailscaled homelab-backup.timer homelab-backup-watchdog.timer homelab-public-check.timer
+# wg0 is the static VPS<->chill-01 tunnel. Keep /etc/wireguard/wg0.conf at
+# 0600, then: systemctl enable --now wg-quick@wg0
 # tailscaled is installed and running but unauthenticated: join the tailnet once,
 # by hand, then it persists. `--accept-dns=false` keeps the host resolver alone
 # (same reason AdGuard went away). Read the IP back for stacks/edge/.env:
