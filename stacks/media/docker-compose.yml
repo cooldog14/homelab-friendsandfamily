@@ -156,7 +156,7 @@ services:
       Subsonic__Url: "http://navidrome:4533"
       Subsonic__AdminUsername: ${SUBSONIC_ADMIN_USERNAME}
       Subsonic__AdminPassword: ${SUBSONIC_ADMIN_PASSWORD}
-      Subsonic__MusicService: ${MUSIC_SERVICE:-Deezer}
+      Subsonic__MusicService: Deezer
       Subsonic__StorageMode: Permanent
       Subsonic__DownloadMode: Track
       Subsonic__AutoUpgradeQuality: "false"
@@ -165,27 +165,8 @@ services:
       Subsonic__PlaylistsDirectory: playlists
       Subsonic__ExplicitFilter: All
       Subsonic__FolderTemplate: "{artist}/({year}) {album}/{track} - {title}"
-      Deezer__Arl: ${DEEZER_ARL:-}
-      Deezer__ArlFallback: ${DEEZER_ARL_FALLBACK:-}
-      Deezer__Quality: "flac"
-      Qobuz__UserAuthToken: ${QOBUZ_USER_AUTH_TOKEN:-}
-      Qobuz__UserId: ${QOBUZ_USER_ID:-}
-      Qobuz__Quality: ${QOBUZ_QUALITY:-}
-      Tidal__TokenStore: /config/tidal-tokens.json
-      Tidal__Quality: ${TIDAL_QUALITY:-}
-      Tidal__ClientId: ${TIDAL_CLIENT_ID:-}
-      Tidal__ClientSecret: ${TIDAL_CLIENT_SECRET:-}
-      Tidal__AccessToken: ${TIDAL_ACCESS_TOKEN:-}
-      Tidal__RefreshToken: ${TIDAL_REFRESH_TOKEN:-}
-      Tidal__UserId: ${TIDAL_USER_ID:-}
-      Tidal__CountryCode: ${TIDAL_COUNTRY_CODE:-}
-      SquidWTF__Source: ${SQUIDWTF_SOURCE:-Qobuz}
-      SquidWTF__Quality: ${SQUIDWTF_QUALITY:-}
-      SquidWTF__InstanceTimeoutSeconds: ${SQUIDWTF_INSTANCE_TIMEOUT:-5}
-      Yandex__OAuthToken: ${YANDEX_OAUTH_TOKEN:-}
-      Yandex__Quality: ${YANDEX_QUALITY:-}
-      Yandex__Language: ${YANDEX_LANGUAGE:-}
-      Yandex__IncludeUnavailable: ${YANDEX_INCLUDE_UNAVAILABLE_TRACKS:-false}
+      Deezer__Arl: ${DEEZER_ARL}
+      Deezer__Quality: flac
     volumes:
       - ${DATA_LOCATION:-/mnt/data}/media/music/clean:/app/downloads
       - ./state/octo-fiesta:/config

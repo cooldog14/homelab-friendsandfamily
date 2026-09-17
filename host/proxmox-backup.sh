@@ -8,17 +8,11 @@
 # Keeps the 2 newest archives per guest on the `backup` storage (/mnt/backup).
 set -eu
 log() { printf '[%s] %s\n' "$(date -Is)" "$*"; }
-DUMP_DIR=/mnt/backup/dump
 vmid=101
 log "vzdump $vmid start"
-if vzdump "$vmid" --storage backup --mode snapshot --compress zstd; then
+if vzdump "$vmid" --storage backup --mode snapshot --compress zstd --prune-backups keep-last=2; then
   log "vzdump $vmid ok"
 else
   log "vzdump $vmid FAILED"
 fi
-find "$DUMP_DIR" -maxdepth 1 -name "vzdump-qemu-$vmid-*" -printf '%T@ %p\n' 2>/dev/null \
-  | sort -rn | tail -n +3 | cut -d' ' -f2- | while read -r old; do
-    log "prune $old"
-    rm -f "$old"
-  done
 log "done"

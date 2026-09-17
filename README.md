@@ -121,9 +121,10 @@ It must not fail the home backup.
 
 ## old media cleanup
 
-The old LXC 203 media deployment is retired.
+Media now lives in `stacks/media`; the old LXC 203 media deployment is retired.
 Stop it before starting `stacks/media` on chill-01.
 Remove old 10.30 WireGuard and nftables rules from the VPS after confirming nothing uses them.
+Archive or remove the old `homelab-media` checkout after this repo is deployed.
 
 ## operations
 
