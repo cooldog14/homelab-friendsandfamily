@@ -52,6 +52,8 @@ edge-reload:
 
 traffic:
 	$(VPS_SSH) 'sudo sh -c '\''geo=; [ -f /var/lib/GeoIP/GeoLite2-City.mmdb ] && geo="--geoip-database=/var/lib/GeoIP/GeoLite2-City.mmdb"; zcat -f /var/log/caddy/access.log* 2>/dev/null | goaccess - --log-format=CADDY --no-progress $$geo -o -'\''' > $(TRAFFIC_REPORT)
-	@echo "Report written to $(TRAFFIC_REPORT)"
+	rsync -a $(TRAFFIC_REPORT) $(HOST):/tmp/homelab-traffic-report.html
+	ssh $(HOST) 'sudo mkdir -p /opt/stacks/edge/state/home && sudo install -m 644 /tmp/homelab-traffic-report.html /opt/stacks/edge/state/home/traffic.html && rm -f /tmp/homelab-traffic-report.html'
+	@echo "Report written to $(TRAFFIC_REPORT) and published to https://home.h.malice.biz/status/traffic.html"
 
 .PHONY: deploy host vps backup-now restore-test tunnel check edge-reload traffic
