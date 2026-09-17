@@ -10,7 +10,7 @@ Routes live in Caddy files; services live in `docker-compose.yml`.
 - movies: `/mnt/data/media/movies`
 - tv: `/mnt/data/media/tv`
 - music: `/mnt/data/media/music`
-- uploads: `/mnt/data/downloads/uploads`
+- uploads: `/mnt/data/downloads/uploads` through Filebrowser Quantum
 - slskd complete: `/mnt/data/downloads/slskd/complete`
 - slskd incomplete: `/mnt/data/downloads/slskd/incomplete`
 
@@ -41,7 +41,7 @@ Required values:
 
     SUBSONIC_ADMIN_USERNAME='navidrome-admin'
     SUBSONIC_ADMIN_PASSWORD='navidrome-password'
-    GOTIFY_URL='https://gotify.malice.biz/message?token=APP_TOKEN'
+    GOTIFY_URL='https://gotify.h.malice.biz/message?token=APP_TOKEN'
     IMPORT_MIN_AGE_MINUTES='2'
 
 Cron line for the UID 1000 user:
@@ -55,4 +55,3 @@ Self-check:
 ## notes
 
 WireGuard is not part of this stack. The only WireGuard left is VPS to chill-01.
-DUFS serves the upload directory. `DUFS_ALLOW_DELETE` stays false.

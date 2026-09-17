@@ -32,7 +32,6 @@ The source of truth is `vps/sites/*.caddy`.
 
 - files.malice.biz -> 10.44.0.2:8085
 - photos.malice.biz -> 10.44.0.2:2283
-- gotify.malice.biz -> 10.44.0.2:8070
 - paperless.malice.biz -> 10.44.0.2:8092
 - stirling.malice.biz -> 10.44.0.2:8091
 - kavita.malice.biz -> 10.44.0.2:8094
@@ -42,7 +41,7 @@ The source of truth is `vps/sites/*.caddy`.
 - requests.malice.biz -> 10.44.0.2:5055
 - player.malice.biz -> 10.44.0.2:9180
 - fiesta.malice.biz -> 10.44.0.2:5274
-- upload.malice.biz -> 10.44.0.2:5000
+- upload.malice.biz -> 10.44.0.2:8085
 - nvdr.malice.biz -> 10.44.0.2:4533
 
 Mumble uses nftables.
@@ -62,6 +61,7 @@ These names are tailnet-only under `h.malice.biz`.
 
 - home.h.malice.biz
 - dockge.h.malice.biz
+- gotify.h.malice.biz
 - beszel.h.malice.biz
 - qbittorrent.h.malice.biz
 - prowlarr.h.malice.biz
@@ -79,7 +79,7 @@ Unknown private names return 404.
 - photos: Immich
 - docs: Stirling PDF, Paperless, Kavita
 - comms: Mumble, Neko, Screego
-- media: Jellyfin, qBittorrent, Prowlarr, Radarr, Sonarr, Bazarr, Jellyseerr, Navidrome, Octo-Fiesta, Feishin, DUFS, slskd, wrtag
+- media: Jellyfin, qBittorrent, Prowlarr, Radarr, Sonarr, Bazarr, Jellyseerr, Navidrome, Octo-Fiesta, Feishin, slskd, wrtag
 - observability: Gotify, Dockge, Beszel, Beszel agent
 - edge: private Caddy and homepage
 

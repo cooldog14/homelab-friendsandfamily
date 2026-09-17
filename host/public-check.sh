@@ -10,7 +10,6 @@ FAIL=0
 for host in \
   files.malice.biz \
   photos.malice.biz \
-  gotify.malice.biz \
   paperless.malice.biz \
   stirling.malice.biz \
   kavita.malice.biz \
