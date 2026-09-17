@@ -188,6 +188,16 @@ services:
       - octo-fiesta
     restart: unless-stopped
 
+  suwayomi:
+    image: ghcr.io/suwayomi/suwayomi-server:v2.3.2361-preview
+    ports:
+      - "${WG_IP:-10.44.0.2}:4567:4567"
+    environment:
+      TZ: ${TIMEZONE:-Europe/Paris}
+    volumes:
+      - ./state/suwayomi:/home/suwayomi/.local/share/Tachidesk
+    restart: unless-stopped
+
   slskd:
     build:
       context: .
