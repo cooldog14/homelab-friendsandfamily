@@ -18,6 +18,7 @@
   </ul>
 
   <h2>Resources</h2>
+  <div id="disks">Disk data loading.</div>
   <ul>
     <li><a href="https://beszel.h.malice.biz">Beszel</a></li>
     <li><a href="https://dockge.h.malice.biz">Dockge</a></li>
@@ -33,5 +34,44 @@
     <li><a href="https://slskd.h.malice.biz">slskd</a></li>
     <li><a href="https://wrtag.h.malice.biz">wrtag</a></li>
   </ul>
+
+  <script>
+    function human(bytes) {
+      var units = ["B", "KB", "MB", "GB", "TB"];
+      var value = bytes;
+      var unit = 0;
+      while (value >= 1024 && unit < units.length - 1) {
+        value = value / 1024;
+        unit += 1;
+      }
+      return value.toFixed(value >= 10 || unit === 0 ? 0 : 1) + " " + units[unit];
+    }
+
+    fetch("/status/disks.json", { cache: "no-store" })
+      .then(function(response) {
+        if (!response.ok) throw new Error("disk status unavailable");
+        return response.json();
+      })
+      .then(function(data) {
+        var root = document.getElementById("disks");
+        root.textContent = "";
+        data.disks.forEach(function(disk) {
+          var line = document.createElement("p");
+          var label = document.createElement("span");
+          var meter = document.createElement("meter");
+          label.textContent = disk.mount + " " + disk.percent + "% " + human(disk.used) + " / " + human(disk.size);
+          meter.min = 0;
+          meter.max = 100;
+          meter.value = disk.percent;
+          line.appendChild(label);
+          line.appendChild(document.createElement("br"));
+          line.appendChild(meter);
+          root.appendChild(line);
+        });
+      })
+      .catch(function() {
+        document.getElementById("disks").textContent = "Disk data unavailable. Check homelab-disk-usage.service.";
+      });
+  </script>
 </body>
 </html>

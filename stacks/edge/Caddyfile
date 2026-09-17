@@ -22,6 +22,15 @@
 	# (its `default` line is silently dropped — verified 2026-09-16), and an
 	# unset placeholder makes `!= ""` true, proxying unknowns to :0 (502).
 	# Extend the same way, keep the 404 last.
+	@home_status {
+		host home.h.malice.biz
+		path /status/*
+	}
+	handle @home_status {
+		uri strip_prefix /status
+		root * /srv/status
+		file_server
+	}
 	@home host home.h.malice.biz
 	handle @home {
 		root * /srv/home
