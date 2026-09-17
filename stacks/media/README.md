@@ -1,57 +1,30 @@
 # media
 
-Practical notes for the media stack on chill-01 VM 101.
-Routes live in Caddy files; services live in `docker-compose.yml`.
+Media runs on chill-01.
 
 ## data
 
-`DATA_LOCATION` defaults to `/mnt/data`.
+DATA_LOCATION defaults to /mnt/data.
 
-- movies: `/mnt/data/media/movies`
-- tv: `/mnt/data/media/tv`
-- music: `/mnt/data/media/music`
-- uploads: `/mnt/data/downloads/uploads` through Filebrowser Quantum
-- slskd complete: `/mnt/data/downloads/slskd/complete`
-- slskd incomplete: `/mnt/data/downloads/slskd/incomplete`
+- movies: /mnt/data/media/movies
+- tv: /mnt/data/media/tv
+- music: /mnt/data/media/music
+- uploads: /mnt/data/downloads/uploads through Filebrowser Quantum
+- slskd complete: /mnt/data/downloads/slskd/complete
+- slskd incomplete: /mnt/data/downloads/slskd/incomplete
 
-Containers mount the shared data tree as `/data` where possible.
+## secrets
 
-## state and secrets
-
-Copy `.env.example` to `.env` on chill-01 and fill the secrets there.
-Container state lives under `state/`; deploy excludes it.
-
-## slskd config
-
-`config/slskd/slskd.yml` and `config/slskd/autotag.sh` are tracked in git.
-
-slskd's YAML beats env vars, so `directories`, `shares`, and
-`remote_configuration` in `slskd.yml` must stay in sync with the compose env
-(`SLSKD_*_DIR`, `SLSKD_SHARED_DIR`, `SLSKD_REMOTE_*`).
+Copy .env.example to .env on chill-01.
+Fill the secrets there.
+Never commit .env.
 
 ## music ingest
 
-`scripts/ingest-music.sh` imports stable uploads into the music library.
-
-Env file:
-
-    /etc/media-music-ingest.env
-
-Required values:
-
-    SUBSONIC_ADMIN_USERNAME='navidrome-admin'
-    SUBSONIC_ADMIN_PASSWORD='navidrome-password'
-    GOTIFY_URL='https://gotify.h.malice.biz/message?token=APP_TOKEN'
-    IMPORT_MIN_AGE_MINUTES='2'
-
-Cron line for the UID 1000 user:
-
-    */5 * * * * set -a; . /etc/media-music-ingest.env; set +a; flock -n /tmp/media-music-ingest.lock /opt/stacks/media/scripts/ingest-music.sh
-
-Self-check:
-
-    /opt/stacks/media/scripts/ingest-music.sh --self-check
+ingest-music.sh imports stable uploads into the music library.
+It reads /etc/media-music-ingest.env.
+It can self-check with the --self-check flag.
 
 ## notes
 
-WireGuard is not part of this stack. The only WireGuard left is VPS to chill-01.
+WireGuard is not part of this stack.
