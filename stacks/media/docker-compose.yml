@@ -2,38 +2,84 @@ services:
   jellyfin:
     image: jellyfin/jellyfin:10.11
     user: "1000:1000"
+    # Intel iGPU is passed through to the VM (see /dev/dri on chill-01).
+    # Native KVM IDs: video group is 44. No render node exists, so verify
+    # VAAPI/QSV in the jellyfin dashboard after deploy; CPU fallback otherwise.
+    devices:
+      - /dev/dri:/dev/dri
+    group_add:
+      - "44"
     ports:
       - "${WG_IP:-10.44.0.2}:8096:8096"
     volumes:
       - ./state/jellyfin-config:/config
       - ./state/jellyfin-cache:/cache
       - ${DATA_LOCATION:-/mnt/data}:/data
+      # Bulk media lives on the 4TB disk (VM /mnt/pool, TODO storage layout).
+      # Change library paths to /pool/movies and /pool/tv in the jellyfin UI.
+      - /mnt/pool/media/movies:/pool/movies:ro
+      - /mnt/pool/media/tv:/pool/tv:ro
     restart: unless-stopped
     environment:
       TZ: ${TIMEZONE:-Europe/Paris}
 
-  qbittorrent:
-    image: lscr.io/linuxserver/qbittorrent:5.2.2
+  # VPN egress for torrent/P2P traffic (qbittorrent, prowlarr, flaresolverr,
+  # slskd). Ported from the arr LXC: without this, P2P egresses via the home
+  # IP instead of the VPS. Keys live in .env (never in git).
+  gluetun:
+    image: qmcgaw/gluetun:v3.41.1
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun
     ports:
       - "${WG_IP:-10.44.0.2}:8701:8701"
+      - "6881:6881"
+      - "6881:6881/udp"
+      - "${WG_IP:-10.44.0.2}:9696:9696"
+      - "${WG_IP:-10.44.0.2}:8191:8191"
+      - "${WG_IP:-10.44.0.2}:5030:5030"
+    volumes:
+      - ./state/gluetun:/gluetun
+    environment:
+      VPN_SERVICE_PROVIDER: custom
+      VPN_TYPE: wireguard
+      WIREGUARD_PRIVATE_KEY: ${WIREGUARD_PRIVATE_KEY}
+      WIREGUARD_ADDRESSES: ${WIREGUARD_ADDRESSES}
+      VPN_ENDPOINT_IP: ${VPN_ENDPOINT_IP}
+      VPN_ENDPOINT_PORT: ${VPN_ENDPOINT_PORT}
+      FIREWALL_VPN_INPUT_PORTS: ${FIREWALL_VPN_INPUT_PORTS:-6881}
+      FIREWALL_OUTBOUND_SUBNETS: "172.18.0.0/16"
+      WIREGUARD_PUBLIC_KEY: ${VPS_WG_PUBKEY}
+      TZ: ${TIMEZONE:-Europe/Paris}
+    restart: unless-stopped
+
+  qbittorrent:
+    image: lscr.io/linuxserver/qbittorrent:5.2.2
+    network_mode: "service:gluetun"
+    depends_on:
+      - gluetun
     environment:
       PUID: "1000"
       PGID: "1000"
       TZ: ${TIMEZONE:-Europe/Paris}
       WEBUI_PORT: "8701"
-      # Container listener only; the host bind above stays on WG_IP for private Caddy.
       WEBUI_ADDRESS: "0.0.0.0"
       WEBUI_EXTERNAL_ACCESS: "true"
     volumes:
       - ./state/qbittorrent:/config
       - ${DATA_LOCATION:-/mnt/data}:/data
+      # Video downloads live on the 4TB disk. Point save paths at
+      # /pool/downloads in the qbittorrent UI after migrating state.
+      - /mnt/pool/downloads:/pool/downloads
     restart: unless-stopped
 
   prowlarr:
     image: lscr.io/linuxserver/prowlarr:2.4.0
     restart: unless-stopped
-    ports:
-      - "${WG_IP:-10.44.0.2}:9696:9696"
+    network_mode: "service:gluetun"
+    depends_on:
+      - gluetun
     environment:
       PUID: "1000"
       PGID: "1000"
@@ -43,6 +89,9 @@ services:
 
   flaresolverr:
     image: ghcr.io/flaresolverr/flaresolverr:v3.5.0
+    network_mode: "service:gluetun"
+    depends_on:
+      - gluetun
     environment:
       TZ: ${TIMEZONE:-Europe/Paris}
       LOG_LEVEL: info
@@ -63,6 +112,10 @@ services:
     volumes:
       - ./state/radarr:/config
       - ${DATA_LOCATION:-/mnt/data}:/data
+      # Movies root folder is /pool/movies (4TB disk). Update root folders
+      # and download-client remote path mappings in the radarr UI.
+      - /mnt/pool/media/movies:/pool/movies
+      - /mnt/pool/downloads:/pool/downloads
 
   sonarr:
     image: lscr.io/linuxserver/sonarr:4.0.17
@@ -76,6 +129,10 @@ services:
     volumes:
       - ./state/sonarr:/config
       - ${DATA_LOCATION:-/mnt/data}:/data
+      # TV root folder is /pool/tv (4TB disk). Update root folders
+      # and download-client remote path mappings in the sonarr UI.
+      - /mnt/pool/media/tv:/pool/tv
+      - /mnt/pool/downloads:/pool/downloads
 
   bazarr:
     image: lscr.io/linuxserver/bazarr:1.5.6
@@ -89,6 +146,9 @@ services:
     volumes:
       - ./state/bazarr:/config
       - ${DATA_LOCATION:-/mnt/data}:/data
+      # Subtitles are written next to the video files (4TB disk).
+      - /mnt/pool/media/movies:/pool/movies
+      - /mnt/pool/media/tv:/pool/tv
 
   jellyseerr:
     image: fallenbagel/jellyseerr:2.7.3
@@ -156,7 +216,7 @@ services:
       Subsonic__Url: "http://navidrome:4533"
       Subsonic__AdminUsername: ${SUBSONIC_ADMIN_USERNAME}
       Subsonic__AdminPassword: ${SUBSONIC_ADMIN_PASSWORD}
-      Subsonic__MusicService: Deezer
+      Subsonic__MusicService: ${MUSIC_SERVICE:-Deezer}
       Subsonic__StorageMode: Permanent
       Subsonic__DownloadMode: Track
       Subsonic__AutoUpgradeQuality: "false"
@@ -166,7 +226,26 @@ services:
       Subsonic__ExplicitFilter: All
       Subsonic__FolderTemplate: "{artist}/({year}) {album}/{track} - {title}"
       Deezer__Arl: ${DEEZER_ARL}
-      Deezer__Quality: flac
+      Deezer__ArlFallback: ${DEEZER_ARL_FALLBACK:-}
+      Deezer__Quality: "flac"
+      Qobuz__UserAuthToken: ${QOBUZ_USER_AUTH_TOKEN:-}
+      Qobuz__UserId: ${QOBUZ_USER_ID:-}
+      Qobuz__Quality: ${QOBUZ_QUALITY:-}
+      Tidal__TokenStore: /config/tidal-tokens.json
+      Tidal__Quality: ${TIDAL_QUALITY:-}
+      Tidal__ClientId: ${TIDAL_CLIENT_ID:-}
+      Tidal__ClientSecret: ${TIDAL_CLIENT_SECRET:-}
+      Tidal__AccessToken: ${TIDAL_ACCESS_TOKEN:-}
+      Tidal__RefreshToken: ${TIDAL_REFRESH_TOKEN:-}
+      Tidal__UserId: ${TIDAL_USER_ID:-}
+      Tidal__CountryCode: ${TIDAL_COUNTRY_CODE:-}
+      SquidWTF__Source: ${SQUIDWTF_SOURCE:-Qobuz}
+      SquidWTF__Quality: ${SQUIDWTF_QUALITY:-}
+      SquidWTF__InstanceTimeoutSeconds: ${SQUIDWTF_INSTANCE_TIMEOUT:-5}
+      Yandex__OAuthToken: ${YANDEX_OAUTH_TOKEN:-}
+      Yandex__Quality: ${YANDEX_QUALITY:-}
+      Yandex__Language: ${YANDEX_LANGUAGE:-}
+      Yandex__IncludeUnavailable: ${YANDEX_INCLUDE_UNAVAILABLE_TRACKS:-false}
     volumes:
       - ${DATA_LOCATION:-/mnt/data}/media/music/clean:/app/downloads
       - ./state/octo-fiesta:/config
@@ -204,9 +283,9 @@ services:
       dockerfile: Dockerfile.slskd
     image: local/slskd-wrtag:0.26.0
     user: "1000:1000"
-    ports:
-      - "${WG_IP:-10.44.0.2}:5030:5030"
+    network_mode: "service:gluetun"
     depends_on:
+      - gluetun
       - wrtag
     environment:
       TZ: ${TIMEZONE:-Europe/Paris}
