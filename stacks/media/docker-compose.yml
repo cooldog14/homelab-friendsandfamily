@@ -49,7 +49,10 @@ services:
       VPN_ENDPOINT_IP: ${VPN_ENDPOINT_IP}
       VPN_ENDPOINT_PORT: ${VPN_ENDPOINT_PORT}
       FIREWALL_VPN_INPUT_PORTS: ${FIREWALL_VPN_INPUT_PORTS:-6881}
-      FIREWALL_OUTBOUND_SUBNETS: "172.18.0.0/16"
+      # Local docker networks bypass the VPN (arr apps reach qbit/prowlarr
+      # through gluetun). /12 covers every compose bridge; Docker assigns
+      # subnets dynamically, so a narrower value breaks after re-creation.
+      FIREWALL_OUTBOUND_SUBNETS: "172.16.0.0/12"
       WIREGUARD_PUBLIC_KEY: ${VPS_WG_PUBKEY}
       TZ: ${TIMEZONE:-Europe/Paris}
     restart: unless-stopped
