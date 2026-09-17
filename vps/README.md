@@ -38,6 +38,19 @@ Use gotify.h.malice.biz.
 - Screego TURN: 3478 TCP and UDP
 - Screego TURN range: 52100 to 52200 UDP
 
+## traffic report
+
+Run make traffic.
+It reads VPS Caddy logs and writes traffic-report.html locally.
+It covers HTTP routes only.
+It does not cover nftables-only ports.
+
+Geo map works when this file exists on the VPS:
+/var/lib/GeoIP/GeoLite2-City.mmdb
+
+Use a local GeoIP database.
+Do not send access logs to an external API.
+
 ## old cleanup
 
 Old 10.30 WireGuard rules are retired.

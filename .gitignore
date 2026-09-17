@@ -2,3 +2,4 @@
 state/
 # one-off live snapshots, never track
 vps/live-backup-*/
+traffic-report.html

@@ -1,6 +1,7 @@
 HOST ?= deploy@10.44.0.2
 # VPS via the vps-ingress SSH alias (port 4522 + key in ~/.ssh/config); 22 is closed.
 VPS_SSH ?= ssh vps-ingress
+TRAFFIC_REPORT ?= traffic-report.html
 STACKS = apps comms docs edge media observability photos
 RETIRED_STACKS = privacy
 
@@ -49,4 +50,8 @@ check:
 edge-reload:
 	ssh $(HOST) 'cd /opt/stacks/edge && sudo docker compose exec -T caddy caddy validate --config /etc/caddy/Caddyfile && sudo docker compose -p edge restart caddy'
 
-.PHONY: deploy host vps backup-now restore-test tunnel check edge-reload
+traffic:
+	$(VPS_SSH) 'sudo sh -c '\''geo=; [ -f /var/lib/GeoIP/GeoLite2-City.mmdb ] && geo="--geoip-database=/var/lib/GeoIP/GeoLite2-City.mmdb"; zcat -f /var/log/caddy/access.log* 2>/dev/null | goaccess - --log-format=CADDY --no-progress $$geo -o -'\''' > $(TRAFFIC_REPORT)
+	@echo "Report written to $(TRAFFIC_REPORT)"
+
+.PHONY: deploy host vps backup-now restore-test tunnel check edge-reload traffic
