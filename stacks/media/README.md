@@ -1,56 +1,7 @@
 # media
 
-Media stack on chill-01 VM 101.
-
-## public routes
-
-The VPS owns TLS and proxies these to `10.44.0.2`.
-
-- jellyfin.malice.biz -> 10.44.0.2:8096
-- requests.malice.biz -> 10.44.0.2:5055
-- player.malice.biz -> 10.44.0.2:9180
-- fiesta.malice.biz -> 10.44.0.2:5274
-- upload.malice.biz -> 10.44.0.2:5000
-- nvdr.malice.biz -> 10.44.0.2:4533
-
-The source of truth is `../../vps/sites/media.caddy`.
-
-## private routes
-
-Admin routes are tailnet-only under `h.malice.biz`.
-
-- qbittorrent.h.malice.biz -> 10.44.0.2:8701
-- prowlarr.h.malice.biz -> 10.44.0.2:9696
-- radarr.h.malice.biz -> 10.44.0.2:7878
-- sonarr.h.malice.biz -> 10.44.0.2:8989
-- bazarr.h.malice.biz -> 10.44.0.2:6767
-- slskd.h.malice.biz -> 10.44.0.2:5030
-- wrtag.h.malice.biz -> 10.44.0.2:7373
-
-The source of truth is `../edge/Caddyfile`.
-
-## compose services
-
-- jellyfin
-- qbittorrent
-- prowlarr
-- flaresolverr
-- radarr
-- sonarr
-- bazarr
-- jellyseerr
-- navidrome
-- wrtag
-- octo-fiesta
-- feishin
-- dufs
-- slskd
-
-## deploy
-
-Run from the repo root.
-
-    make deploy
+Practical notes for the media stack on chill-01 VM 101.
+Routes live in Caddy files; services live in `docker-compose.yml`.
 
 ## data
 
@@ -68,7 +19,6 @@ Containers mount the shared data tree as `/data` where possible.
 ## state and secrets
 
 Copy `.env.example` to `.env` on chill-01 and fill the secrets there.
-
 Container state lives under `state/`; deploy excludes it.
 
 ## slskd config

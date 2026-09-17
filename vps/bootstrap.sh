@@ -9,7 +9,7 @@ apt-get install -y ca-certificates curl gnupg
 curl -1sLf https://dl.cloudsmith.io/public/caddy/stable/gpg.key | gpg --dearmor --yes -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
 curl -1sLf https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt -o /etc/apt/sources.list.d/caddy-stable.list
 apt-get update
-apt-get install -y caddy goaccess nftables unattended-upgrades wireguard
+apt-get install -y caddy nftables unattended-upgrades wireguard
 mkdir -p /var/log/caddy && chown caddy:caddy /var/log/caddy
 
 mkdir -p /var/backups

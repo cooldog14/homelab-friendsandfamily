@@ -7,21 +7,22 @@ set -eu
 # kept for symmetry in case ALERT handling moves in-script later).
 FAIL=0
 # Keep in sync with the reverse_proxy lines in vps/sites/*.caddy.
-for url in \
-  https://files.malice.biz \
-  https://photos.malice.biz \
-  https://gotify.malice.biz \
-  https://paperless.malice.biz \
-  https://stirling.malice.biz \
-  https://kavita.malice.biz \
-  https://neko.malice.biz \
-  https://screego.malice.biz \
-  https://jellyfin.malice.biz \
-  https://requests.malice.biz \
-  https://player.malice.biz \
-  https://fiesta.malice.biz \
-  https://upload.malice.biz \
-  https://nvdr.malice.biz; do
+for host in \
+  files.malice.biz \
+  photos.malice.biz \
+  gotify.malice.biz \
+  paperless.malice.biz \
+  stirling.malice.biz \
+  kavita.malice.biz \
+  neko.malice.biz \
+  screego.malice.biz \
+  jellyfin.malice.biz \
+  requests.malice.biz \
+  player.malice.biz \
+  fiesta.malice.biz \
+  upload.malice.biz \
+  nvdr.malice.biz; do
+  url="https://$host"
   code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 20 "$url" 2>/dev/null || echo 000)
   case "$code" in
     2*|3*|401) echo "ok $code $url" ;;

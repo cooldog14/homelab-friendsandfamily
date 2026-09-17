@@ -49,9 +49,4 @@ check:
 edge-reload:
 	ssh $(HOST) 'cd /opt/stacks/edge && sudo docker compose exec -T caddy caddy validate --config /etc/caddy/Caddyfile && sudo docker compose -p edge restart caddy'
 
-# Generate a GoAccess traffic report from VPS Caddy logs and open it locally.
-traffic:
-	$(VPS_SSH) 'goaccess /var/log/caddy/access.log --log-format=CADDY --no-progress -o -' > traffic-report.html
-	@echo "Report written to traffic-report.html"
-
-.PHONY: deploy host vps backup-now restore-test tunnel check edge-reload traffic
+.PHONY: deploy host vps backup-now restore-test tunnel check edge-reload
