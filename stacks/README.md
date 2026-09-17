@@ -11,7 +11,7 @@ Stack .env files and state folders stay on the host.
 - photos: Immich
 - docs: Paperless, Stirling PDF, Kavita
 - comms: Mumble, Neko, Screego
-- media: Jellyfin, qBittorrent, Prowlarr, Radarr, Sonarr, Bazarr, Jellyseerr, Navidrome, Octo-Fiesta, Feishin, slskd, wrtag
+- media: Jellyfin, qBittorrent, Prowlarr, Radarr, Sonarr, Bazarr, Jellyseerr, Navidrome, Octo-Fiesta, Feishin, Suwayomi, slskd, wrtag
 - observability: Gotify, Dockge, Beszel
 - edge: private Caddy and homepage
 
@@ -30,3 +30,4 @@ These routes work on Tailscale only.
 - bazarr.h.malice.biz
 - slskd.h.malice.biz
 - wrtag.h.malice.biz
+- suwayomi.h.malice.biz

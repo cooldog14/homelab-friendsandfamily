@@ -76,6 +76,10 @@
 	handle @wrtag {
 		reverse_proxy {env.UPSTREAM}:7373
 	}
+	@suwayomi host suwayomi.h.malice.biz
+	handle @suwayomi {
+		reverse_proxy {env.UPSTREAM}:4567
+	}
 	handle {
 		respond "unknown private service" 404
 	}
