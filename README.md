@@ -20,6 +20,7 @@ WireGuard is only VPS to chill-01.
 - make host bootstraps chill-01
 - make edge-reload restarts private Caddy
 - make check validates compose and shell files
+- RUNBOOK.md has break-fix drills
 
 ## rules
 
