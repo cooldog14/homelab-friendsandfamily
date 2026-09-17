@@ -1,0 +1,10 @@
+[Unit]
+Description=Refresh homepage disk usage
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=5min
+Unit=homelab-disk-usage.service
+
+[Install]
+WantedBy=timers.target

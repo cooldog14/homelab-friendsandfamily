@@ -30,15 +30,16 @@ install -m 644 host/daemon.json /etc/docker/daemon.json
 new_daemon=$(md5sum /etc/docker/daemon.json | cut -d' ' -f1)
 install -m 755 host/backup.sh /usr/local/bin/homelab-backup
 install -m 755 host/backup-watchdog.sh /usr/local/bin/homelab-backup-watchdog
+install -m 755 host/disk-usage.sh /usr/local/bin/homelab-disk-usage
 install -m 755 host/public-check.sh /usr/local/bin/homelab-public-check
-install -m 644 host/homelab-backup.service host/homelab-backup.timer host/homelab-backup-watchdog.service host/homelab-backup-watchdog.timer host/homelab-public-check.service host/homelab-public-check.timer 'host/notify@.service' /etc/systemd/system/
+install -m 644 host/homelab-backup.service host/homelab-backup.timer host/homelab-backup-watchdog.service host/homelab-backup-watchdog.timer host/homelab-disk-usage.service host/homelab-disk-usage.timer host/homelab-public-check.service host/homelab-public-check.timer 'host/notify@.service' /etc/systemd/system/
 printf 'PasswordAuthentication no\nPermitRootLogin no\n' > /etc/ssh/sshd_config.d/homelab.conf
 printf 'Unattended-Upgrade::Automatic-Reboot "true";\nUnattended-Upgrade::Automatic-Reboot-Time "03:00";\n' > /etc/apt/apt.conf.d/51homelab
 grep -q pve1-mirror /etc/fstab || echo 'pve1-mirror /mnt/data virtiofs rw,relatime,nofail 0 0' >> /etc/fstab
 grep -q pve1-fast /etc/fstab || echo 'pve1-fast /mnt/fast virtiofs rw,relatime,nofail 0 0' >> /etc/fstab
 grep -q pve1-archive /etc/fstab || echo 'pve1-archive /mnt/archive virtiofs rw,relatime,nofail 0 0' >> /etc/fstab
 grep -q pve1-pool /etc/fstab || echo 'pve1-pool /mnt/pool virtiofs rw,relatime,nofail 0 0' >> /etc/fstab
-mkdir -p /mnt/data /mnt/fast /mnt/archive /mnt/pool && mount -a
+mkdir -p /mnt/data /mnt/fast /mnt/archive /mnt/pool /opt/stacks/edge/state/home && mount -a
 
 printf 'net.ipv4.ip_forward=1\n' > /etc/sysctl.d/99-homelab.conf
 sysctl --system > /dev/null
@@ -57,7 +58,8 @@ else
   echo "daemon.json unchanged, skipping docker restart"
 fi
 systemctl reload ssh
-systemctl enable --now qemu-guest-agent tailscaled homelab-backup.timer homelab-backup-watchdog.timer homelab-public-check.timer
+systemctl start homelab-disk-usage.service
+systemctl enable --now qemu-guest-agent tailscaled homelab-backup.timer homelab-backup-watchdog.timer homelab-disk-usage.timer homelab-public-check.timer
 # wg0 is the static VPS<->chill-01 tunnel. Keep /etc/wireguard/wg0.conf at
 # 0600, then: systemctl enable --now wg-quick@wg0
 # tailscaled is installed and running but unauthenticated: join the tailnet once,

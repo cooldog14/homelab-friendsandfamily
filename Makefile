@@ -9,7 +9,7 @@ RETIRED_STACKS = privacy
 # so no deploy-key scoping issue when splitting repos.
 deploy:
 	rsync -a --delete stacks/ $(HOST):/tmp/chill-stacks/
-	ssh $(HOST) 'for s in $(RETIRED_STACKS); do if [ -f /opt/stacks/$$s/docker-compose.yml ]; then (cd /opt/stacks/$$s && sudo docker compose -p $$s down --remove-orphans); fi; done && sudo rsync -a --delete --exclude .env --exclude state/ /tmp/chill-stacks/ /opt/stacks/ && sudo mkdir -p /opt/stacks/apps/state/filebrowser-quantum /opt/stacks/media/state && sudo chown -R 1000:1000 /opt/stacks/apps/state/filebrowser-quantum /opt/stacks/media/state && for s in $(STACKS); do (cd /opt/stacks/$$s && sudo docker compose -p $$s up -d --pull missing --remove-orphans); done'
+	ssh $(HOST) 'for s in $(RETIRED_STACKS); do if [ -f /opt/stacks/$$s/docker-compose.yml ]; then (cd /opt/stacks/$$s && sudo docker compose -p $$s down --remove-orphans); fi; done && sudo rsync -a --delete --exclude .env --exclude state/ /tmp/chill-stacks/ /opt/stacks/ && sudo mkdir -p /opt/stacks/apps/state/filebrowser-quantum /opt/stacks/edge/state/home /opt/stacks/media/state && sudo chown -R 1000:1000 /opt/stacks/apps/state/filebrowser-quantum /opt/stacks/media/state && for s in $(STACKS); do (cd /opt/stacks/$$s && sudo docker compose -p $$s up -d --pull missing --remove-orphans); done'
 	# NOTE: --pull missing (not always): the CLI flag overrides compose pull_policy, and redlib is a
 	# local source build (pull_policy: never) that --pull always would try to fetch from a registry.
 	# Retired stack state/.env survives; only containers and git-owned config are removed.
@@ -40,7 +40,7 @@ tunnel:
 
 check:
 	for s in $(STACKS); do (cd stacks/$$s && docker compose config -q); done
-	shellcheck bootstrap.sh host/backup.sh host/backup-watchdog.sh host/public-check.sh host/proxmox-backup.sh vps/bootstrap.sh stacks/media/scripts/ingest-music.sh stacks/media/config/slskd/autotag.sh
+	shellcheck bootstrap.sh host/backup.sh host/backup-watchdog.sh host/disk-usage.sh host/public-check.sh host/proxmox-backup.sh vps/bootstrap.sh stacks/media/scripts/ingest-music.sh stacks/media/config/slskd/autotag.sh
 
 # The private Caddyfile is a bind mount, so `make deploy` copies it but the
 # running container never re-reads it. Restart (not `caddy reload`, which was

@@ -1,0 +1,7 @@
+[Unit]
+Description=Publish disk usage for homepage
+OnFailure=notify@%n.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/homelab-disk-usage

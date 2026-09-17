@@ -23,6 +23,7 @@ A failed VPS pull alerts but does not fail the home backup.
 
 public-check.sh checks public sites through the VPS.
 backup-watchdog.sh alerts when backups are stale.
+disk-usage.sh publishes disk usage for the private homepage.
 proxmox-backup.sh runs on the Proxmox host and snapshots VM 101.
 
 ## secrets
