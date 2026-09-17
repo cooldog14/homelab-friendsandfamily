@@ -54,7 +54,11 @@ sql_backup /opt/stacks/observability/state/gotify/gotify.db /opt/dumps/gotify.db
 sql_backup /opt/stacks/observability/state/dockge/dockge.db /opt/dumps/dockge.db
 sql_backup /opt/stacks/observability/state/beszel/data.db /opt/dumps/beszel.db
 
-restic backup /opt /mnt/data /mnt/fast/photos /etc /root/.ssh \
+# Photos live on the mirror (/mnt/data/photos, primary 2TB disk) — listed
+# explicitly even though the whole of /mnt/data is backed up, so the intent
+# survives future exclude changes. A second restic repo on the 1TB disk
+# carries the local copy (see TODO.md storage layout).
+restic backup /opt /mnt/data /mnt/data/photos /etc /root/.ssh \
   --exclude /mnt/data/downloads \
   --exclude /mnt/data/media/movies \
   --exclude /mnt/data/media/tv
