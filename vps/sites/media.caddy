@@ -1,0 +1,30 @@
+# media public vhosts (10.44.0.2 backends). Deployed by `make vps`.
+jellyfin.malice.biz {
+	reverse_proxy 10.44.0.2:8096
+}
+requests.malice.biz {
+	reverse_proxy 10.44.0.2:5055
+}
+player.malice.biz {
+	reverse_proxy 10.44.0.2:9180
+}
+fiesta.malice.biz {
+	@cors_preflight method OPTIONS
+	handle @cors_preflight {
+		header Access-Control-Allow-Origin "https://player.malice.biz"
+		header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
+		header Access-Control-Allow-Headers "*"
+		header Access-Control-Max-Age "86400"
+		respond 204
+	}
+
+	header Access-Control-Allow-Origin "https://player.malice.biz"
+	header Vary Origin
+	reverse_proxy 10.44.0.2:5274
+}
+upload.malice.biz {
+	reverse_proxy 10.44.0.2:5000
+}
+nvdr.malice.biz {
+	reverse_proxy 10.44.0.2:4533
+}

@@ -1,75 +1,145 @@
 # homelab
 
-Debian 13 home server.
-Docker Compose runs the apps.
-The VPS is the public entry point.
-WireGuard connects the VPS to the home server.
-Tailscale connects personal devices to private services.
+Git is the source of truth.
+chill-01 VM 101 runs the apps.
+The VPS is the public edge.
 
-## hosts
+## design
 
-The VPS is public.
-It runs Caddy, nftables, Docker, and CrowdSec.
-It owns public TLS.
-It holds 10.44.0.1 on kernel interface chill0 (51824/udp, static config in /etc/wireguard).
+chill-01 is Debian 13.
+Docker Compose runs the stacks in `/opt/stacks`.
 
-chill-01 is private.
-It has address 10.44.0.2 on WireGuard.
-It has a Tailscale address for private names.
-It binds services to 10.44.0.2.
-It does not accept internet traffic directly.
+The VPS runs Caddy and nftables.
+It terminates public TLS.
+It proxies to chill-01 over WireGuard.
 
-## public services
+Tailscale is the only private/admin entry point for people.
+WireGuard is only the VPS `<->` chill-01 infrastructure link.
 
-files.malice.biz
-photos.malice.biz
-gotify.malice.biz
-paperless.malice.biz
-stirling.malice.biz
-kavita.malice.biz
-neko.malice.biz
-screego.malice.biz
+## network
 
-Mumble uses TCP and UDP port 64738.
+VPS public IP is `194.58.47.21`.
+VPS WireGuard address is `10.44.0.1`.
+chill-01 WireGuard address is `10.44.0.2`.
 
-## private services
+Public traffic enters the VPS.
+Private/admin traffic enters over Tailscale.
+Home has no inbound internet port.
 
-Private names use the tailnet Caddy.
-They are under h.malice.biz.
-The map lives in stacks/edge/Caddyfile.
+## public routes
+
+The source of truth is `vps/sites/*.caddy`.
+
+- files.malice.biz -> 10.44.0.2:8085
+- photos.malice.biz -> 10.44.0.2:2283
+- gotify.malice.biz -> 10.44.0.2:8070
+- paperless.malice.biz -> 10.44.0.2:8092
+- stirling.malice.biz -> 10.44.0.2:8091
+- kavita.malice.biz -> 10.44.0.2:8094
+- neko.malice.biz -> 10.44.0.2:8097
+- screego.malice.biz -> 10.44.0.2:5050
+- jellyfin.malice.biz -> 10.44.0.2:8096
+- requests.malice.biz -> 10.44.0.2:5055
+- player.malice.biz -> 10.44.0.2:9180
+- fiesta.malice.biz -> 10.44.0.2:5274
+- upload.malice.biz -> 10.44.0.2:5000
+- nvdr.malice.biz -> 10.44.0.2:4533
+
+Mumble uses nftables.
+Port 64738 TCP and UDP goes to chill-01.
+
+Neko WebRTC uses nftables.
+Port 52000 TCP and UDP goes to chill-01.
+
+Screego TURN uses nftables.
+Ports 3478 TCP and UDP go to chill-01.
+Ports 52100 to 52200 UDP go to chill-01.
+
+## private routes
+
+The source of truth is `stacks/edge/Caddyfile`.
+These names are tailnet-only under `h.malice.biz`.
+
+- home.h.malice.biz
+- dockge.h.malice.biz
+- beszel.h.malice.biz
+- qbittorrent.h.malice.biz
+- prowlarr.h.malice.biz
+- radarr.h.malice.biz
+- sonarr.h.malice.biz
+- bazarr.h.malice.biz
+- slskd.h.malice.biz
+- wrtag.h.malice.biz
+
 Unknown private names return 404.
-
-dockge.h.malice.biz
-beszel.h.malice.biz
-
-Cockpit stays raw.
-Use 10.44.0.2:9090.
 
 ## stacks
 
-apps runs Filebrowser Quantum.
-photos runs Immich.
-docs runs Stirling PDF, Paperless, and Kavita.
-comms runs Mumble, Neko, and Screego.
-observability runs Gotify, Dockge, Beszel, and the Beszel agent.
-edge runs private Caddy.
+- apps: Filebrowser Quantum
+- photos: Immich
+- docs: Stirling PDF, Paperless, Kavita
+- comms: Mumble, Neko, Screego
+- media: Jellyfin, qBittorrent, Prowlarr, Radarr, Sonarr, Bazarr, Jellyseerr, Navidrome, Octo-Fiesta, Feishin, DUFS, slskd, wrtag
+- observability: Gotify, Dockge, Beszel, Beszel agent
+- edge: private Caddy and homepage
 
 ## deploy
 
-Edit files.
-Commit and push.
-Run make deploy.
-Run make vps after public Caddy or nftables changes.
-Run make edge-reload after private Caddy changes.
-Run make check before pushing when Docker Compose is available.
+`make deploy` ships local stacks to chill-01.
+It downs retired stacks, syncs git-owned files, then starts active stacks.
 
-## rules
+`make vps` updates the VPS.
+It owns public Caddy site files and homelab nftables.
 
-No secrets in git.
-Secrets live in .env files and host config files.
+`make edge-reload` validates and restarts private Caddy.
+
+`make check` validates compose files and shell scripts.
+It needs Docker Compose and shellcheck.
+
+## secrets
+
+Never print secrets.
+Never commit secrets.
+Do not use `git add -A`.
+
+Secrets live on hosts.
+Use `.env` files for stacks.
+Use `/etc/homelab.env` for backup settings.
+Use WireGuard config files only for the VPS `<->` chill-01 tunnel.
 Keep secret files mode 0600.
 
-Do not delete the chill0 WireGuard peer or /etc/wireguard on either box.
-Do not put a peer endpoint inside AllowedIPs.
-Do not expose admin surfaces publicly.
-Keep Tailscale key expiry disabled for chill-01.
+## backup
+
+`host/backup.sh` is the backup entry point.
+It dumps Immich and Paperless databases.
+It snapshots Kavita, Gotify, Dockge, and Beszel sqlite databases.
+It backs up `/opt`, `/mnt/data`, `/mnt/fast/photos`, `/etc`, and `/root/.ssh`.
+It excludes downloads, movies, and TV.
+
+VPS pull failure must alert.
+It must not fail the home backup.
+
+## old media cleanup
+
+The old LXC 203 media deployment is retired.
+Stop it before starting `stacks/media` on chill-01.
+Remove old 10.30 WireGuard and nftables rules from the VPS after confirming nothing uses them.
+
+## operations
+
+Use `vps-ingress` for the VPS.
+Use `malice` for Proxmox.
+Use `chill-deploy` for chill-01.
+
+VPS SSH is rate limited.
+Reuse connections.
+
+VM 101 is chill-01.
+
+## hard rules
+
+Never delete the VPS `<->` chill-01 WireGuard configs or `/etc/wireguard` on either box.
+Never flush the VPS nftables ruleset.
+Never bind Docker services to `0.0.0.0` unless the exception is documented.
+Never add public base URLs to private-only services.
+Never make an admin surface public.

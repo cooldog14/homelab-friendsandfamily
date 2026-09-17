@@ -10,7 +10,7 @@ soulseek:
 
 directories:
   # Matches compose env SLSKD_INCOMPLETE_DIR / SLSKD_DOWNLOADS_DIR
-  # (${DATA_LOCATION}:/data, i.e. /mnt/data on arr).
+  # (${DATA_LOCATION}:/data, i.e. /mnt/data on chill-01).
   incomplete: /data/downloads/slskd/incomplete
   downloads: /data/downloads/slskd/complete
 

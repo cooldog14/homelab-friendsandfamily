@@ -1,86 +1,50 @@
 services:
   jellyfin:
     image: jellyfin/jellyfin:10.11
-    container_name: jellyfin
     user: "1000:1000"
-    group_add:
-      - "100000" # arr LXC /dev/dri passthrough (unprivileged mapping)
     ports:
-      - "127.0.0.1:8096:8096"
+      - "${WG_IP:-10.44.0.2}:8096:8096"
     volumes:
-      - ./jellyfin-config:/config
-      - ./jellyfin-cache:/cache
-      - ${DATA_LOCATION}:/data
+      - ./state/jellyfin-config:/config
+      - ./state/jellyfin-cache:/cache
+      - ${DATA_LOCATION:-/mnt/data}:/data
     restart: unless-stopped
     environment:
-      TZ: ${TIMEZONE}
-
-  gluetun:
-    image: qmcgaw/gluetun:v3.41.1
-    container_name: gluetun
-    cap_add:
-      - NET_ADMIN
-    devices:
-      - /dev/net/tun
-    ports:
-      - "127.0.0.1:8701:8701"
-      - "6881:6881"
-      - "6881:6881/udp"
-      - "127.0.0.1:9696:9696"
-      - "127.0.0.1:8191:8191"
-      - "127.0.0.1:5030:5030"
-    volumes:
-      - ./gluetun:/gluetun
-    environment:
-      VPN_SERVICE_PROVIDER: custom
-      VPN_TYPE: wireguard
-      WIREGUARD_PRIVATE_KEY: ${WIREGUARD_PRIVATE_KEY}
-      WIREGUARD_ADDRESSES: ${WIREGUARD_ADDRESSES}
-      VPN_ENDPOINT_IP: ${VPN_ENDPOINT_IP}
-      VPN_ENDPOINT_PORT: ${VPN_ENDPOINT_PORT}
-      FIREWALL_VPN_INPUT_PORTS: ${FIREWALL_VPN_INPUT_PORTS:-6881}
-      FIREWALL_OUTBOUND_SUBNETS: "172.18.0.0/16"
-      WIREGUARD_PUBLIC_KEY: ${VPS_WG_PUBKEY}
-      TZ: ${TIMEZONE}
-    restart: unless-stopped
+      TZ: ${TIMEZONE:-Europe/Paris}
 
   qbittorrent:
     image: lscr.io/linuxserver/qbittorrent:5.2.2
-    network_mode: "service:gluetun"
-    depends_on:
-      - gluetun
+    ports:
+      - "${WG_IP:-10.44.0.2}:8701:8701"
     environment:
       PUID: "1000"
       PGID: "1000"
-      TZ: ${TIMEZONE}
+      TZ: ${TIMEZONE:-Europe/Paris}
       WEBUI_PORT: "8701"
+      # Container listener only; the host bind above stays on WG_IP for private Caddy.
       WEBUI_ADDRESS: "0.0.0.0"
       WEBUI_EXTERNAL_ACCESS: "true"
     volumes:
-      - ./qbittorrent:/config
-      - ${DATA_LOCATION}:/data
+      - ./state/qbittorrent:/config
+      - ${DATA_LOCATION:-/mnt/data}:/data
     restart: unless-stopped
 
   prowlarr:
     image: lscr.io/linuxserver/prowlarr:2.4.0
     restart: unless-stopped
-    network_mode: "service:gluetun"
-    depends_on:
-      - gluetun
+    ports:
+      - "${WG_IP:-10.44.0.2}:9696:9696"
     environment:
       PUID: "1000"
       PGID: "1000"
-      TZ: ${TIMEZONE}
+      TZ: ${TIMEZONE:-Europe/Paris}
     volumes:
-      - ./prowlarr:/config
+      - ./state/prowlarr:/config
 
   flaresolverr:
     image: ghcr.io/flaresolverr/flaresolverr:v3.5.0
-    network_mode: "service:gluetun"
-    depends_on:
-      - gluetun
     environment:
-      TZ: ${TIMEZONE}
+      TZ: ${TIMEZONE:-Europe/Paris}
       LOG_LEVEL: info
       HEADLESS: "true"
       BROWSER_TIMEOUT: "120000"
@@ -91,50 +55,50 @@ services:
     image: lscr.io/linuxserver/radarr:6.2.1
     restart: unless-stopped
     ports:
-      - "127.0.0.1:7878:7878"
+      - "${WG_IP:-10.44.0.2}:7878:7878"
     environment:
       PUID: "1000"
       PGID: "1000"
-      TZ: ${TIMEZONE}
+      TZ: ${TIMEZONE:-Europe/Paris}
     volumes:
-      - ./radarr:/config
-      - ${DATA_LOCATION}:/data
+      - ./state/radarr:/config
+      - ${DATA_LOCATION:-/mnt/data}:/data
 
   sonarr:
     image: lscr.io/linuxserver/sonarr:4.0.17
     restart: unless-stopped
     ports:
-      - "127.0.0.1:8989:8989"
+      - "${WG_IP:-10.44.0.2}:8989:8989"
     environment:
       PUID: "1000"
       PGID: "1000"
-      TZ: ${TIMEZONE}
+      TZ: ${TIMEZONE:-Europe/Paris}
     volumes:
-      - ./sonarr:/config
-      - ${DATA_LOCATION}:/data
+      - ./state/sonarr:/config
+      - ${DATA_LOCATION:-/mnt/data}:/data
 
   bazarr:
     image: lscr.io/linuxserver/bazarr:1.5.6
     restart: unless-stopped
     ports:
-      - "127.0.0.1:6767:6767"
+      - "${WG_IP:-10.44.0.2}:6767:6767"
     environment:
       PUID: "1000"
       PGID: "1000"
-      TZ: ${TIMEZONE}
+      TZ: ${TIMEZONE:-Europe/Paris}
     volumes:
-      - ./bazarr:/config
-      - ${DATA_LOCATION}:/data
+      - ./state/bazarr:/config
+      - ${DATA_LOCATION:-/mnt/data}:/data
 
   jellyseerr:
     image: fallenbagel/jellyseerr:2.7.3
     environment:
-      TZ: ${TIMEZONE}
+      TZ: ${TIMEZONE:-Europe/Paris}
       LOG_LEVEL: info
     ports:
-      - "127.0.0.1:5055:5055"
+      - "${WG_IP:-10.44.0.2}:5055:5055"
     volumes:
-      - ./jellyseerr:/app/config
+      - ./state/jellyseerr:/app/config
     restart: unless-stopped
     depends_on:
       - jellyfin
@@ -143,28 +107,27 @@ services:
 
   navidrome:
     image: deluan/navidrome:0.63.2
-    container_name: navidrome
     user: "1000:1000"
     ports:
+      - "${WG_IP:-10.44.0.2}:4533:4533"
       - "127.0.0.1:4533:4533"
     environment:
-      TZ: ${TIMEZONE}
+      TZ: ${TIMEZONE:-Europe/Paris}
       ND_ENABLEINSIGHTSCOLLECTOR: "false"
       ND_ENABLESHARING: "false"
       ND_LOGLEVEL: info
       ND_MUSICFOLDER: /music
       ND_SCANNER_SCHEDULE: "@every 1h"
     volumes:
-      - ./navidrome:/data
-      - ${DATA_LOCATION}/media/music:/music:ro
+      - ./state/navidrome:/data
+      - ${DATA_LOCATION:-/mnt/data}/media/music:/music:ro
     restart: unless-stopped
 
   wrtag:
     image: sentriz/wrtag:v0.30.0
-    container_name: wrtag
     user: "1000:1000"
     ports:
-      - "127.0.0.1:7373:7373"
+      - "${WG_IP:-10.44.0.2}:7373:7373"
     environment:
       WRTAG_PATH_FORMAT: '/mnt/data/media/music/clean/{{ artists .Release.Artists | sort | join "; " | safepath }}/({{ .Release.ReleaseGroup.FirstReleaseDate.Year }}) {{ .Release.Title | safepath }}{{ if not (eq .ReleaseDisambiguation "") }} ({{ .ReleaseDisambiguation | safepath }}){{ end }}/{{ if gt (len .Release.Media) 1 }}d{{ pad0 2 .Media.Position }} {{ end }}{{ pad0 2 .Track.Position }}.{{ .Media.TrackCount | pad0 2 }} {{ if .IsCompilation }}{{ artistsString .Track.Artists | safepath }} - {{ end }}{{ .Track.Title | safepath }}{{ .Ext }}'
       WRTAG_WEB_API_KEY: ${WRTAG_WEB_API_KEY}
@@ -177,16 +140,15 @@ services:
       WRTAG_KEEP_FILE: "origin.yaml,*.cue,*.log"
       WRTAG_COVER_UPGRADE: "true"
     volumes:
-      - ./wrtag:/data
-      - ${DATA_LOCATION}:/mnt/data
+      - ./state/wrtag:/data
+      - ${DATA_LOCATION:-/mnt/data}:/mnt/data
     restart: unless-stopped
 
   octo-fiesta:
     image: ghcr.io/v1ck3s/octo-fiesta:v0.8
-    container_name: octo-fiesta
     user: "1000:1000"
     ports:
-      - "127.0.0.1:5274:8080"
+      - "${WG_IP:-10.44.0.2}:5274:8080"
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: "http://+:8080"
@@ -225,17 +187,16 @@ services:
       Yandex__Language: ${YANDEX_LANGUAGE:-}
       Yandex__IncludeUnavailable: ${YANDEX_INCLUDE_UNAVAILABLE_TRACKS:-false}
     volumes:
-      - ${DATA_LOCATION}/media/music/clean:/app/downloads
-      - ./octo-fiesta:/config
+      - ${DATA_LOCATION:-/mnt/data}/media/music/clean:/app/downloads
+      - ./state/octo-fiesta:/config
     depends_on:
       - navidrome
     restart: unless-stopped
 
   feishin:
     image: ghcr.io/jeffvli/feishin:1.12.1
-    container_name: feishin
     ports:
-      - "127.0.0.1:9180:9180"
+      - "${WG_IP:-10.44.0.2}:9180:9180"
     environment:
       SERVER_NAME: "malice.biz"
       SERVER_TYPE: subsonic
@@ -248,13 +209,13 @@ services:
 
   dufs:
     image: sigoden/dufs:v0.46.0
-    container_name: dufs
     user: "1000:1000"
     ports:
-      - "127.0.0.1:5000:5000"
+      - "${WG_IP:-10.44.0.2}:5000:5000"
     environment:
-      TZ: ${TIMEZONE}
+      TZ: ${TIMEZONE:-Europe/Paris}
       DUFS_SERVE_PATH: /uploads
+      # Container listener only; the host bind above stays on WG_IP for VPS Caddy.
       DUFS_BIND: 0.0.0.0
       DUFS_PORT: "5000"
       DUFS_ALLOW_UPLOAD: "true"
@@ -265,7 +226,7 @@ services:
       DUFS_HIDDEN: ".*,lost+found"
       DUFS_AUTH: "admin:${DUFS_ADMIN_PASSWORD}@/:rw|user:${DUFS_USER_PASSWORD}@/:rw"
     volumes:
-      - ${DATA_LOCATION}/downloads/uploads:/uploads
+      - ${DATA_LOCATION:-/mnt/data}/downloads/uploads:/uploads
     restart: unless-stopped
 
   slskd:
@@ -273,14 +234,13 @@ services:
       context: .
       dockerfile: Dockerfile.slskd
     image: local/slskd-wrtag:0.26.0
-    container_name: slskd
     user: "1000:1000"
-    network_mode: "service:gluetun"
+    ports:
+      - "${WG_IP:-10.44.0.2}:5030:5030"
     depends_on:
-      - gluetun
       - wrtag
     environment:
-      TZ: ${TIMEZONE}
+      TZ: ${TIMEZONE:-Europe/Paris}
       SLSKD_CONFIG: /app/slskd.yml
       SLSKD_UMASK: "0002"
       SLSKD_SLSK_USERNAME: ${SLSKD_SLSK_USERNAME}
@@ -294,21 +254,8 @@ services:
       SLSKD_REMOTE_CONFIGURATION: "false"
       SLSKD_REMOTE_FILE_MANAGEMENT: "false"
     volumes:
-      - ./slskd:/app
+      - ./state/slskd:/app
       - ./config/slskd/slskd.yml:/app/slskd.yml:ro
       - ./config/slskd/autotag.sh:/app/scripts/autotag.sh:ro
-      - ${DATA_LOCATION}:/data
+      - ${DATA_LOCATION:-/mnt/data}:/data
     restart: unless-stopped
-
-  caddy:
-    image: caddy:2.8.4-alpine
-    network_mode: host
-    restart: unless-stopped
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy_data:/data
-      - caddy_config:/config
-
-volumes:
-  caddy_data:
-  caddy_config:

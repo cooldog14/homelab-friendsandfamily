@@ -1,8 +1,6 @@
-# chill-owned public vhosts (10.44.0.2 backends). Deployed by `make vps`.
+# chill-01 public vhosts (10.44.0.2 backends). Deployed by `make vps`.
 # NOTE: multi-line blocks required — the Caddyfile `import` directive
 # rejects single-line `host { ... }` blocks in imported files.
-# arr-owned stanzas (jellyfin/requests -> 10.30.0.5) live in
-# /etc/caddy/sites/arr.caddy ON THE BOX ONLY — never commit them here.
 gotify.malice.biz {
 	reverse_proxy 10.44.0.2:8070
 }

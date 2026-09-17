@@ -3,15 +3,12 @@
 # *.h.malice.biz A <chill-01 Tailscale IP>. More specific than the existing
 # *.malice.biz -> VPS wildcard, so it wins without disturbing it.
 #
-# The map below is now THE authority for private ports. AGENTS.md points here
-# instead of keeping its own copy.
+# Exact host routes below are THE authority for private/admin ports.
 #
-# Public *.malice.biz vhosts live on the VPS in vps/sites/chill.caddy. Never
+# Public *.malice.biz vhosts live on the VPS in vps/sites/*.caddy. Never
 # duplicate one into this file: two Caddies racing for the same name means two
 # ACME orders and a rate-limited afternoon.
 #
-# Cockpit (:9090) is deliberately absent. It is break-glass, so it must not
-# depend on this container being healthy — keep reaching it by IP:port.
 {
 	email admin@malice.biz
 }
@@ -24,7 +21,12 @@
 	# Exact host matchers, NOT map: map leaves {svcport} unset for unknown names
 	# (its `default` line is silently dropped — verified 2026-09-16), and an
 	# unset placeholder makes `!= ""` true, proxying unknowns to :0 (502).
-	# Two names = two matchers; extend the same way, keep the 404 last.
+	# Extend the same way, keep the 404 last.
+	@home host home.h.malice.biz
+	handle @home {
+		root * /srv/home
+		file_server
+	}
 	@dockge host dockge.h.malice.biz
 	handle @dockge {
 		reverse_proxy {env.UPSTREAM}:5001
@@ -32,6 +34,34 @@
 	@beszel host beszel.h.malice.biz
 	handle @beszel {
 		reverse_proxy {env.UPSTREAM}:8090
+	}
+	@qbittorrent host qbittorrent.h.malice.biz
+	handle @qbittorrent {
+		reverse_proxy {env.UPSTREAM}:8701
+	}
+	@prowlarr host prowlarr.h.malice.biz
+	handle @prowlarr {
+		reverse_proxy {env.UPSTREAM}:9696
+	}
+	@radarr host radarr.h.malice.biz
+	handle @radarr {
+		reverse_proxy {env.UPSTREAM}:7878
+	}
+	@sonarr host sonarr.h.malice.biz
+	handle @sonarr {
+		reverse_proxy {env.UPSTREAM}:8989
+	}
+	@bazarr host bazarr.h.malice.biz
+	handle @bazarr {
+		reverse_proxy {env.UPSTREAM}:6767
+	}
+	@slskd host slskd.h.malice.biz
+	handle @slskd {
+		reverse_proxy {env.UPSTREAM}:5030
+	}
+	@wrtag host wrtag.h.malice.biz
+	handle @wrtag {
+		reverse_proxy {env.UPSTREAM}:7373
 	}
 	handle {
 		respond "unknown private service" 404

@@ -1,14 +1,6 @@
 #!/bin/sh
-# Debian 13 VPS: the only public thing you own. Caddy (front door) + nftables
-# (DNAT down the tunnel) + static kernel WireGuard (chill0: 10.44.0.0/24).
-# Model is VPS-hub: chill-01 dials THIS box on 51824/udp. Re-running is fine.
-# The 10.30 arr network is a separate kernel wg (wg0:51820, arr LXC at 10.30.0.5
-# behind sites/arr.caddy) and it stays. wg-easy was removed 2026-09-16, see
-# MIGRATION.md stage 2 for the cutover history.
-# DANGER (one-time, 2026-09-12): the first run after the sites/ split replaces
-# the monolithic live Caddyfile. Seed /etc/caddy/sites/arr.caddy from the live
-# arr route stanzas BEFORE running, then validate + curl every vhost.
-# Later runs only touch repo-owned files (Caddyfile, sites/chill.caddy).
+# Debian 13 VPS: public Caddy + nftables + static kernel WireGuard
+# (chill0: 10.44.0.0/24). Re-running is fine.
 set -eu
 cd "$(dirname "$0")"
 
@@ -17,21 +9,21 @@ apt-get install -y ca-certificates curl gnupg
 curl -1sLf https://dl.cloudsmith.io/public/caddy/stable/gpg.key | gpg --dearmor --yes -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
 curl -1sLf https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt -o /etc/apt/sources.list.d/caddy-stable.list
 apt-get update
-apt-get install -y caddy docker-ce docker-ce-cli containerd.io docker-compose-plugin goaccess nftables unattended-upgrades wireguard
+apt-get install -y caddy goaccess nftables unattended-upgrades wireguard
 mkdir -p /var/log/caddy && chown caddy:caddy /var/log/caddy
 
 mkdir -p /var/backups
 cp -a /etc/caddy/Caddyfile "/var/backups/Caddyfile.$(date +%F-%T)" 2>/dev/null || true
+tar -C /etc/caddy -czf "/var/backups/caddy-sites.$(date +%F-%T).tgz" sites 2>/dev/null || true
 install -m 644 Caddyfile /etc/caddy/Caddyfile
-# Split layout: repo owns the main file + sites/chill.caddy only.
-# sites/arr.caddy (arr public routes, live-managed) is NEVER touched here.
 mkdir -p /etc/caddy/sites
-install -m 644 sites/chill.caddy /etc/caddy/sites/chill.caddy
+rm -f /etc/caddy/sites/*.caddy
+install -m 644 sites/*.caddy /etc/caddy/sites/
 caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
 systemctl reload caddy
 
 # homelab_nat is its own table: apply without touching /etc/nftables.conf
-# (which carries crowdsec + legacy rules). Persist via include (once):
+# (which carries provider/local rules). Persist via include (once):
 #   mkdir -p /etc/nftables.d
 #   install -m 644 nftables.conf /etc/nftables.d/homelab_nat.conf
 #   grep -q homelab_nat /etc/nftables.conf || echo 'include "/etc/nftables.d/homelab_nat.conf"' >> /etc/nftables.conf
@@ -48,6 +40,6 @@ sysctl --system > /dev/null
 # /etc/wireguard/chill0.conf (0600, host-only, never in git) — created once
 # during the stage-2 cutover. This script never writes keys; it just keeps the
 # link enabled across re-runs.
-systemctl enable --now caddy nftables docker
+systemctl enable --now caddy nftables
 systemctl enable --now wg-quick@chill0 || echo "missing /etc/wireguard/chill0.conf — restore it from backup before relying on public vhosts"
-echo "public vhosts live in /etc/caddy/sites/chill.caddy; phones use Tailscale, not WireGuard"
+echo "public vhosts live in /etc/caddy/sites; private/admin access uses Tailscale"

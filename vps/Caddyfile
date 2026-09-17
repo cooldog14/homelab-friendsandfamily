@@ -9,7 +9,4 @@
 	}
 }
 
-# Split layout (audit 2026-09-12): repo owns this file + sites/chill.caddy.
-# sites/arr.caddy (arr public routes -> arr LXC 10.30.0.5, managed outside git)
-# lives ON THE BOX ONLY — `make vps` / bootstrap.sh must never touch it.
 import /etc/caddy/sites/*.caddy
