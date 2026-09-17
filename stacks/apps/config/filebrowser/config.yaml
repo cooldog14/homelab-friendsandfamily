@@ -8,16 +8,16 @@ server:
   baseURL: "/"
   logging:
     - levels: "info|warning|error"
-  # /mnt/fast, /mnt/archive and /mnt/pool are bind-mounted underneath /srv in the
-  # compose file, so this single source already covers every disk.
+  # Each compose service decides what /srv exposes: the private one mounts all
+  # data disks, the public upload one mounts only the upload drop.
   sources:
     - path: "/srv"
 auth:
   methods:
     password:
       enabled: true
-      # Upstream default is 5. This is reachable over the tailnet by anyone with a
-      # device on it, so it gets a real minimum.
+      # Upstream default is 5. These services are reachable wherever routed, so
+      # they get a real minimum.
       minLength: 12
       signup: false
     passkey:

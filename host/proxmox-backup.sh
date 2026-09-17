@@ -14,5 +14,6 @@ if vzdump "$vmid" --storage backup --mode snapshot --compress zstd --prune-backu
   log "vzdump $vmid ok"
 else
   log "vzdump $vmid FAILED"
+  exit 1
 fi
 log "done"

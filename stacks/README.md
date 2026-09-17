@@ -7,7 +7,7 @@ Stack .env files and state folders stay on the host.
 
 ## stacks
 
-- apps: Filebrowser Quantum
+- apps: Filebrowser Quantum, public upload drop
 - photos: Immich
 - docs: Paperless, Stirling PDF, Kavita
 - comms: Mumble, Neko, Screego
@@ -21,6 +21,7 @@ These routes work on Tailscale only.
 
 - home.h.malice.biz
 - dockge.h.malice.biz
+- files.h.malice.biz
 - gotify.h.malice.biz
 - beszel.h.malice.biz
 - qbittorrent.h.malice.biz

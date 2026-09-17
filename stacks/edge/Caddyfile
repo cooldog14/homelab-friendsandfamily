@@ -40,6 +40,10 @@
 	handle @dockge {
 		reverse_proxy {env.UPSTREAM}:5001
 	}
+	@files host files.h.malice.biz
+	handle @files {
+		reverse_proxy {env.UPSTREAM}:8085
+	}
 	@gotify host gotify.h.malice.biz
 	handle @gotify {
 		reverse_proxy {env.UPSTREAM}:8070
