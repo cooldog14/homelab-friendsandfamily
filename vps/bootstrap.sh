@@ -28,6 +28,12 @@ install -m 644 Caddyfile /etc/caddy/Caddyfile
 mkdir -p /etc/caddy/sites
 rm -f /etc/caddy/sites/*.caddy
 install -m 644 sites/*.caddy /etc/caddy/sites/
+# Log files must exist owned by caddy BEFORE validate/reload: `caddy
+# validate` runs as root and creates them root-owned, which then makes
+# the reload (running as caddy) fail with permission denied.
+touch /var/log/caddy/caddy.log /var/log/caddy/access.log
+chown caddy:caddy /var/log/caddy/caddy.log /var/log/caddy/access.log
+chmod 600 /var/log/caddy/caddy.log /var/log/caddy/access.log
 
 # homelab_nat is its own table: apply without touching /etc/nftables.conf
 # (which carries provider/local rules). Persist via include (once):
