@@ -2,20 +2,26 @@
 # NOTE: multi-line blocks required — the Caddyfile `import` directive
 # rejects single-line `host { ... }` blocks in imported files.
 photos.malice.biz {
+	import access_log
 	reverse_proxy 10.44.0.2:2283
 }
 paperless.malice.biz {
+	import access_log
 	reverse_proxy 10.44.0.2:8092
 }
 stirling.malice.biz {
+	import access_log
 	reverse_proxy 10.44.0.2:8091
 }
 kavita.malice.biz {
+	import access_log
 	reverse_proxy 10.44.0.2:8094
 }
 neko.malice.biz {
+	import access_log
 	reverse_proxy 10.44.0.2:8097
 }
 screego.malice.biz {
+	import access_log
 	reverse_proxy 10.44.0.2:5050
 }

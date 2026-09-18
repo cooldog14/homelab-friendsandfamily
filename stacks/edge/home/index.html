@@ -3,78 +3,45 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>homelab admin</title>
+  <title>home</title>
+  <style>
+    body{max-width:42rem;margin:3rem auto;padding:0 1rem;font:16px system-ui,sans-serif;line-height:1.5}
+    a{display:block;margin:.35rem 0}
+  </style>
 </head>
 <body>
-  <h1>homelab admin</h1>
-  <p>Private links. Use Tailscale.</p>
+  <h1>home</h1>
 
-  <h2>Health</h2>
-  <ul>
-    <li>Public HTTP: homelab-public-check.service</li>
-    <li>Backups: homelab-backup-watchdog.service</li>
-    <li>WireGuard: make tunnel</li>
-    <li>Alerts: <a href="https://gotify.h.malice.biz">Gotify</a></li>
-  </ul>
+  <h2>Status</h2>
+  <a href="https://beszel.h.malice.biz">Beszel</a>
+  <a href="https://gotify.h.malice.biz">Gotify</a>
 
-  <h2>Resources</h2>
-  <div id="disks">Disk data loading.</div>
-  <ul>
-    <li><a href="https://beszel.h.malice.biz">Beszel</a></li>
-    <li><a href="https://dockge.h.malice.biz">Dockge</a></li>
-    <li><a href="https://files.h.malice.biz">Files</a></li>
-    <li><a href="/status/traffic.html">Traffic report</a></li>
-  </ul>
+  <h2>Admin</h2>
+  <a href="https://dockge.h.malice.biz">Dockge</a>
+  <a href="https://files.h.malice.biz">Files</a>
 
-  <h2>Media admin</h2>
-  <ul>
-    <li><a href="https://qbittorrent.h.malice.biz">qBittorrent</a></li>
-    <li><a href="https://prowlarr.h.malice.biz">Prowlarr</a></li>
-    <li><a href="https://radarr.h.malice.biz">Radarr</a></li>
-    <li><a href="https://sonarr.h.malice.biz">Sonarr</a></li>
-    <li><a href="https://bazarr.h.malice.biz">Bazarr</a></li>
-    <li><a href="https://slskd.h.malice.biz">slskd</a></li>
-    <li><a href="https://wrtag.h.malice.biz">wrtag</a></li>
-    <li><a href="https://suwayomi.h.malice.biz">Suwayomi</a></li>
-  </ul>
+  <h2>Media</h2>
+  <a href="https://qbittorrent.h.malice.biz">qBittorrent</a>
+  <a href="https://prowlarr.h.malice.biz">Prowlarr</a>
+  <a href="https://radarr.h.malice.biz">Radarr</a>
+  <a href="https://sonarr.h.malice.biz">Sonarr</a>
+  <a href="https://bazarr.h.malice.biz">Bazarr</a>
+  <a href="https://slskd.h.malice.biz">slskd</a>
+  <a href="https://wrtag.h.malice.biz">wrtag</a>
 
-  <script>
-    function human(bytes) {
-      var units = ["B", "KB", "MB", "GB", "TB"];
-      var value = bytes;
-      var unit = 0;
-      while (value >= 1024 && unit < units.length - 1) {
-        value = value / 1024;
-        unit += 1;
-      }
-      return value.toFixed(value >= 10 || unit === 0 ? 0 : 1) + " " + units[unit];
-    }
-
-    fetch("/status/disks.json", { cache: "no-store" })
-      .then(function(response) {
-        if (!response.ok) throw new Error("disk status unavailable");
-        return response.json();
-      })
-      .then(function(data) {
-        var root = document.getElementById("disks");
-        root.textContent = "";
-        data.disks.forEach(function(disk) {
-          var line = document.createElement("p");
-          var label = document.createElement("span");
-          var meter = document.createElement("meter");
-          label.textContent = disk.mount + " " + disk.percent + "% " + human(disk.used) + " / " + human(disk.size);
-          meter.min = 0;
-          meter.max = 100;
-          meter.value = disk.percent;
-          line.appendChild(label);
-          line.appendChild(document.createElement("br"));
-          line.appendChild(meter);
-          root.appendChild(line);
-        });
-      })
-      .catch(function() {
-        document.getElementById("disks").textContent = "Disk data unavailable. Check homelab-disk-usage.service.";
-      });
-  </script>
+  <h2>Public</h2>
+  <a href="/status/traffic.html">Traffic report</a>
+  <a href="https://photos.malice.biz">Photos</a>
+  <a href="https://jellyfin.malice.biz">Jellyfin</a>
+  <a href="https://requests.malice.biz">Requests</a>
+  <a href="https://paperless.malice.biz">Paperless</a>
+  <a href="https://stirling.malice.biz">Stirling PDF</a>
+  <a href="https://kavita.malice.biz">Kavita</a>
+  <a href="https://neko.malice.biz">Neko</a>
+  <a href="https://screego.malice.biz">Screego</a>
+  <a href="https://player.malice.biz">Player</a>
+  <a href="https://fiesta.malice.biz">Fiesta</a>
+  <a href="https://upload.malice.biz">Upload</a>
+  <a href="https://nvdr.malice.biz">Navidrome</a>
 </body>
 </html>

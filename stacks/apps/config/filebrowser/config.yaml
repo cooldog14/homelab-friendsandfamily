@@ -1,6 +1,3 @@
-# FileBrowser Quantum. Schema is the v1.5.x one (upstream backend/config.yaml at
-# tag v1.5.6-stable); the 2.0 line rearranged this, so re-read the docs before
-# bumping the image across that boundary.
 # An admin user is created on first start and its password is printed to the
 # container log once — read it from Dockge and change it immediately.
 server:
@@ -8,8 +5,6 @@ server:
   baseURL: "/"
   logging:
     - levels: "info|warning|error"
-  # Each compose service decides what /srv exposes: the private one mounts all
-  # data disks, the public upload one mounts only the upload drop.
   sources:
     - path: "/srv"
 auth:

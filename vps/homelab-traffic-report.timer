@@ -1,0 +1,10 @@
+[Unit]
+Description=Refresh public traffic report
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=15min
+Unit=homelab-traffic-report.service
+
+[Install]
+WantedBy=timers.target
