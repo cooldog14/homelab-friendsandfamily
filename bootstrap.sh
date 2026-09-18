@@ -16,7 +16,6 @@ echo "deb [signed-by=/usr/share/keyrings/tailscale-archive-keyring.gpg] https://
 apt-get update
 # wireguard is permanent, not transitional: wg0 carries the VPS return path for
 # chill public vhosts. Tailscale is for roaming devices only.
-# Both are installed on purpose -- see MIGRATION.md for why the split exists.
 apt-get install -y docker-ce docker-compose-plugin git qemu-guest-agent restic sqlite3 tailscale ufw unattended-upgrades wireguard
 systemctl disable --now cockpit.socket 2>/dev/null || true
 rm -rf /etc/systemd/system/cockpit.socket.d
@@ -30,23 +29,24 @@ install -m 644 host/daemon.json /etc/docker/daemon.json
 new_daemon=$(md5sum /etc/docker/daemon.json | cut -d' ' -f1)
 install -m 755 host/backup.sh /usr/local/bin/homelab-backup
 install -m 755 host/backup-watchdog.sh /usr/local/bin/homelab-backup-watchdog
-install -m 755 host/disk-usage.sh /usr/local/bin/homelab-disk-usage
 install -m 755 host/public-check.sh /usr/local/bin/homelab-public-check
-install -m 644 host/homelab-backup.service host/homelab-backup.timer host/homelab-backup-watchdog.service host/homelab-backup-watchdog.timer host/homelab-disk-usage.service host/homelab-disk-usage.timer host/homelab-public-check.service host/homelab-public-check.timer 'host/notify@.service' /etc/systemd/system/
+install -m 644 host/homelab-backup.service host/homelab-backup.timer host/homelab-backup-watchdog.service host/homelab-backup-watchdog.timer host/homelab-public-check.service host/homelab-public-check.timer 'host/notify@.service' /etc/systemd/system/
+systemctl disable --now homelab-disk-usage.timer 2>/dev/null || true
+rm -f /usr/local/bin/homelab-disk-usage /etc/systemd/system/homelab-disk-usage.service /etc/systemd/system/homelab-disk-usage.timer
 printf 'PasswordAuthentication no\nPermitRootLogin no\n' > /etc/ssh/sshd_config.d/homelab.conf
 printf 'Unattended-Upgrade::Automatic-Reboot "true";\nUnattended-Upgrade::Automatic-Reboot-Time "03:00";\n' > /etc/apt/apt.conf.d/51homelab
 grep -q pve1-mirror /etc/fstab || echo 'pve1-mirror /mnt/data virtiofs rw,relatime,nofail 0 0' >> /etc/fstab
 grep -q pve1-fast /etc/fstab || echo 'pve1-fast /mnt/fast virtiofs rw,relatime,nofail 0 0' >> /etc/fstab
 grep -q pve1-archive /etc/fstab || echo 'pve1-archive /mnt/archive virtiofs rw,relatime,nofail 0 0' >> /etc/fstab
 grep -q pve1-pool /etc/fstab || echo 'pve1-pool /mnt/pool virtiofs rw,relatime,nofail 0 0' >> /etc/fstab
-mkdir -p /mnt/data /mnt/fast /mnt/archive /mnt/pool /opt/stacks/edge/state/home && mount -a
+mkdir -p /mnt/data /mnt/fast /mnt/archive /mnt/pool && mount -a
 
 printf 'net.ipv4.ip_forward=1\n' > /etc/sysctl.d/99-homelab.conf
 sysctl --system > /dev/null
 
 # 22 is for LAN admin. Humans use Tailscale/private Caddy for admin apps.
 # Public app traffic arrives over the wg0 tunnel from the VPS.
-# AdGuard-era residue: no :53 listener anymore, drop the stale allows (ignore if absent).
+# No DNS service here.
 ufw delete allow 53/tcp 2>/dev/null || true
 ufw delete allow 53/udp 2>/dev/null || true
 ufw allow 22/tcp && ufw allow in on wg0 && ufw allow in on tailscale0 && ufw --force enable
@@ -58,8 +58,7 @@ else
   echo "daemon.json unchanged, skipping docker restart"
 fi
 systemctl reload ssh
-systemctl start homelab-disk-usage.service
-systemctl enable --now qemu-guest-agent tailscaled homelab-backup.timer homelab-backup-watchdog.timer homelab-disk-usage.timer homelab-public-check.timer
+systemctl enable --now qemu-guest-agent tailscaled homelab-backup.timer homelab-backup-watchdog.timer homelab-public-check.timer
 # wg0 is the static VPS<->chill-01 tunnel. Keep /etc/wireguard/wg0.conf at
 # 0600, then: systemctl enable --now wg-quick@wg0
 # tailscaled is installed and running but unauthenticated: join the tailnet once,

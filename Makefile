@@ -1,19 +1,16 @@
 HOST ?= deploy@10.44.0.2
 # VPS via the vps-ingress SSH alias (port 4522 + key in ~/.ssh/config); 22 is closed.
 VPS_SSH ?= ssh vps-ingress
-TRAFFIC_REPORT ?= traffic-report.html
 STACKS = apps comms docs edge media observability photos
-RETIRED_STACKS = privacy
 
 # git is the source of truth; Dockge is for logs and restarts, not for editing YAML behind git's back.
 # Ship the local working tree (commit + push first). No git pull on the host,
 # so no deploy-key scoping issue when splitting repos.
 deploy: sync-public-sites
 	rsync -a --delete stacks/ $(HOST):/tmp/chill-stacks/
-	ssh $(HOST) 'for s in $(RETIRED_STACKS); do if [ -f /opt/stacks/$$s/docker-compose.yml ]; then (cd /opt/stacks/$$s && sudo docker compose -p $$s down --remove-orphans); fi; done && sudo rsync -a --delete --exclude .env --exclude state/ /tmp/chill-stacks/ /opt/stacks/ && sudo mkdir -p /opt/stacks/apps/state/filebrowser-quantum /opt/stacks/apps/state/filebrowser-upload /opt/stacks/edge/state/home /opt/stacks/media/state /opt/stacks/media/state/gluetun /opt/stacks/media/state/jellyfin-config /opt/stacks/media/state/jellyfin-cache /opt/stacks/media/state/qbittorrent /opt/stacks/media/state/prowlarr /opt/stacks/media/state/radarr /opt/stacks/media/state/sonarr /opt/stacks/media/state/bazarr /opt/stacks/media/state/jellyseerr /opt/stacks/media/state/navidrome /opt/stacks/media/state/wrtag /opt/stacks/media/state/octo-fiesta /opt/stacks/media/state/suwayomi /opt/stacks/media/state/slskd /mnt/data/photos /mnt/data/downloads/uploads /mnt/data/downloads/slskd/complete /mnt/data/downloads/slskd/incomplete && sudo chown -R 1000:1000 /opt/stacks/apps/state/filebrowser-quantum /opt/stacks/apps/state/filebrowser-upload /mnt/data/photos /mnt/data/downloads/uploads /mnt/data/downloads/slskd /opt/stacks/media/state && for s in $(STACKS); do (cd /opt/stacks/$$s && sudo docker compose -p $$s up -d --pull missing --remove-orphans); done'
+	ssh $(HOST) 'sudo rsync -a --delete --exclude .env --exclude state/ /tmp/chill-stacks/ /opt/stacks/ && sudo mkdir -p /opt/stacks/apps/state/filebrowser-quantum /opt/stacks/apps/state/filebrowser-upload /opt/stacks/media/state /opt/stacks/media/state/gluetun /opt/stacks/media/state/jellyfin-config /opt/stacks/media/state/jellyfin-cache /opt/stacks/media/state/qbittorrent /opt/stacks/media/state/prowlarr /opt/stacks/media/state/radarr /opt/stacks/media/state/sonarr /opt/stacks/media/state/bazarr /opt/stacks/media/state/jellyseerr /opt/stacks/media/state/navidrome /opt/stacks/media/state/wrtag /opt/stacks/media/state/octo-fiesta /opt/stacks/media/state/suwayomi /opt/stacks/media/state/slskd /mnt/data/photos /mnt/data/downloads/uploads /mnt/data/downloads/slskd/complete /mnt/data/downloads/slskd/incomplete && sudo chown -R 1000:1000 /opt/stacks/apps/state/filebrowser-quantum /opt/stacks/apps/state/filebrowser-upload /mnt/data/photos /mnt/data/downloads/uploads /mnt/data/downloads/slskd /opt/stacks/media/state && for s in $(STACKS); do (cd /opt/stacks/$$s && sudo docker compose -p $$s up -d --pull missing --remove-orphans); done'
 	# NOTE: --pull missing (not always): the CLI flag overrides compose pull_policy, and redlib is a
 	# local source build (pull_policy: never) that --pull always would try to fetch from a registry.
-	# Retired stack state/.env survives; only containers and git-owned config are removed.
 
 host:
 	rsync -a bootstrap.sh host $(HOST):/tmp/chill/
@@ -45,7 +42,7 @@ tunnel:
 
 check:
 	for s in $(STACKS); do (cd stacks/$$s && docker compose config -q); done
-	shellcheck bootstrap.sh host/backup.sh host/backup-watchdog.sh host/disk-usage.sh host/public-check.sh host/proxmox-backup.sh vps/bootstrap.sh stacks/media/scripts/ingest-music.sh stacks/media/config/slskd/autotag.sh
+	shellcheck bootstrap.sh host/backup.sh host/backup-watchdog.sh host/public-check.sh vps/bootstrap.sh vps/traffic-report.sh stacks/media/config/slskd/autotag.sh
 
 # The private Caddyfile is a bind mount, so `make deploy` copies it but the
 # running container never re-reads it. Restart (not `caddy reload`, which was
@@ -55,9 +52,7 @@ edge-reload:
 	ssh $(HOST) 'cd /opt/stacks/edge && sudo docker compose exec -T caddy caddy validate --config /etc/caddy/Caddyfile && sudo docker compose -p edge restart caddy'
 
 traffic:
-	$(VPS_SSH) 'sudo sh -c '\''geo=; [ -f /var/lib/GeoIP/GeoLite2-City.mmdb ] && geo="--geoip-database=/var/lib/GeoIP/GeoLite2-City.mmdb"; zcat -f /var/log/caddy/access.log* 2>/dev/null | goaccess - --log-format=CADDY --no-progress $$geo -o -'\''' > $(TRAFFIC_REPORT)
-	rsync -a $(TRAFFIC_REPORT) $(HOST):/tmp/homelab-traffic-report.html
-	ssh $(HOST) 'sudo mkdir -p /opt/stacks/edge/state/home && sudo install -m 644 /tmp/homelab-traffic-report.html /opt/stacks/edge/state/home/traffic.html && rm -f /tmp/homelab-traffic-report.html'
-	@echo "Report written to $(TRAFFIC_REPORT) and published to https://home.h.malice.biz/status/traffic.html"
+	$(VPS_SSH) 'sudo systemctl start homelab-traffic-report.service && sudo systemctl status homelab-traffic-report.service --no-pager --lines=5'
+	@echo "Traffic report refreshed at https://home.h.malice.biz/status/traffic.html"
 
 .PHONY: deploy host vps sync-public-sites backup-now restore-test tunnel check edge-reload traffic

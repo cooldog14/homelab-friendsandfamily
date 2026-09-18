@@ -25,8 +25,8 @@ public-check.sh checks public sites and TCP forwards through the VPS.
 It reads HTTP hosts from /opt/homelab-public-sites, synced by make deploy and make vps.
 UDP forwards are documented but not smoke-tested.
 backup-watchdog.sh runs daily and alerts when backups are older than 48h.
-disk-usage.sh publishes disk usage for the private homepage.
-proxmox-backup.sh runs on the Proxmox host and snapshots VM 101.
+Beszel handles disk health and alerts.
+Use a native Proxmox scheduled backup job for VM snapshots.
 
 ## secrets
 

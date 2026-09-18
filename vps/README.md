@@ -41,17 +41,9 @@ Use gotify.h.malice.biz.
 
 ## traffic report
 
-Run make traffic.
-It reads VPS Caddy logs and writes traffic-report.html locally.
-It also publishes the report to home.h.malice.biz/status/traffic.html.
-It covers HTTP routes only.
-It does not cover nftables-only ports.
-
-Geo map works when this file exists on the VPS:
-/var/lib/GeoIP/GeoLite2-City.mmdb
-
-Use a local GeoIP database.
-Do not send access logs to an external API.
+The VPS refreshes /var/lib/homelab-traffic/traffic.html every 15 minutes from public Caddy access logs only.
+The private homepage proxies it at https://home.h.malice.biz/status/traffic.html over WireGuard.
+Run make traffic to force a refresh.
 
 ## old cleanup
 

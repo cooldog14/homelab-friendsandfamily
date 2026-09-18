@@ -1,12 +1,31 @@
 {
 	email admin@malice.biz
 	log {
+		output file /var/log/caddy/caddy.log {
+			roll_size 50mb
+			roll_keep 5
+		}
+		format json
+	}
+}
+
+(access_log) {
+	log {
 		output file /var/log/caddy/access.log {
 			roll_size 50mb
 			roll_keep 5
 		}
 		format json
 	}
+}
+
+http://:8088 {
+	@chill remote_ip 10.44.0.0/24
+	handle @chill {
+		root * /var/lib/homelab-traffic
+		file_server
+	}
+	respond 404
 }
 
 import /etc/caddy/sites/*.caddy

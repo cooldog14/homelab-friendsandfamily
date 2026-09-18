@@ -11,6 +11,9 @@ curl -1sLf https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt -o /etc/a
 apt-get update
 apt-get install -y caddy goaccess nftables unattended-upgrades wireguard
 mkdir -p /var/log/caddy && chown caddy:caddy /var/log/caddy
+install -d -m 755 /var/lib/homelab-traffic
+install -m 755 traffic-report.sh /usr/local/bin/homelab-traffic-report
+install -m 644 homelab-traffic-report.service homelab-traffic-report.timer /etc/systemd/system/
 
 mkdir -p /var/backups
 cp -a /etc/caddy/Caddyfile "/var/backups/Caddyfile.$(date +%F-%T)" 2>/dev/null || true
@@ -41,5 +44,8 @@ sysctl --system > /dev/null
 # during the stage-2 cutover. This script never writes keys; it just keeps the
 # link enabled across re-runs.
 systemctl enable --now caddy nftables
+systemctl daemon-reload
+systemctl enable --now homelab-traffic-report.timer
+systemctl start homelab-traffic-report.service
 systemctl enable --now wg-quick@chill0 || echo "missing /etc/wireguard/chill0.conf — restore it from backup before relying on public vhosts"
 echo "public vhosts live in /etc/caddy/sites; private/admin access uses Tailscale"

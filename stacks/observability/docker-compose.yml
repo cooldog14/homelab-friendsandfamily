@@ -21,8 +21,6 @@ services:
       - /opt/stacks:/opt/stacks
       - ./state/dockge:/app/data
 
-  # REMOVED 2026-09-10: Uptime Kuma ditched (uptime-kuma service deleted).
-
   # Host metrics and the disk >85% alert, in a GUI instead of df piped through awk.
   beszel:
     image: henrygd/beszel:0.9
@@ -43,19 +41,3 @@ services:
       KEY: ${BESZEL_KEY}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
-
-  # S.M.A.R.T. disk health history and alerts.
-  # DISABLED 2026-09-10: pinned tags v0.8.x don't exist upstream (only :latest),
-  # and SMART inside a virtio VM sees almost nothing anyway. Re-enable with a
-  # pinned digest if bare-metal ever happens.
-  # scrutiny:
-  #   image: ghcr.io/analogj/scrutiny:v0.8.1
-  #   restart: unless-stopped
-  #   privileged: true
-  #   ports:
-  #     - "${WG_IP:-10.44.0.2}:8086:8080"
-  #   environment:
-  #     COLLECTOR_CRON_SCHEDULE: "0 * * * *"
-  #   volumes:
-  #     - /run/udev:/run/udev:ro
-  #     - ./state/scrutiny:/opt/scrutiny/config

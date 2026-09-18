@@ -1,14 +1,18 @@
 # media public vhosts (10.44.0.2 backends). Deployed by `make vps`.
 jellyfin.malice.biz {
+	import access_log
 	reverse_proxy 10.44.0.2:8096
 }
 requests.malice.biz {
+	import access_log
 	reverse_proxy 10.44.0.2:5055
 }
 player.malice.biz {
+	import access_log
 	reverse_proxy 10.44.0.2:9180
 }
 fiesta.malice.biz {
+	import access_log
 	@cors_preflight method OPTIONS
 	handle @cors_preflight {
 		header Access-Control-Allow-Origin "https://player.malice.biz"
@@ -23,8 +27,10 @@ fiesta.malice.biz {
 	reverse_proxy 10.44.0.2:5274
 }
 upload.malice.biz {
+	import access_log
 	reverse_proxy 10.44.0.2:8087
 }
 nvdr.malice.biz {
+	import access_log
 	reverse_proxy 10.44.0.2:4533
 }

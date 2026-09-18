@@ -1,12 +1,5 @@
 services:
   # File manager over /mnt/data. Extra disks (virtiofs) surface under /srv/*.
-  # Quantum fork: config.yaml replaces settings.json and the --database flag, and
-  # the old filebrowser.db is NOT importable — this is a fresh install, so expect
-  # to recreate the admin user and any shares. ./state/filebrowser (the v2 db) is
-  # deliberately left in place so the swap is revertible; delete it when happy.
-  # Image tag is `1.5.6-stable`, no `v` — the GitHub release tag has one, GHCR does not.
-  # Upstream also ships a 2.0 line, still `-beta`; the config schema moved, so do
-  # not cross that boundary unattended.
   filebrowser:
     image: ghcr.io/gtsteffaniak/filebrowser:1.5.6-stable
     restart: unless-stopped
@@ -17,8 +10,6 @@ services:
       - /mnt/fast:/srv/fast
       - /mnt/archive:/srv/archive
       - /mnt/pool:/srv/pool
-      # File-over-directory bind mount: the longer path wins, so config.yaml stays
-      # git-owned while the db and cache live in the gitignored state/ volume.
       - ./state/filebrowser-quantum:/home/filebrowser/data
       - ./config/filebrowser/config.yaml:/home/filebrowser/data/config.yaml:ro
 

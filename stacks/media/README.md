@@ -20,12 +20,6 @@ Copy .env.example to .env on chill-01.
 Fill the secrets there.
 Never commit .env.
 
-## music ingest
-
-ingest-music.sh imports stable uploads into the music library.
-It reads /etc/media-music-ingest.env.
-It can self-check with the --self-check flag.
-
 ## notes
 
 WireGuard is not part of this stack.
