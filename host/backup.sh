@@ -33,8 +33,18 @@ else
   curl -fsS -X POST -F "message=vps pull FAILED on $(hostname) (backup continuing without VPS config)" -F "priority=5" "${ALERT_URL:-}" > /dev/null 2>&1 || true
 fi
 
-if docker exec photos-immich-db-1 sh -c 'PGPASSWORD="$POSTGRES_PASSWORD" pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB"' > /opt/dumps/immich.new; then mv /opt/dumps/immich.new /opt/dumps/immich.sql; fi
-if docker exec docs-paperless-db-1 sh -c 'PGPASSWORD="$POSTGRES_PASSWORD" pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB"' > /opt/dumps/paperless.new; then mv /opt/dumps/paperless.new /opt/dumps/paperless.sql; fi
+pg_dump_container() {
+  container=$1
+  out=$2
+  if ! docker exec "$container" sh -c 'PGPASSWORD="$POSTGRES_PASSWORD" pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB"' > "$out.new"; then
+    rm -f "$out.new"
+    log "postgres dump FAILED: $container"
+    return 1
+  fi
+  mv "$out.new" "$out"
+}
+pg_dump_container photos-immich-db-1 /opt/dumps/immich.sql
+pg_dump_container docs-paperless-db-1 /opt/dumps/paperless.sql
 # SQLite hot-backup: raw restic copies of live sqlite files can be corrupt.
 # .backup takes a consistent snapshot; failures must not fail the backup.
 sql_backup() {

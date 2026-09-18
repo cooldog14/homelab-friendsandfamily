@@ -14,6 +14,12 @@ mkdir -p /var/log/caddy && chown caddy:caddy /var/log/caddy
 install -d -m 755 /var/lib/homelab-traffic
 install -m 755 traffic-report.sh /usr/local/bin/homelab-traffic-report
 install -m 644 homelab-traffic-report.service homelab-traffic-report.timer /etc/systemd/system/
+mkdir -p /etc/systemd/system/caddy.service.d
+cat > /etc/systemd/system/caddy.service.d/homelab.conf <<'EOF'
+[Unit]
+Wants=wg-quick@chill0.service
+After=wg-quick@chill0.service
+EOF
 
 mkdir -p /var/backups
 cp -a /etc/caddy/Caddyfile "/var/backups/Caddyfile.$(date +%F-%T)" 2>/dev/null || true
@@ -22,8 +28,6 @@ install -m 644 Caddyfile /etc/caddy/Caddyfile
 mkdir -p /etc/caddy/sites
 rm -f /etc/caddy/sites/*.caddy
 install -m 644 sites/*.caddy /etc/caddy/sites/
-caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
-systemctl reload caddy
 
 # homelab_nat is its own table: apply without touching /etc/nftables.conf
 # (which carries provider/local rules). Persist via include (once):
@@ -39,13 +43,12 @@ printf 'net.ipv4.ip_forward=1\n' > /etc/sysctl.d/99-homelab.conf
 printf 'Unattended-Upgrade::Automatic-Reboot "true";\nUnattended-Upgrade::Automatic-Reboot-Time "03:00";\n' > /etc/apt/apt.conf.d/51homelab
 sysctl --system > /dev/null
 
-# Static WireGuard (the VPS<->chill-01 link). The config lives at
-# /etc/wireguard/chill0.conf (0600, host-only, never in git) — created once
-# during the stage-2 cutover. This script never writes keys; it just keeps the
-# link enabled across re-runs.
-systemctl enable --now caddy nftables
 systemctl daemon-reload
+systemctl enable --now wg-quick@chill0 nftables
+nft -f /etc/nftables.d/homelab_nat.conf
+caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+systemctl enable --now caddy
+systemctl reload caddy
 systemctl enable --now homelab-traffic-report.timer
 systemctl start homelab-traffic-report.service
-systemctl enable --now wg-quick@chill0 || echo "missing /etc/wireguard/chill0.conf — restore it from backup before relying on public vhosts"
 echo "public vhosts live in /etc/caddy/sites; private/admin access uses Tailscale"

@@ -8,7 +8,7 @@ STACKS = apps comms docs edge media observability photos
 # so no deploy-key scoping issue when splitting repos.
 deploy: sync-public-sites
 	rsync -a --delete stacks/ $(HOST):/tmp/chill-stacks/
-	ssh $(HOST) 'sudo rsync -a --delete --exclude .env --exclude state/ /tmp/chill-stacks/ /opt/stacks/ && sudo mkdir -p /opt/stacks/apps/state/filebrowser-quantum /opt/stacks/apps/state/filebrowser-upload /opt/stacks/media/state /opt/stacks/media/state/gluetun /opt/stacks/media/state/jellyfin-config /opt/stacks/media/state/jellyfin-cache /opt/stacks/media/state/qbittorrent /opt/stacks/media/state/prowlarr /opt/stacks/media/state/radarr /opt/stacks/media/state/sonarr /opt/stacks/media/state/bazarr /opt/stacks/media/state/jellyseerr /opt/stacks/media/state/navidrome /opt/stacks/media/state/wrtag /opt/stacks/media/state/octo-fiesta /opt/stacks/media/state/suwayomi /opt/stacks/media/state/slskd /mnt/data/photos /mnt/data/downloads/uploads /mnt/data/downloads/slskd/complete /mnt/data/downloads/slskd/incomplete && sudo chown -R 1000:1000 /opt/stacks/apps/state/filebrowser-quantum /opt/stacks/apps/state/filebrowser-upload /mnt/data/photos /mnt/data/downloads/uploads /mnt/data/downloads/slskd /opt/stacks/media/state && for s in $(STACKS); do (cd /opt/stacks/$$s && sudo docker compose -p $$s up -d --pull missing --remove-orphans); done'
+	ssh $(HOST) 'set -e; sudo rsync -a --delete --exclude .env --exclude state/ /tmp/chill-stacks/ /opt/stacks/ && sudo mkdir -p /opt/stacks/apps/state/filebrowser-quantum /opt/stacks/apps/state/filebrowser-upload /opt/stacks/media/state /opt/stacks/media/state/gluetun /opt/stacks/media/state/jellyfin-config /opt/stacks/media/state/jellyfin-cache /opt/stacks/media/state/qbittorrent /opt/stacks/media/state/prowlarr /opt/stacks/media/state/radarr /opt/stacks/media/state/sonarr /opt/stacks/media/state/bazarr /opt/stacks/media/state/jellyseerr /opt/stacks/media/state/navidrome /opt/stacks/media/state/wrtag /opt/stacks/media/state/octo-fiesta /opt/stacks/media/state/suwayomi /opt/stacks/media/state/slskd /mnt/data/photos /mnt/data/downloads/uploads /mnt/data/downloads/slskd/complete /mnt/data/downloads/slskd/incomplete && sudo chown -R 1000:1000 /opt/stacks/apps/state/filebrowser-quantum /opt/stacks/apps/state/filebrowser-upload /mnt/data/photos /mnt/data/downloads/uploads /mnt/data/downloads/slskd /opt/stacks/media/state && for s in $(STACKS); do (cd /opt/stacks/$$s && sudo docker compose -p $$s up -d --pull missing --remove-orphans); done'
 	# NOTE: --pull missing (not always): the CLI flag overrides compose pull_policy, and redlib is a
 	# local source build (pull_policy: never) that --pull always would try to fetch from a registry.
 
@@ -19,7 +19,7 @@ host:
 vps:
 	# Git owns all public Caddy sites now; bootstrap.sh validates + reloads Caddy.
 	# NOTE: no rsync on the VPS — ship via tar over ssh.
-	tar -c -C vps . | $(VPS_SSH) 'rm -rf /tmp/chill-vps && mkdir -p /tmp/chill-vps && tar -x -C /tmp/chill-vps'
+	tar --exclude='./live-backup-*' --exclude='live-backup-*' -c -C vps . | $(VPS_SSH) 'rm -rf /tmp/chill-vps && mkdir -p /tmp/chill-vps && tar -x -C /tmp/chill-vps'
 	$(VPS_SSH) 'cd /tmp/chill-vps && sh bootstrap.sh'
 	tar -c -C vps/sites . | ssh $(HOST) 'sudo rm -rf /opt/homelab-public-sites && sudo mkdir -p /opt/homelab-public-sites && sudo tar -x -C /opt/homelab-public-sites'
 
@@ -41,7 +41,7 @@ tunnel:
 	$(VPS_SSH) 'sudo wg show chill0'
 
 check:
-	for s in $(STACKS); do (cd stacks/$$s && docker compose config -q); done
+	set -e; for s in $(STACKS); do (cd stacks/$$s && docker compose config -q); done
 	shellcheck bootstrap.sh host/backup.sh host/backup-watchdog.sh host/public-check.sh vps/bootstrap.sh vps/traffic-report.sh stacks/media/config/slskd/autotag.sh
 
 # The private Caddyfile is a bind mount, so `make deploy` copies it but the
