@@ -19,7 +19,7 @@
 	}
 }
 
-http://:8088 {
+http://10.44.0.1:8088 {
 	@chill remote_ip 10.44.0.0/24
 	handle @chill {
 		root * /var/lib/homelab-traffic

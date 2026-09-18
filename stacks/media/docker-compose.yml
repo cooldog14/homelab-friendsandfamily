@@ -34,8 +34,6 @@ services:
       - /dev/net/tun
     ports:
       - "${WG_IP:-10.44.0.2}:8701:8701"
-      - "6881:6881"
-      - "6881:6881/udp"
       - "${WG_IP:-10.44.0.2}:9696:9696"
       - "${WG_IP:-10.44.0.2}:8191:8191"
       - "${WG_IP:-10.44.0.2}:5030:5030"
@@ -48,7 +46,7 @@ services:
       WIREGUARD_ADDRESSES: ${WIREGUARD_ADDRESSES}
       VPN_ENDPOINT_IP: ${VPN_ENDPOINT_IP}
       VPN_ENDPOINT_PORT: ${VPN_ENDPOINT_PORT}
-      FIREWALL_VPN_INPUT_PORTS: ${FIREWALL_VPN_INPUT_PORTS:-6881}
+      FIREWALL_VPN_INPUT_PORTS: ${FIREWALL_VPN_INPUT_PORTS:-6881,50300}
       # Local docker networks bypass the VPN (arr apps reach qbit/prowlarr
       # through gluetun). /12 covers every compose bridge; Docker assigns
       # subnets dynamically, so a narrower value breaks after re-creation.
@@ -278,7 +276,6 @@ services:
       SLSKD_UMASK: "0002"
       SLSKD_SLSK_USERNAME: ${SLSKD_SLSK_USERNAME}
       SLSKD_SLSK_PASSWORD: ${SLSKD_SLSK_PASSWORD}
-      SLSKD_SLSK_LISTEN_PORT: ${SLSK_LISTEN_PORT:-50300}
       SLSKD_DOWNLOADS_DIR: /data/downloads/slskd/complete
       SLSKD_INCOMPLETE_DIR: /data/downloads/slskd/incomplete
       SLSKD_SHARED_DIR: /data/media/music
