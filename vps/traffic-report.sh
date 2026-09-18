@@ -48,7 +48,10 @@ log="$tmpdir/access.log"
 
 for f in $log_glob; do
   [ -e "$f" ] || continue
-  zcat -f "$f" >> "$log" 2>/dev/null || true
+  # Only access entries: the log file can start with Caddy process lines
+  # (startup messages from the old global log block), and goaccess aborts
+  # with RC=1 producing no report if unparseable lines come first.
+  zcat -f "$f" 2>/dev/null | grep '"handled request"' >> "$log" 2>/dev/null || true
 done
 
 if [ ! -s "$log" ]; then
