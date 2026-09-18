@@ -51,6 +51,12 @@
 	handle @beszel {
 		reverse_proxy {env.UPSTREAM}:8090
 	}
+	# Private Immich: uploads from own devices avoid hairpinning through
+	# the VPS (see the port comment in stacks/photos/docker-compose.yml).
+	@immich host immich.h.malice.biz
+	handle @immich {
+		reverse_proxy {env.UPSTREAM}:2283
+	}
 	@qbittorrent host qbittorrent.h.malice.biz
 	handle @qbittorrent {
 		reverse_proxy {env.UPSTREAM}:8701
