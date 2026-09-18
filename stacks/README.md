@@ -24,6 +24,7 @@ These routes work on Tailscale only.
 - files.h.malice.biz
 - gotify.h.malice.biz
 - beszel.h.malice.biz
+- immich.h.malice.biz
 - qbittorrent.h.malice.biz
 - prowlarr.h.malice.biz
 - radarr.h.malice.biz

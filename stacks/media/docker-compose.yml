@@ -237,7 +237,7 @@ services:
     restart: unless-stopped
 
   feishin:
-    image: ghcr.io/jeffvli/feishin:1.12.1
+    image: ghcr.io/jeffvli/feishin:1.17.0
     ports:
       - "${WG_IP:-10.44.0.2}:9180:9180"
     environment:
