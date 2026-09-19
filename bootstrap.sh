@@ -50,6 +50,9 @@ sysctl --system > /dev/null
 ufw delete allow 53/tcp 2>/dev/null || true
 ufw delete allow 53/udp 2>/dev/null || true
 ufw allow 22/tcp && ufw allow in on wg0 && ufw allow in on tailscale0 && ufw --force enable
+# LAN-only media playback (e.g. Jellyfin 8096 bound to the LAN IP in compose,
+# never 0.0.0.0). Scoped to the home subnet; nothing internet-facing changes.
+ufw allow in on eth0 from 192.168.1.0/24 to any port 8096 2>/dev/null || true
 
 systemctl daemon-reload
 if [ "$old_daemon" != "$new_daemon" ]; then
