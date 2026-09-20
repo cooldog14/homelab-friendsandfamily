@@ -61,6 +61,19 @@
   /mnt/fast/jellyfin-cache:/cache + segment deletion; reverted 2026-09-19,
   redo on a quiet evening. A 78M cache seed may still sit at
   /mnt/fast/jellyfin-cache.)
+- Incident 2026-09-20 ~19:20 UTC: Jellyfin root disk full during F1 4K
+  remux playback (Tizen). Cause: HLS transcode to /cache on the 80G VM
+  root disk (26G, 625 .ts, one session) + 42G docker images filled / to
+  100%/0 free. Impact: ffmpeg log writes failed (exit 228), 80x SQLite
+  Error 13 disk full, 1354x rollback cascade on POST
+  /Sessions/Playing/Progress (resume not saving), HLS stalls; container
+  stayed healthy, no restart, movie kept playing. Fix (live, no pause):
+  builder prune (2.8G) + removed orphan images only (pgvecto-rs, pingvin,
+  gonic, uptime-kuma, joplin, scrutiny, searxng, homepage, slskd/feishin
+  old tags, invidious, adguard, vaultwarden, syncthing) -> 83%/13G free,
+  ENOSPC cleared. Leftover: rollback errors persist until a jellyfin
+  restart + db integrity check (after the movie); durable fix is the
+  /mnt/fast (or /mnt/pool) cache move above.
 
 ## storage layout
 
