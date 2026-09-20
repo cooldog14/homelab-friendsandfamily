@@ -2,13 +2,14 @@ services:
   jellyfin:
     image: jellyfin/jellyfin:10.11
     user: "1000:1000"
-    # Intel iGPU is passed through to the VM (see /dev/dri on chill-01).
-    # Native KVM IDs: video group is 44. No render node exists, so verify
-    # VAAPI/QSV in the jellyfin dashboard after deploy; CPU fallback otherwise.
+    # Intel UHD 630 passed through to the VM (hostpci0 00:02.0 on malice,
+    # vfio-pci bound). Guest has card0/card1 + renderD128 (group 991).
+    # Enable QSV/VAAPI in the Jellyfin dashboard; CPU fallback otherwise.
     devices:
       - /dev/dri:/dev/dri
     group_add:
       - "44"
+      - "991"
     ports:
       - "${WG_IP:-10.44.0.2}:8096:8096"
       # LAN-only bind for direct TV playback (no internet hairpin via the VPS).

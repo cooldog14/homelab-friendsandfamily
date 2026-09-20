@@ -4,16 +4,63 @@
 
 - Deploy current repo. (done 2026-09-17: media on chill-01, photos on mirror)
 - Drive swap, in order: sdd becomes bulk (done 2026-09-18, verified
-  byte-identical, dashboard shows 3.6T/31%), sdc becomes primary, sda
-  becomes the local restic repo.
+  byte-identical, dashboard shows 3.6T/31%), sdc becomes primary (done
+  2026-09-19: mkfs + rsync 19:35->22:08, delta sync, mapping repointed,
+  VMs stop/started, guest sees 1.8T/28%), sda becomes the local restic
+  repo (open: 2b free-space vs 2c local repo).
 - Lesson: host-side disk remounts are invisible to chill-01 until it
   reboots (virtiofsd pins the old filesystem at VM start; guest
   remount alone does not refresh it). Plan reboots for step 2 as well.
+- Lesson 2026-09-19: repointing a virtiofs directory mapping needs a
+  full VM stop/start; guest reboot alone keeps the old virtiofsd.
+  Cutover proof: write round-trip guest<->/mnt/primary, tree diff vs
+  old copy showed only 2 live paperless shm/wal files, restore-test ok
+  2026-09-19, first new-disk snapshot 1f643421 on 2026-09-20 reused
+  parent 2cff3a26 (incremental, no re-seed).
+- sda reality check: mount is /mnt/backup, not /mnt/backupcopy; holds
+  the stale 504G pre-cutover mirror (user trims it) plus dump/,
+  backup-diskX/, arr-configs/. Settle the name when doing 2c.
+- Incident 2026-09-20 ~15:20 UTC: home internet loss, malice rebooted.
+  /mnt/primary had NO fstab entry (was mounted by hand on 09-18), so it
+  did not remount: guests served an empty shadow dir for ~10 min and
+  homelab-01 wrote 155M of fresh DB files into it (preserved at
+  /root/primary-shadow-20260920, real data untouched on sdc1). Fixed:
+  UUID fstab entry added, disk mounted + verified 504G intact, music
+  bind re-seated, VMs stop/started for virtiofsd re-export, stop
+  orders re-applied. Lesson: every migrated disk gets its fstab line
+  the same day it is cut over; verify with a reboot, not just a mount.
+- Guest states 2026-09-19: running chill-01 (all 7 stacks), debian-01,
+  hermes-01. Stopped: homelab-01 (VM 100), friend (200), arr (203),
+  homelab LXC (888), alpine-01. LXC 888 is a future removal, do
+  not repoint it. (Note: host reboot 2026-09-20 auto-started
+  onboot guests incl. 100/200/203; re-stopped 100+200. LXC 203/arr
+  destroyed 2026-09-20 after archiving /opt/arr to
+  /mnt/backup/arr-203-final-20260920.tar.gz (2.9G, integrity-checked);
+  /mnt/fast freed to 4%.)
+- Jellyfin LAN bind for direct TV playback (done 2026-09-19, commit
+  91bc3d8: LAN_IP 192.168.1.28:8096 + UFW scoped to 192.168.1.0/24).
+  TV at http://192.168.1.28:8096; public vhost unchanged. DLNA skipped.
+- Known gaps: /mnt/data/photos bind is correct (UPLOAD_LOCATION=/photos)
+  but the library is still empty (nothing uploaded yet; only 178M of
+  Immich auto-backups sit in the /data docker volume on the VM disk,
+  outside restic paths). Future uploads land on the mirror and are
+  covered; revisit if the /data volume grows.
+  local-lvm at 79% (watch); vzdump.cron empty (no scheduled VM
+  snapshots despite host README prescribing them).
 - Add minimal GitOps with systemd.
 - Add public exposure guard.
-- Run one restore drill. (done 2026-09-17 against S3)
+- Run one restore drill. (done 2026-09-17 against S3; re-run ok
+  2026-09-19 post-cutover)
 - Write short incident samples. (navidrome blackhole: stale slskd-egress
   mark rule; document when writing these)
+- Jellyfin HW accel (done 2026-09-20: VT-d enabled in BIOS, iGPU 8086:3e92
+  on vfio-pci, hostpci0 on VM 101, PVE 9.2.20 kernel 7.0.14-17,
+  renderD128 in chill-01, QSV enabled, h264_qsv verified in-container;
+  compose carries group 991. Rollback: /root/101.conf.pre-igpu on malice.)
+- Jellyfin transcodes to /mnt/fast SSD (open: compose mount
+  /mnt/fast/jellyfin-cache:/cache + segment deletion; reverted 2026-09-19,
+  redo on a quiet evening. A 78M cache seed may still sit at
+  /mnt/fast/jellyfin-cache.)
 
 ## storage layout
 
