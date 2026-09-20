@@ -57,6 +57,11 @@
   on vfio-pci, hostpci0 on VM 101, PVE 9.2.20 kernel 7.0.14-17,
   renderD128 in chill-01, QSV enabled, h264_qsv verified in-container;
   compose carries group 991. Rollback: /root/101.conf.pre-igpu on malice.)
+- Jellyfin transcode tuning (done 2026-09-20 post-film: encoding.xml set
+  HEVC HW decode on (was h264/vc1 only), throttling on, segment deletion
+  on with keep 120s (was off/720s); restart clean, 0 errors, h264_qsv
+  encode + hevc_qsv decode of the F1 remux verified in-container.
+  Rollback: encoding.xml.pre-qsv-tune-20260920 next to encoding.xml.)
 - Jellyfin transcodes to /mnt/fast SSD (open: compose mount
   /mnt/fast/jellyfin-cache:/cache + segment deletion; reverted 2026-09-19,
   redo on a quiet evening. A 78M cache seed may still sit at
