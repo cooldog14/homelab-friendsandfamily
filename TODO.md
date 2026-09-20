@@ -62,6 +62,11 @@
   on with keep 120s (was off/720s); restart clean, 0 errors, h264_qsv
   encode + hevc_qsv decode of the F1 remux verified in-container.
   Rollback: encoding.xml.pre-qsv-tune-20260920 next to encoding.xml.)
+- Jellyfin qsv->vaapi switch (open: green glitch on Ford v Ferrari 4K remux
+  traced to the overlay_qsv PGS burn-in stage, encode log clean at ~2x.
+  VAAPI uses the same iHD driver/silicon with equal speed/quality and the
+  more stable overlay_vaapi; UHD 630 has no QSV-only features. Flip
+  HardwareAccelerationType in encoding.xml + restart at a quiet moment.)
 - Jellyfin transcodes to /mnt/fast SSD (open: compose mount
   /mnt/fast/jellyfin-cache:/cache + segment deletion; reverted 2026-09-19,
   redo on a quiet evening. A 78M cache seed may still sit at
