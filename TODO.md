@@ -1,59 +1,51 @@
 # todo
 
-## next
+## next (updated 2026-09-21 evening)
 
-- Deploy current repo. (done 2026-09-17: media on chill-01, photos on mirror)
-- Drive swap, in order: sdd becomes bulk (done 2026-09-18, verified
-  byte-identical, dashboard shows 3.6T/31%), sdc becomes primary (done
-  2026-09-19: mkfs + rsync 19:35->22:08, delta sync, mapping repointed,
-  VMs stop/started, guest sees 1.8T/28%), sdb /mnt/archive becomes the
-  local restic repo for important data (done in git 2026-09-21; apply on
-  host when available).
-- Lesson: host-side disk remounts are invisible to chill-01 until it
-  reboots (virtiofsd pins the old filesystem at VM start; guest
-  remount alone does not refresh it). Plan reboots for step 2 as well.
-- Lesson 2026-09-19: repointing a virtiofs directory mapping needs a
-  full VM stop/start; guest reboot alone keeps the old virtiofsd.
-  Cutover proof: write round-trip guest<->/mnt/primary, tree diff vs
-  old copy showed only 2 live paperless shm/wal files, restore-test ok
-  2026-09-19, first new-disk snapshot 1f643421 on 2026-09-20 reused
-  parent 2cff3a26 (incremental, no re-seed).
-- sda reality check: mount is /mnt/backup, not /mnt/backupcopy; holds
-  the stale 504G pre-cutover mirror (user trims it) plus dump/,
-  backup-diskX/, arr-configs/. Settle the name when doing 2c.
-- Incident 2026-09-20 ~15:20 UTC: home internet loss, malice rebooted.
-  /mnt/primary had NO fstab entry (was mounted by hand on 09-18), so it
-  did not remount: guests served an empty shadow dir for ~10 min and
-  homelab-01 wrote 155M of fresh DB files into it (preserved at
-  /root/primary-shadow-20260920, real data untouched on sdc1). Fixed:
-  UUID fstab entry added, disk mounted + verified 504G intact, music
-  bind re-seated, VMs stop/started for virtiofsd re-export, stop
-  orders re-applied. Lesson: every migrated disk gets its fstab line
-  the same day it is cut over; verify with a reboot, not just a mount.
-- Guest states 2026-09-19: running chill-01 (all 7 stacks), debian-01,
-  hermes-01. Stopped: homelab-01 (VM 100), friend (200), arr (203),
-  homelab LXC (888), alpine-01. LXC 888 is a future removal, do
-  not repoint it. (Note: host reboot 2026-09-20 auto-started
-  onboot guests incl. 100/200/203; re-stopped 100+200. LXC 203/arr
-  destroyed 2026-09-20 after archiving /opt/arr to
-  /mnt/backup/arr-203-final-20260920.tar.gz (2.9G, integrity-checked);
-  /mnt/fast freed to 4%.)
-- Jellyfin LAN bind for direct TV playback (done 2026-09-19, commit
-  91bc3d8: LAN_IP 192.168.1.28:8096 + UFW scoped to 192.168.1.0/24).
-  TV at http://192.168.1.28:8096; public vhost unchanged. DLNA skipped.
+- Commit pending docs (README, RUNBOOK, TODO, host/README,
+  homelab.env.example, photos compose comment: role swap + vault).
+- Backups phase: `restic init` on /mnt/backup; solve chill-01 visibility
+  (new virtiofs share for /mnt/backup vs host-side restic); rewire
+  backup.sh/service defaults off guest /mnt/archive; extend restore-test
+  to kavita/dockge/beszel; re-run one restore drill to a temp path.
+- Deploy fix: `deploy@10.44.0.2` unreachable from towa (no route), key
+  denied from malice. Repair SSH path or designate a connected host,
+  then `make deploy` (ships jellyfin /mnt/fast cache move + guest
+  pve1-archive path rename /mnt/archive -> /mnt/vault).
+- Jellyfin DB check: restart + SQLite integrity check (rollback-error
+  leftover from 09-20 disk-full); verify HLS lands on /mnt/fast;
+  delete old /opt/stacks/media/state/jellyfin-cache if empty.
+- qBittorrent hygiene with deploy: still references retired
+  /mnt/archive paths (seeding handles held 228G post-delete 09-21).
+  Remove dead torrents or repoint save-paths; expect torrent errors
+  until cleaned.
+- Guest states 2026-09-21: running chill-01 (101, 36 containers),
+  debian-01 (103), hermes-01 (204). Stopped: alpine-01 (102), friend
+  (200). DESTROYED 09-21: homelab LXC (888, via pct destroy after
+  confirming its disk was the only copy — gone from pct list) and
+  homelab-01 VM (100, gone; last image kept at
+  /mnt/vault/backup-old-vm-lxc). LXC 200 still onboot:1 (auto-starts
+  on host reboot); rootfs on fast, detached unused0 removed.
 - Known gaps: /mnt/data/photos bind is correct (UPLOAD_LOCATION=/photos)
   but the library is still empty (nothing uploaded yet; only 178M of
   Immich auto-backups sit in the /data docker volume on the VM disk,
   outside restic paths). Future uploads land on the mirror and are
   covered; revisit if the /data volume grows.
-  local-lvm at 79% (watch); vzdump.cron empty (no scheduled VM
-  snapshots despite host README prescribing them).
+  local-lvm Data% 32.8% 2026-09-21 (old 79% watch retired); vzdump
+  scheduling DONE 2026-09-21 (`weekly-vault`: all guests, snapshot,
+  zstd, Sun 03:30, keep-last 8, proof snapshot ok).
+- `privacy` stack runs live (/opt/stacks/privacy) but is NOT in Makefile
+  STACKS: decide add-it vs intentionally hand-managed.
+- Document `beszel-agent` network_mode:host exception (AGENTS.md
+  requires documented 0.0.0.0/host binds; screego has one, beszel
+  does not).
+- Prevention owed from disk-full: >85% disk Gotify alert + weekly
+  builder/image prune (images back at 31G).
 - Add minimal GitOps with systemd.
 - Add public exposure guard.
-- Run one restore drill. (done 2026-09-17 against S3; re-run ok
-  2026-09-19 post-cutover)
 - Write short incident samples. (navidrome blackhole: stale slskd-egress
-  mark rule; document when writing these)
+  mark rule; document when writing these. New candidates: 09-21
+  virtiofs-held-space after archive clear; 09-21 role swap.)
 - Jellyfin HW accel (done 2026-09-20: VT-d enabled in BIOS, iGPU 8086:3e92
   on vfio-pci, hostpci0 on VM 101, PVE 9.2.20 kernel 7.0.14-17,
   renderD128 in chill-01, QSV enabled, h264_qsv verified in-container;
@@ -94,15 +86,25 @@ the devices behind them move.
   downloads, disposable/re-downloadable media; excluded from backups.
 - 2TB HDD (sdc ST2000DX002, /mnt/primary shared as pve1-mirror ->
   /mnt/data): important data, photos, documents, clean music, app data.
-- Archive disk (sdb, /mnt/archive shared as pve1-archive -> VM
-  /mnt/archive): local restic repo at /mnt/archive/restic for the
-  important-data copy. Restic to Hetzner S3 stays as the offsite copy.
-- 1TB HDD (sda WDC WD10TPVT, /mnt/backup or /mnt/backupcopy host-only):
-  stale pre-cutover mirror/parking; not the new backup target.
+- Vault disk (sdb, host /mnt/vault, shared as pve1-archive -> guest
+  /mnt/archive): Proxmox vzdump target (`data` store + weekly
+  `weekly-vault` job, snapshot mode, zstd, keep-last 8; live since
+  2026-09-21, proof snapshot ok). Also holds
+  `/mnt/vault/backup-old-vm-lxc` (VM-100 last image, arr-203 final tar,
+  users/ keeps). Renamed from /mnt/archive 2026-09-21 (mount + storage +
+  mapping rewired, chill-01 stop/started, 36 containers back). Restic to
+  Hetzner S3 stays as the offsite copy.
+- 1TB HDD (sda WDC WD10TPVT, /mnt/backup host-only): cleared 2026-09-21
+  (stale 504G pre-cutover mirror proven redundant by file-list diff,
+  migration scratch, old 101/203 snapshots removed; VM-100 image, arr-203
+  tar, users/ moved to vault, md5-verified). Designated local restic
+  drive (`/mnt/backup/restic`). OPEN: chill-01 has no /mnt/backup —
+  restic repo wiring (new virtiofs share or host-side restic) belongs to
+  the backups phase; `restic init` still owed.
 - SSD 1 (sde Samsung 850 EVO): Proxmox and VM disks.
 - SSD 2 (sdf PNY CS900, /mnt/fast): disposable scratch/cache: Jellyfin
   transcodes, DB dumps, imports, build/scratch staging. Hands off for
   family data. Photos do NOT live here (mirror now).
 
 Do not add RAID or ZFS complexity until matching disks exist.
-Do not expose /mnt/archive to apps or family storage; it is backup-only.
+Do not expose /mnt/backup or /mnt/vault to apps or family storage; they are backup-only.
