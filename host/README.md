@@ -15,6 +15,8 @@ backup.sh runs nightly through systemd.
 It dumps live databases first.
 It backs up config, stack state, photos, and secrets.
 It skips downloads, movies, and TV.
+DB dumps stage in `/mnt/fast/dumps` before restic snapshots them.
+It writes the same important-data set to Hetzner S3 and local `/mnt/archive/restic`.
 
 VPS config is pulled into the restic backup.
 A failed VPS pull alerts but does not fail the home backup.

@@ -16,4 +16,4 @@ auth:
       minLength: 12
       signup: false
     passkey:
-      enabled: false
+      enabled: true

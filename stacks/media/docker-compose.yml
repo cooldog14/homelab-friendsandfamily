@@ -17,7 +17,8 @@ services:
       - "${LAN_IP:-192.168.1.28}:8096:8096"
     volumes:
       - ./state/jellyfin-config:/config
-      - ./state/jellyfin-cache:/cache
+      # Disposable HLS/transcode cache lives on the fast SSD, not the VM root.
+      - /mnt/fast/jellyfin-cache:/cache
       - ${DATA_LOCATION:-/mnt/data}:/data
       # Bulk media lives on the 4TB disk (VM /mnt/pool, TODO storage layout).
       # Change library paths to /pool/movies and /pool/tv in the jellyfin UI.
