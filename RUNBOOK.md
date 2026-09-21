@@ -77,6 +77,66 @@ Prevention: jellyfin-cache moved to /mnt/fast/jellyfin-cache in git
 Lesson: check disk before blaming the database; filter-stage corruption logs
 nothing, so isolate with client-side toggles first.
 
+## lesson 2026-09-21: host-side deletes on virtiofs shares don't free space
+
+Context: cleared /mnt/archive on malice (media/ + downloads/, ~228G).
+`rm` exited clean and `du` showed 32K, but `df` still showed 228G used
+while `df -i` showed inodes free: unlinked-but-open files.
+Detect: compare `df -h` vs `du -sh` on the share; confirm with `df -i`.
+List holders with `lsof -n | grep '(deleted)' | grep -v memfd` — grep
+`(deleted)` broadly, not the share path: virtiofsd fd links display
+relative to the share (`/media/...`), so `grep archive` misses them,
+and so does `find /proc/*/fd -lname '/mnt/archive/*'`.
+Repair (zero downtime, no reboot): the guest owns the references, so
+release from the guest via malice:
+`qm guest exec <VMID> -- bash -c "sync; echo 2 > /proc/sys/vm/drop_caches"`.
+`sync` first (only clean caches are dropped); `2` drops slab
+(dentries/inodes), which is what triggers the FUSE release (`1` is
+pagecache only and won't do it). Re-check `df` twice, ~10-30s apart:
+block accounting lags (observed a transient 79G before settling to 2M).
+Escalate: if space stays held, a guest process has files actively open —
+find it with guest-side `lsof`/`fuser` (usually the torrent client
+seeding retired paths) and stop that workload first. Last resort is a
+full VM stop/start (restarts host virtiofsd workers; guest reboot alone
+keeps the old virtiofsd).
+Prevention: delete shared-tree data from the guest side when possible,
+or stop consumers (pause/remove dead torrents) before host-side `rm`.
+After any storage migration, `drop_caches` once and verify `df` ~= `du`
+before declaring space reclaimed.
+
+## process 2026-09-21: storage role swap (sdb -> vault/vzdump, sda -> backup/restic)
+
+Capacity forced it: /mnt/primary is 504G and growing, so a restic repo
+could never fit on the 466G disk; the 1TB holds it with headroom, while
+vzdump generations (~20G each) fit the 466G for many rotations.
+Rename a host mountpoint (here /mnt/archive -> /mnt/vault): only the
+path moves, never the store id or mapping name. Touch fstab (UUID line,
+keep a copy under /root), storage.cfg (`data` path), and
+mapping/directory.cfg (mapping path). The mapping-path change needs a
+full VM stop/start for every guest using the share (here only 101);
+a guest reboot alone keeps the old virtiofsd. The guest-side mountpoint
+may keep the old name (tag unchanged, still mounts) — rename it with
+the next deploy instead of a second bounce. Delete any skeleton left
+under the old path after unmounting, or silent root-disk writes follow.
+Prove redundancy before deleting a stale mirror: build sorted file
+lists on both sides (`find . -type f | sort`) and `comm -23` them —
+here all 26,980 mirror files existed in live primary (only live runtime
+logs differed). Spot-md5 overlapping pairs; differing sizes across
+releases (Backrooms 2.7G vs 16.9G) mean upgrades, not loss.
+Move flagged keeps with `cp -a` (preserves key perms), verify by md5 +
+`diff -r`, then delete sources. API-first for guest disks: `pct destroy`
+for dead containers, `pct set <id> -delete unused<N>` for detached disks
+(Proxmox removes the raws itself); never `rm` a live rootfs.
+Expect `df` to lag `du` after big deletes on shared trees — see the
+virtiofs lesson above; guest `drop_caches` frees it with no reboot.
+Wire the dump target by adding `backup` to the store content
+(`pvesm set <store> --content ...`); Proxmox manages `<path>/dump/`
+itself. Proof-run a stopped small guest first, then create the schedule
+via `pvesh create /cluster/backup` (here: all guests, snapshot, zstd,
+Sun 03:30, keep-last 8). Open after this run: chill-01 cannot see the
+1TB, so restic wiring (new virtiofs share or host-side restic) plus
+`restic init` belong to the backups phase.
+
 ## incident note
 
 Incident:

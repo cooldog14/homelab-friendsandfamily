@@ -19,7 +19,8 @@ WireGuard is only VPS to VM.
 | `/mnt/fast` 500GB SSD | `/mnt/fast/jellyfin-cache`, `/mnt/fast/scratch`, `/mnt/fast/imports`, `/mnt/fast/dumps` | Disposable scratch/cache: Jellyfin HLS/transcodes, temp imports/conversions, backup dumps; not exposed in Filebrowser |
 | `/mnt/data` 2TB mirror | `/mnt/data/photos`, `/mnt/data/downloads/uploads`, documents, clean music, app data | Immich, Filebrowser Quantum, public upload, Paperless, Navidrome/slskd |
 | `/mnt/pool` 4TB HDD | `/mnt/pool/media/movies`, `/mnt/pool/media/tv`, `/mnt/pool/downloads` | Jellyfin read-only media, qBittorrent, Radarr, Sonarr; re-downloadable, excluded from backup |
-| `/mnt/archive` `sdb` | `/mnt/archive/restic` | local restic copy of important data for 3-2-1 backup; not exposed to family apps |
+| `/mnt/backup` 1TB HDD (`sda`) | future `/mnt/backup/restic` | local restic copy of important data for 3-2-1 backup; not exposed to family apps. Cleared 2026-09-21 (~553G stale mirror/scratch removed); `restic init` still owed |
+| `/mnt/vault` 466G (`sdb`, ex-`/mnt/archive`) | `/mnt/vault/dump`, `/mnt/vault/backup-old-vm-lxc` | Proxmox vzdump target (`data` store, weekly `weekly-vault` job, keep-last 8); holds flagged pre-migration keeps, not apps |
 
 Family storage: Immich writes photos to `/mnt/data/photos`; Filebrowser Quantum starts at `/mnt/data`, exposes `/srv/pool`, and has passkeys enabled. Keep Quantum private/Tailscale; use the public upload app only for drop-box style sharing.
 
