@@ -6,8 +6,9 @@
 - Drive swap, in order: sdd becomes bulk (done 2026-09-18, verified
   byte-identical, dashboard shows 3.6T/31%), sdc becomes primary (done
   2026-09-19: mkfs + rsync 19:35->22:08, delta sync, mapping repointed,
-  VMs stop/started, guest sees 1.8T/28%), sda becomes the local restic
-  repo (open: 2b free-space vs 2c local repo).
+  VMs stop/started, guest sees 1.8T/28%), sdb /mnt/archive becomes the
+  local restic repo for important data (done in git 2026-09-21; apply on
+  host when available).
 - Lesson: host-side disk remounts are invisible to chill-01 until it
   reboots (virtiofsd pins the old filesystem at VM start; guest
   remount alone does not refresh it). Plan reboots for step 2 as well.
@@ -67,10 +68,9 @@
   VAAPI uses the same iHD driver/silicon with equal speed/quality and the
   more stable overlay_vaapi; UHD 630 has no QSV-only features. Flip
   HardwareAccelerationType in encoding.xml + restart at a quiet moment.)
-- Jellyfin transcodes to /mnt/fast SSD (open: compose mount
-  /mnt/fast/jellyfin-cache:/cache + segment deletion; reverted 2026-09-19,
-  redo on a quiet evening. A 78M cache seed may still sit at
-  /mnt/fast/jellyfin-cache.)
+- Jellyfin transcodes to /mnt/fast SSD (done 2026-09-21 in git: compose
+  mount /mnt/fast/jellyfin-cache:/cache + deploy creates/chowns it. After
+  deploy, old /opt/stacks/media/state/jellyfin-cache can be deleted if empty.)
 - Incident 2026-09-20 ~19:20 UTC: Jellyfin root disk full during F1 4K
   remux playback (Tizen). Cause: HLS transcode to /cache on the 80G VM
   root disk (26G, 625 .ts, one session) + 42G docker images filled / to
@@ -91,15 +91,18 @@ Intended end state; Proxmox paths and virtiofs tags never change, only
 the devices behind them move.
 
 - 4TB HDD (sdd ST4000DM004, /mnt/bulk -> /mnt/pool): movies, TV,
-  downloads, disposable media.
+  downloads, disposable/re-downloadable media; excluded from backups.
 - 2TB HDD (sdc ST2000DX002, /mnt/primary shared as pve1-mirror ->
   /mnt/data): important data, photos, documents, clean music, app data.
-- 1TB HDD (sda WDC WD10TPVT, /mnt/backupcopy host-only): second restic
-  repo (local copy of photos + important data). Restic to Hetzner S3
-  stays as the offsite copy.
+- Archive disk (sdb, /mnt/archive shared as pve1-archive -> VM
+  /mnt/archive): local restic repo at /mnt/archive/restic for the
+  important-data copy. Restic to Hetzner S3 stays as the offsite copy.
+- 1TB HDD (sda WDC WD10TPVT, /mnt/backup or /mnt/backupcopy host-only):
+  stale pre-cutover mirror/parking; not the new backup target.
 - SSD 1 (sde Samsung 850 EVO): Proxmox and VM disks.
-- SSD 2 (sdf PNY CS900, /mnt/fast): cache, DB dumps, transcodes,
-  staging. Hands off. Photos do NOT live here (mirror now).
+- SSD 2 (sdf PNY CS900, /mnt/fast): disposable scratch/cache: Jellyfin
+  transcodes, DB dumps, imports, build/scratch staging. Hands off for
+  family data. Photos do NOT live here (mirror now).
 
 Do not add RAID or ZFS complexity until matching disks exist.
-Do not touch /mnt/archive (sdb) until the bulk move verifies green.
+Do not expose /mnt/archive to apps or family storage; it is backup-only.

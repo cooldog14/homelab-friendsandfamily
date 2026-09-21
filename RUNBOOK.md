@@ -72,10 +72,10 @@ same iHD driver/silicon (QSV on Linux wraps VAAPI), same speed/quality, and
 overlay_vaapi avoids the green-frame bug; UHD 630 has no QSV-only features
 worth keeping.
 Repair time: ~1h alongside playback; tuning ~15 min post-film.
-Prevention: move jellyfin-cache to /mnt/fast or /mnt/pool (open); >85% /
-Gotify alert; weekly builder/image prune. Lesson: check disk before blaming
-the database; filter-stage corruption logs nothing, so isolate with
-client-side toggles first.
+Prevention: jellyfin-cache moved to /mnt/fast/jellyfin-cache in git
+2026-09-21; still add >85% / Gotify alert and weekly builder/image prune.
+Lesson: check disk before blaming the database; filter-stage corruption logs
+nothing, so isolate with client-side toggles first.
 
 ## incident note
 

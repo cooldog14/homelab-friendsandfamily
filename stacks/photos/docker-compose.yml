@@ -16,7 +16,7 @@ services:
       UPLOAD_LOCATION: /photos
     # Photo library lives on the mirror disk (VM /mnt/data = primary 2TB
     # disk per TODO storage layout), NOT on fast: SSD2 is cache/transcodes
-    # only. A second restic repo on the 1TB disk carries the local copy.
+    # only. A second restic repo on /mnt/archive carries the local copy.
     volumes:
       - /mnt/data/photos:/photos
     depends_on:

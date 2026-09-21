@@ -11,6 +11,11 @@ set -a
 . /etc/homelab.env
 set +a
 mountpoint -q /mnt/data
+mountpoint -q /mnt/fast
+mountpoint -q /mnt/archive
+DUMP_DIR=/mnt/fast/dumps
+mkdir -p "$DUMP_DIR"
+chmod 700 "$DUMP_DIR"
 
 log() { printf '[%s] %s\n' "$(date -Is)" "$*"; }
 
@@ -43,8 +48,8 @@ pg_dump_container() {
   fi
   mv "$out.new" "$out"
 }
-pg_dump_container photos-immich-db-1 /opt/dumps/immich.sql
-pg_dump_container docs-paperless-db-1 /opt/dumps/paperless.sql
+pg_dump_container photos-immich-db-1 "$DUMP_DIR/immich.sql"
+pg_dump_container docs-paperless-db-1 "$DUMP_DIR/paperless.sql"
 # SQLite hot-backup: raw restic copies of live sqlite files can be corrupt.
 # .backup takes a consistent snapshot; failures must not fail the backup.
 sql_backup() {
@@ -59,21 +64,31 @@ sql_backup() {
 }
 # NOTE: filebrowser.db is NOT sqlite (Filebrowser v2 uses bbolt) — raw restic
 # copy of /opt covers it; do not add it here.
-sql_backup /opt/stacks/docs/state/kavita/kavita.db /opt/dumps/kavita.db
-sql_backup /opt/stacks/observability/state/gotify/gotify.db /opt/dumps/gotify.db
-sql_backup /opt/stacks/observability/state/dockge/dockge.db /opt/dumps/dockge.db
-sql_backup /opt/stacks/observability/state/beszel/data.db /opt/dumps/beszel.db
+sql_backup /opt/stacks/docs/state/kavita/kavita.db "$DUMP_DIR/kavita.db"
+sql_backup /opt/stacks/observability/state/gotify/gotify.db "$DUMP_DIR/gotify.db"
+sql_backup /opt/stacks/observability/state/dockge/dockge.db "$DUMP_DIR/dockge.db"
+sql_backup /opt/stacks/observability/state/beszel/data.db "$DUMP_DIR/beszel.db"
 
-# Photos live on the mirror (/mnt/data/photos, primary 2TB disk) — listed
-# explicitly even though the whole of /mnt/data is backed up, so the intent
-# survives future exclude changes. A second restic repo on the 1TB disk
-# carries the local copy (see TODO.md storage layout).
-restic backup /opt /mnt/data /mnt/data/photos /etc /root/.ssh \
-  --exclude /mnt/data/downloads \
-  --exclude /mnt/data/media/movies \
-  --exclude /mnt/data/media/tv
+backup_important() {
+  # Photos live on the mirror (/mnt/data/photos) — listed explicitly even
+  # though /mnt/data is backed up, so intent survives future exclude changes.
+  restic backup /opt "$DUMP_DIR" /mnt/data /mnt/data/photos /etc /root/.ssh \
+    --exclude /mnt/data/downloads \
+    --exclude /mnt/data/media/movies \
+    --exclude /mnt/data/media/tv
+}
+
+backup_important
 # DELIBERATE OMISSIONS: downloads, movies, and TV are re-downloadable bulk media.
 # RESTIC_PRUNE=0 for an append-only remote: a popped host then cannot delete its own backups.
 case "${RESTIC_PRUNE:-1}" in 1) restic forget --prune --keep-daily 7 --keep-weekly 4 --keep-monthly 6 ;; esac
+
+cloud_repo=$RESTIC_REPOSITORY
+export RESTIC_REPOSITORY="${LOCAL_RESTIC_REPOSITORY:-/mnt/archive/restic}"
+mkdir -p "$RESTIC_REPOSITORY"
+restic snapshots >/dev/null 2>&1 || restic init
+backup_important
+case "${RESTIC_PRUNE:-1}" in 1) restic forget --prune --keep-daily 7 --keep-weekly 4 --keep-monthly 6 ;; esac
+export RESTIC_REPOSITORY="$cloud_repo"
 # Success marker for the watchdog timer (a disabled timer fails silently otherwise).
 mkdir -p /var/lib && date -Is > /var/lib/homelab-backup.last-ok

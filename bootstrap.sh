@@ -21,7 +21,7 @@ systemctl disable --now cockpit.socket 2>/dev/null || true
 rm -rf /etc/systemd/system/cockpit.socket.d
 apt-get purge -y cockpit cockpit-bridge cockpit-system cockpit-ws 2>/dev/null || true
 
-install -d /opt/stacks /opt/dumps
+install -d /opt/stacks
 # Restart docker only when its config actually changed: an unconditional
 # restart flaps every container (and trips the public black-box check).
 old_daemon=$(md5sum /etc/docker/daemon.json 2>/dev/null | cut -d' ' -f1 || true)
@@ -40,6 +40,8 @@ grep -q pve1-fast /etc/fstab || echo 'pve1-fast /mnt/fast virtiofs rw,relatime,n
 grep -q pve1-archive /etc/fstab || echo 'pve1-archive /mnt/archive virtiofs rw,relatime,nofail 0 0' >> /etc/fstab
 grep -q pve1-pool /etc/fstab || echo 'pve1-pool /mnt/pool virtiofs rw,relatime,nofail 0 0' >> /etc/fstab
 mkdir -p /mnt/data /mnt/fast /mnt/archive /mnt/pool && mount -a
+install -d -m 0755 -o 1000 -g 1000 /mnt/fast/jellyfin-cache /mnt/fast/scratch /mnt/fast/imports /mnt/fast/build-cache
+install -d -m 0700 /mnt/fast/dumps
 
 printf 'net.ipv4.ip_forward=1\n' > /etc/sysctl.d/99-homelab.conf
 sysctl --system > /dev/null

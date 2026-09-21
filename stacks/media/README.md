@@ -6,6 +6,7 @@ Media runs on chill-01.
 
 DATA_LOCATION defaults to /mnt/data (mirror disk: music, documents,
 slskd dirs). Bulk video lives on the 4TB disk, mounted at /mnt/pool.
+Jellyfin HLS/transcode cache lives on the scratch SSD at /mnt/fast/jellyfin-cache.
 
 - movies: /pool/movies (jellyfin ro, arr apps rw) — change library and
   root-folder paths to /pool/* in the app UIs, not /data/...
