@@ -261,6 +261,9 @@ services:
       - "${WG_IP:-10.44.0.2}:4567:4567"
     environment:
       TZ: ${TIMEZONE:-Europe/Paris}
+      AUTH_MODE: ui_login
+      AUTH_USERNAME: ${SUWAYOMI_AUTH_USERNAME:?set SUWAYOMI_AUTH_USERNAME in media .env}
+      AUTH_PASSWORD: ${SUWAYOMI_AUTH_PASSWORD:?set SUWAYOMI_AUTH_PASSWORD in media .env}
     volumes:
       - ./state/suwayomi:/home/suwayomi/.local/share/Tachidesk
     restart: unless-stopped
