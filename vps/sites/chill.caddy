@@ -5,6 +5,10 @@ photos.malice.biz {
 	import access_log
 	reverse_proxy 10.44.0.2:2283
 }
+files.malice.biz {
+	import access_log
+	reverse_proxy 10.44.0.2:8086
+}
 paperless.malice.biz {
 	import access_log
 	reverse_proxy 10.44.0.2:8092
