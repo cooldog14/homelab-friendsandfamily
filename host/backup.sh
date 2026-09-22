@@ -70,9 +70,8 @@ sql_backup /opt/stacks/observability/state/dockge/dockge.db "$DUMP_DIR/dockge.db
 sql_backup /opt/stacks/observability/state/beszel/data.db "$DUMP_DIR/beszel.db"
 
 backup_important() {
-  # Photos live on the mirror (/mnt/data/photos) — listed explicitly even
-  # though /mnt/data is backed up, so intent survives future exclude changes.
-  restic backup /opt "$DUMP_DIR" /mnt/data /mnt/data/photos /etc /root/.ssh \
+  # /mnt/data covers /mnt/data/photos (mirror disk) — single path only.
+  restic backup /opt "$DUMP_DIR" /mnt/data /etc /root/.ssh \
     --exclude /mnt/data/downloads \
     --exclude /mnt/data/media/music/inbox/slskd/incomplete \
     --exclude /mnt/data/media/movies \
