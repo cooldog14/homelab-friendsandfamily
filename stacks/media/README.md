@@ -35,4 +35,5 @@ Never commit .env.
 ## notes
 
 WireGuard is not part of this stack.
-Suwayomi is private at suwayomi.h.malice.biz.
+Suwayomi is private at suwayomi.h.malice.biz and uses native `ui_login`
+credentials from `.env`.
