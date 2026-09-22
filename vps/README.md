@@ -29,7 +29,7 @@ All backends point to 10.44.0.2.
 - nvdr.malice.biz
 
 files.malice.biz serves only /mnt/data/family.
-upload.malice.biz serves only /mnt/data/downloads/uploads.
+upload.malice.biz serves only /mnt/data/media/music/inbox/user.
 
 Gotify is private.
 Use gotify.h.malice.biz.

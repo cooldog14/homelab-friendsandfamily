@@ -11,14 +11,14 @@ services:
       - ./state/filebrowser-quantum:/home/filebrowser/data
       - ./config/filebrowser/config.yaml:/home/filebrowser/data/config.yaml:ro
 
-  # Public uploader: same app/config, but /srv is only the upload drop.
+  # Public music uploader: /srv is only the music inbox.
   filebrowser-upload:
     image: ghcr.io/gtsteffaniak/filebrowser:1.5.6-stable
     restart: unless-stopped
     ports:
       - "${WG_IP:-10.44.0.2}:8087:80"
     volumes:
-      - /mnt/data/downloads/uploads:/srv
+      - /mnt/data/media/music/inbox/user:/srv
       - ./state/filebrowser-upload:/home/filebrowser/data
       - ./config/filebrowser/config.yaml:/home/filebrowser/data/config.yaml:ro
 
