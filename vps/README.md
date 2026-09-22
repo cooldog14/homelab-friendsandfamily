@@ -18,6 +18,7 @@ All backends point to 10.44.0.2.
 - paperless.malice.biz
 - stirling.malice.biz
 - kavita.malice.biz
+- files.malice.biz
 - neko.malice.biz
 - screego.malice.biz
 - jellyfin.malice.biz
@@ -27,6 +28,7 @@ All backends point to 10.44.0.2.
 - upload.malice.biz
 - nvdr.malice.biz
 
+files.malice.biz serves only /mnt/data/family.
 upload.malice.biz serves only /mnt/data/downloads/uploads.
 
 Gotify is private.

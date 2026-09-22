@@ -21,3 +21,14 @@ services:
       - /mnt/data/downloads/uploads:/srv
       - ./state/filebrowser-upload:/home/filebrowser/data
       - ./config/filebrowser/config.yaml:/home/filebrowser/data/config.yaml:ro
+
+  # Public family files: scoped to one important-data folder, not all /mnt/data.
+  filebrowser-family:
+    image: ghcr.io/gtsteffaniak/filebrowser:1.5.6-stable
+    restart: unless-stopped
+    ports:
+      - "${WG_IP:-10.44.0.2}:8086:80"
+    volumes:
+      - /mnt/data/family:/srv
+      - ./state/filebrowser-family:/home/filebrowser/data
+      - ./config/filebrowser/config.yaml:/home/filebrowser/data/config.yaml:ro
