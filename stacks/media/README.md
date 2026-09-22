@@ -5,18 +5,19 @@ Media runs on chill-01.
 ## data
 
 DATA_LOCATION defaults to /mnt/data (mirror disk: music, documents,
-slskd dirs). Bulk video lives on the 4TB disk, mounted at /mnt/pool.
+app-scoped data). Bulk video lives on the 4TB disk, mounted at /mnt/pool.
 Jellyfin HLS/transcode cache lives on the scratch SSD at /mnt/fast/jellyfin-cache.
 
 - movies: /pool/movies (jellyfin ro, arr apps rw) — change library and
   root-folder paths to /pool/* in the app UIs, not /data/...
 - tv: /pool/tv (same)
 - video downloads: /pool/downloads (point qBittorrent save paths here)
-- music: /mnt/data/media/music
-- manga: managed by Suwayomi state
-- uploads: /mnt/data/downloads/uploads through Filebrowser Quantum
-- slskd complete: /mnt/data/downloads/slskd/complete
-- slskd incomplete: /mnt/data/downloads/slskd/incomplete
+- music inbox: /mnt/data/media/music/inbox
+- music final library: /mnt/data/media/music/clean
+- manga: /mnt/data/apps/suwayomi
+- uploads: /mnt/data/media/music/inbox/user through Filebrowser Upload
+- slskd complete: /mnt/data/media/music/inbox/slskd/complete
+- slskd incomplete: /mnt/data/media/music/inbox/slskd/incomplete
 
 ## network
 

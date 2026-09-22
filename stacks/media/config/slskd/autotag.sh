@@ -11,7 +11,7 @@ rewrite_path() {
 }
 
 if [ "${1:-}" = "--self-check" ]; then
-  [ "$(rewrite_path /data/downloads/slskd/complete/Album)" = "/mnt/data/downloads/slskd/complete/Album" ]
+  [ "$(rewrite_path /data/media/music/inbox/slskd/complete/Album)" = "/mnt/data/media/music/inbox/slskd/complete/Album" ]
   [ "$(rewrite_path /tmp/Album)" = "/tmp/Album" ]
   echo "autotag self-check ok"
   exit 0

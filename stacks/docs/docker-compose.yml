@@ -5,8 +5,11 @@ services:
     ports:
       - "${WG_IP:-10.44.0.2}:8091:8080"
     volumes:
-      - ./state/stirling/tessdata:/usr/share/tessdata
-      - ./config/stirling:/configs
+      - /mnt/data/apps/stirling/tessdata:/usr/share/tessdata
+      - /mnt/data/apps/stirling/config:/configs
+      - /mnt/data/apps/stirling/logs:/logs
+      - /mnt/data/apps/stirling/customFiles:/customFiles
+      - /mnt/data/apps/stirling/pipeline:/pipeline
 
   paperless-db:
     image: postgres:16-alpine
@@ -53,10 +56,10 @@ services:
       PAPERLESS_SECRET_KEY: ${PAPERLESS_SECRET_KEY}
       PAPERLESS_TIME_ZONE: Europe/Paris
     volumes:
-      - /mnt/data/docs/paperless/data:/usr/src/paperless/data
-      - /mnt/data/docs/paperless/media:/usr/src/paperless/media
-      - /mnt/data/docs/paperless/export:/usr/src/paperless/export
-      - /mnt/data/docs/paperless/consume:/usr/src/paperless/consume
+      - /mnt/data/apps/paperless/data:/usr/src/paperless/data
+      - /mnt/data/apps/paperless/media:/usr/src/paperless/media
+      - /mnt/data/apps/paperless/export:/usr/src/paperless/export
+      - /mnt/data/apps/paperless/consume:/usr/src/paperless/consume
 
   kavita:
     image: jvmilazz0/kavita:0.9.1
