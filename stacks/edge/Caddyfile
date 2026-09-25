@@ -22,14 +22,6 @@
 	# (its `default` line is silently dropped — verified 2026-09-16), and an
 	# unset placeholder makes `!= ""` true, proxying unknowns to :0 (502).
 	# Extend the same way, keep the 404 last.
-	@home_traffic {
-		host home.h.malice.biz
-		path /status/traffic.html
-	}
-	handle @home_traffic {
-		uri strip_prefix /status
-		reverse_proxy http://10.44.0.1:8088
-	}
 	@home host home.h.malice.biz
 	handle @home {
 		root * /srv/home

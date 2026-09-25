@@ -1,6 +1,0 @@
-[Unit]
-Description=Refresh public traffic report
-
-[Service]
-Type=oneshot
-ExecStart=/usr/local/bin/homelab-traffic-report

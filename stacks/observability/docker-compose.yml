@@ -4,7 +4,7 @@ services:
     image: gotify/server:2.5.0
     restart: unless-stopped
     ports:
-      - "${WG_IP:-10.44.0.2}:8070:80"   # private via gotify.h.malice.biz
+      - "${WG_IP}:8070:80"   # private via gotify.h.malice.biz
     environment:
       GOTIFY_DEFAULTUSER_PASS: ${GOTIFY_DEFAULTUSER_PASS}
     volumes:
@@ -15,7 +15,7 @@ services:
     image: louislam/dockge:1.4.2
     restart: unless-stopped
     ports:
-      - "${WG_IP:-10.44.0.2}:5001:5001"
+      - "${WG_IP}:5001:5001"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - /opt/stacks:/opt/stacks
@@ -28,7 +28,7 @@ services:
     extra_hosts:
       - host.docker.internal:host-gateway
     ports:
-      - "${WG_IP:-10.44.0.2}:8090:8090"
+      - "${WG_IP}:8090:8090"
     volumes:
       - ./state/beszel:/beszel_data
 

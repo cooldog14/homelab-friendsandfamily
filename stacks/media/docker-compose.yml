@@ -11,7 +11,7 @@ services:
       - "44"
       - "991"
     ports:
-      - "${WG_IP:-10.44.0.2}:8096:8096"
+      - "${WG_IP}:8096:8096"
       # LAN-only bind for direct TV playback (no internet hairpin via the VPS).
       # Specific-IP bind, never 0.0.0.0; host UFW scopes 8096 to 192.168.1.0/24.
       - "${LAN_IP:-192.168.1.28}:8096:8096"
@@ -19,14 +19,14 @@ services:
       - ./state/jellyfin-config:/config
       # Disposable HLS/transcode cache lives on the fast SSD, not the VM root.
       - /mnt/fast/jellyfin-cache:/cache
-      - ${DATA_LOCATION:-/mnt/data}:/data
+      - ${DATA_LOCATION}:/data
       # Bulk media lives on the 4TB disk (VM /mnt/pool, TODO storage layout).
       # Change library paths to /pool/movies and /pool/tv in the jellyfin UI.
       - /mnt/pool/media/movies:/pool/movies:ro
       - /mnt/pool/media/tv:/pool/tv:ro
     restart: unless-stopped
     environment:
-      TZ: ${TIMEZONE:-Europe/Paris}
+      TZ: ${TIMEZONE}
 
   # VPN egress for torrent/P2P traffic (qbittorrent, prowlarr, flaresolverr,
   # slskd). Ported from the arr LXC: without this, P2P egresses via the home
@@ -38,10 +38,10 @@ services:
     devices:
       - /dev/net/tun
     ports:
-      - "${WG_IP:-10.44.0.2}:8701:8701"
-      - "${WG_IP:-10.44.0.2}:9696:9696"
-      - "${WG_IP:-10.44.0.2}:8191:8191"
-      - "${WG_IP:-10.44.0.2}:5030:5030"
+      - "${WG_IP}:8701:8701"
+      - "${WG_IP}:9696:9696"
+      - "${WG_IP}:8191:8191"
+      - "${WG_IP}:5030:5030"
     volumes:
       - ./state/gluetun:/gluetun
     environment:
@@ -57,7 +57,7 @@ services:
       # subnets dynamically, so a narrower value breaks after re-creation.
       FIREWALL_OUTBOUND_SUBNETS: "172.16.0.0/12"
       WIREGUARD_PUBLIC_KEY: ${VPS_WG_PUBKEY}
-      TZ: ${TIMEZONE:-Europe/Paris}
+      TZ: ${TIMEZONE}
     restart: unless-stopped
 
   qbittorrent:
@@ -68,13 +68,13 @@ services:
     environment:
       PUID: "1000"
       PGID: "1000"
-      TZ: ${TIMEZONE:-Europe/Paris}
+      TZ: ${TIMEZONE}
       WEBUI_PORT: "8701"
       WEBUI_ADDRESS: "0.0.0.0"
       WEBUI_EXTERNAL_ACCESS: "true"
     volumes:
       - ./state/qbittorrent:/config
-      - ${DATA_LOCATION:-/mnt/data}:/data
+      - ${DATA_LOCATION}:/data
       # Video downloads live on the 4TB disk. Point save paths at
       # /pool/downloads in the qbittorrent UI after migrating state.
       - /mnt/pool/downloads:/pool/downloads
@@ -89,7 +89,7 @@ services:
     environment:
       PUID: "1000"
       PGID: "1000"
-      TZ: ${TIMEZONE:-Europe/Paris}
+      TZ: ${TIMEZONE}
     volumes:
       - ./state/prowlarr:/config
 
@@ -99,7 +99,7 @@ services:
     depends_on:
       - gluetun
     environment:
-      TZ: ${TIMEZONE:-Europe/Paris}
+      TZ: ${TIMEZONE}
       LOG_LEVEL: info
       HEADLESS: "true"
       BROWSER_TIMEOUT: "120000"
@@ -110,14 +110,14 @@ services:
     image: lscr.io/linuxserver/radarr:6.2.1
     restart: unless-stopped
     ports:
-      - "${WG_IP:-10.44.0.2}:7878:7878"
+      - "${WG_IP}:7878:7878"
     environment:
       PUID: "1000"
       PGID: "1000"
-      TZ: ${TIMEZONE:-Europe/Paris}
+      TZ: ${TIMEZONE}
     volumes:
       - ./state/radarr:/config
-      - ${DATA_LOCATION:-/mnt/data}:/data
+      - ${DATA_LOCATION}:/data
       # Movies root folder is /pool/movies (4TB disk). Update root folders
       # and download-client remote path mappings in the radarr UI.
       - /mnt/pool/media/movies:/pool/movies
@@ -127,14 +127,14 @@ services:
     image: lscr.io/linuxserver/sonarr:4.0.17
     restart: unless-stopped
     ports:
-      - "${WG_IP:-10.44.0.2}:8989:8989"
+      - "${WG_IP}:8989:8989"
     environment:
       PUID: "1000"
       PGID: "1000"
-      TZ: ${TIMEZONE:-Europe/Paris}
+      TZ: ${TIMEZONE}
     volumes:
       - ./state/sonarr:/config
-      - ${DATA_LOCATION:-/mnt/data}:/data
+      - ${DATA_LOCATION}:/data
       # TV root folder is /pool/tv (4TB disk). Update root folders
       # and download-client remote path mappings in the sonarr UI.
       - /mnt/pool/media/tv:/pool/tv
@@ -144,14 +144,14 @@ services:
     image: lscr.io/linuxserver/bazarr:1.5.6
     restart: unless-stopped
     ports:
-      - "${WG_IP:-10.44.0.2}:6767:6767"
+      - "${WG_IP}:6767:6767"
     environment:
       PUID: "1000"
       PGID: "1000"
-      TZ: ${TIMEZONE:-Europe/Paris}
+      TZ: ${TIMEZONE}
     volumes:
       - ./state/bazarr:/config
-      - ${DATA_LOCATION:-/mnt/data}:/data
+      - ${DATA_LOCATION}:/data
       # Subtitles are written next to the video files (4TB disk).
       - /mnt/pool/media/movies:/pool/movies
       - /mnt/pool/media/tv:/pool/tv
@@ -159,10 +159,10 @@ services:
   jellyseerr:
     image: fallenbagel/jellyseerr:2.7.3
     environment:
-      TZ: ${TIMEZONE:-Europe/Paris}
+      TZ: ${TIMEZONE}
       LOG_LEVEL: info
     ports:
-      - "${WG_IP:-10.44.0.2}:5055:5055"
+      - "${WG_IP}:5055:5055"
     volumes:
       - ./state/jellyseerr:/app/config
     restart: unless-stopped
@@ -175,10 +175,10 @@ services:
     image: deluan/navidrome:0.63.2
     user: "1000:1000"
     ports:
-      - "${WG_IP:-10.44.0.2}:4533:4533"
+      - "${WG_IP}:4533:4533"
       - "127.0.0.1:4533:4533"
     environment:
-      TZ: ${TIMEZONE:-Europe/Paris}
+      TZ: ${TIMEZONE}
       ND_ENABLEINSIGHTSCOLLECTOR: "false"
       ND_ENABLESHARING: "false"
       ND_LOGLEVEL: info
@@ -186,14 +186,14 @@ services:
       ND_SCANNER_SCHEDULE: "@every 1h"
     volumes:
       - ./state/navidrome:/data
-      - ${DATA_LOCATION:-/mnt/data}/media/music:/music:ro
+      - ${DATA_LOCATION}/media/music:/music:ro
     restart: unless-stopped
 
   wrtag:
     image: sentriz/wrtag:v0.30.0
     user: "1000:1000"
     ports:
-      - "${WG_IP:-10.44.0.2}:7373:7373"
+      - "${WG_IP}:7373:7373"
     environment:
       WRTAG_PATH_FORMAT: '/mnt/data/media/music/clean/{{ artists .Release.Artists | sort | join "; " | safepath }}/({{ .Release.ReleaseGroup.FirstReleaseDate.Year }}) {{ .Release.Title | safepath }}{{ if not (eq .ReleaseDisambiguation "") }} ({{ .ReleaseDisambiguation | safepath }}){{ end }}/{{ if gt (len .Release.Media) 1 }}d{{ pad0 2 .Media.Position }} {{ end }}{{ pad0 2 .Track.Position }}.{{ .Media.TrackCount | pad0 2 }} {{ if .IsCompilation }}{{ artistsString .Track.Artists | safepath }} - {{ end }}{{ .Track.Title | safepath }}{{ .Ext }}'
       WRTAG_WEB_API_KEY: ${WRTAG_WEB_API_KEY}
@@ -207,14 +207,14 @@ services:
       WRTAG_COVER_UPGRADE: "true"
     volumes:
       - ./state/wrtag:/data
-      - ${DATA_LOCATION:-/mnt/data}:/mnt/data
+      - ${DATA_LOCATION}:/mnt/data
     restart: unless-stopped
 
   octo-fiesta:
     image: ghcr.io/v1ck3s/octo-fiesta:v0.8
     user: "1000:1000"
     ports:
-      - "${WG_IP:-10.44.0.2}:5274:8080"
+      - "${WG_IP}:5274:8080"
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: "http://+:8080"
@@ -235,7 +235,7 @@ services:
       Deezer__ArlFallback: ${DEEZER_ARL_FALLBACK:-}
       Deezer__Quality: "flac"
     volumes:
-      - ${DATA_LOCATION:-/mnt/data}/media/music/clean:/app/downloads
+      - ${DATA_LOCATION}/media/music/clean:/app/downloads
       - ./state/octo-fiesta:/config
     depends_on:
       - navidrome
@@ -244,7 +244,7 @@ services:
   feishin:
     image: ghcr.io/jeffvli/feishin:1.17.0
     ports:
-      - "${WG_IP:-10.44.0.2}:9180:9180"
+      - "${WG_IP}:9180:9180"
     environment:
       SERVER_NAME: "malice.biz"
       SERVER_TYPE: subsonic
@@ -258,9 +258,9 @@ services:
   suwayomi:
     image: ghcr.io/suwayomi/suwayomi-server:v2.3.2361-preview
     ports:
-      - "${WG_IP:-10.44.0.2}:4567:4567"
+      - "${WG_IP}:4567:4567"
     environment:
-      TZ: ${TIMEZONE:-Europe/Paris}
+      TZ: ${TIMEZONE}
       AUTH_MODE: ui_login
       AUTH_USERNAME: ${SUWAYOMI_AUTH_USERNAME:?set SUWAYOMI_AUTH_USERNAME in media .env}
       AUTH_PASSWORD: ${SUWAYOMI_AUTH_PASSWORD:?set SUWAYOMI_AUTH_PASSWORD in media .env}
@@ -279,7 +279,7 @@ services:
       - gluetun
       - wrtag
     environment:
-      TZ: ${TIMEZONE:-Europe/Paris}
+      TZ: ${TIMEZONE}
       SLSKD_CONFIG: /app/slskd.yml
       SLSKD_UMASK: "0002"
       SLSKD_SLSK_USERNAME: ${SLSKD_SLSK_USERNAME}
@@ -295,5 +295,5 @@ services:
       - ./state/slskd:/app
       - ./config/slskd/slskd.yml:/app/slskd.yml:ro
       - ./config/slskd/autotag.sh:/app/scripts/autotag.sh:ro
-      - ${DATA_LOCATION:-/mnt/data}:/data
+      - ${DATA_LOCATION}:/data
     restart: unless-stopped

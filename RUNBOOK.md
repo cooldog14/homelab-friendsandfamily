@@ -137,11 +137,11 @@ Sun 03:30, keep-last 8). Open after this run: chill-01 cannot see the
 1TB, so restic wiring (new virtiofs share or host-side restic) plus
 `restic init` belong to the backups phase.
 
-## incident note
+## postmortem template
 
 Incident:
 Impact:
 Detection:
+Cause:
 Repair:
-Repair time:
 Prevention:

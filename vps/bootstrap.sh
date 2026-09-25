@@ -9,11 +9,8 @@ apt-get install -y ca-certificates curl gnupg
 curl -1sLf https://dl.cloudsmith.io/public/caddy/stable/gpg.key | gpg --dearmor --yes -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
 curl -1sLf https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt -o /etc/apt/sources.list.d/caddy-stable.list
 apt-get update
-apt-get install -y caddy goaccess nftables unattended-upgrades wireguard
+apt-get install -y caddy nftables unattended-upgrades wireguard
 mkdir -p /var/log/caddy && chown caddy:caddy /var/log/caddy
-install -d -m 755 /var/lib/homelab-traffic
-install -m 755 traffic-report.sh /usr/local/bin/homelab-traffic-report
-install -m 644 homelab-traffic-report.service homelab-traffic-report.timer /etc/systemd/system/
 mkdir -p /etc/systemd/system/caddy.service.d
 cat > /etc/systemd/system/caddy.service.d/homelab.conf <<'EOF'
 [Unit]
@@ -55,6 +52,4 @@ nft -f /etc/nftables.d/homelab_nat.conf
 caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
 systemctl enable --now caddy
 systemctl reload caddy
-systemctl enable --now homelab-traffic-report.timer
-systemctl start homelab-traffic-report.service
 echo "public vhosts live in /etc/caddy/sites; private/admin access uses Tailscale"

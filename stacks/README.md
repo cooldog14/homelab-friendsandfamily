@@ -3,6 +3,7 @@
 Docker Compose stacks run on chill-01.
 
 make deploy syncs this folder to /opt/stacks.
+`defaults.env` holds shared non-secret defaults; Makefile loads it for compose.
 Stack .env files and state folders stay on the host.
 
 ## stacks
