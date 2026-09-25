@@ -9,8 +9,8 @@ soulseek:
     child_limit: 25
 
 directories:
-  # Matches compose env SLSKD_INCOMPLETE_DIR / SLSKD_DOWNLOADS_DIR
-  # (${DATA_LOCATION}:/data, i.e. /mnt/data on chill-01).
+  # Matches compose env SLSKD_INCOMPLETE_DIR / SLSKD_DOWNLOADS_DIR.
+  # Compose mounts DATA_LOCATION from stacks/defaults.env at /data.
   incomplete: /data/media/music/inbox/slskd/incomplete
   downloads: /data/media/music/inbox/slskd/complete
 

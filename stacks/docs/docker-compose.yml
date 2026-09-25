@@ -3,7 +3,7 @@ services:
     image: stirlingtools/stirling-pdf:2.14.3
     restart: unless-stopped
     ports:
-      - "${WG_IP:-10.44.0.2}:8091:8080"
+      - "${WG_IP}:8091:8080"
     volumes:
       - /mnt/data/apps/stirling/tessdata:/usr/share/tessdata
       - /mnt/data/apps/stirling/config:/configs
@@ -43,7 +43,7 @@ services:
       - gotenberg
       - tika
     ports:
-      - "${WG_IP:-10.44.0.2}:8092:8000"
+      - "${WG_IP}:8092:8000"
     environment:
       PAPERLESS_REDIS: redis://paperless-redis:6379
       PAPERLESS_DBHOST: paperless-db
@@ -65,7 +65,7 @@ services:
     image: jvmilazz0/kavita:0.9.1
     restart: unless-stopped
     ports:
-      - "${WG_IP:-10.44.0.2}:8094:5000"
+      - "${WG_IP}:8094:5000"
     volumes:
       - /mnt/data/media/books:/books
       - ./state/kavita:/kavita/config

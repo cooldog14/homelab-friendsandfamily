@@ -41,16 +41,6 @@ Use gotify.h.malice.biz.
 - Screego TURN: 3478 TCP and UDP
 - Screego TURN range: 52100 to 52200 UDP
 
-## traffic report
-
-The VPS refreshes /var/lib/homelab-traffic/traffic.html every 15 minutes from public Caddy access logs only.
-The private homepage proxies it at https://home.h.malice.biz/status/traffic.html over WireGuard.
-Run make traffic to force a refresh.
-The report origin (Caddy on VPS port 8088) needs a live firewall accept
-that cannot live in nftables.conf (a drop verdict is terminal across
-tables): it is a one-liner in /etc/nftables.conf on the box, next to the
-stage-2 51824 accept. Same rule for any future VPS input port.
-
 ## old cleanup
 
 Old 10.30 WireGuard rules are retired.

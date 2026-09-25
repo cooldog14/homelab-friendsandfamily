@@ -19,13 +19,4 @@
 	}
 }
 
-http://10.44.0.1:8088 {
-	@chill remote_ip 10.44.0.0/24
-	handle @chill {
-		root * /var/lib/homelab-traffic
-		file_server
-	}
-	respond 404
-}
-
 import /etc/caddy/sites/*.caddy

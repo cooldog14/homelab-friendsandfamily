@@ -4,8 +4,9 @@ Media runs on chill-01.
 
 ## data
 
-DATA_LOCATION defaults to /mnt/data (mirror disk: music, documents,
-app-scoped data). Bulk video lives on the 4TB disk, mounted at /mnt/pool.
+`../defaults.env` sets the shared stack defaults: DATA_LOCATION, WG_IP,
+and TIMEZONE. DATA_LOCATION is the mirror disk for music, documents, and
+app-scoped data. Bulk video lives on the 4TB disk, mounted at /mnt/pool.
 Jellyfin HLS/transcode cache lives on the scratch SSD at /mnt/fast/jellyfin-cache.
 
 - movies: /pool/movies (jellyfin ro, arr apps rw) — change library and
@@ -23,14 +24,14 @@ Jellyfin HLS/transcode cache lives on the scratch SSD at /mnt/fast/jellyfin-cach
 
 qbittorrent, prowlarr, flaresolverr and slskd ride the gluetun service
 (custom WireGuard to the VPS), so P2P never egresses via the home IP.
-Gluetun publishes their ports on WG_IP; the apps reach each other by
+Gluetun publishes their ports on WG_IP from `../defaults.env`; the apps reach each other by
 service name. FIREWALL_OUTBOUND_SUBNETS covers 172.16.0.0/12 because
 compose bridge subnets are assigned dynamically.
 
 ## secrets
 
-Copy .env.example to .env on chill-01.
-Fill the secrets there.
+Use `../defaults.env` plus this stack's `.env` on chill-01.
+Copy `.env.example` to `.env` and fill the secrets there.
 Never commit .env.
 
 ## notes
