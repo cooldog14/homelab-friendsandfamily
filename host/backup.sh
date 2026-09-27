@@ -12,10 +12,6 @@ set -a
 set +a
 mountpoint -q /mnt/data
 mountpoint -q /mnt/fast
-# Local restic drive (1TB, host /mnt/backup). chill-01 needs a virtiofs share
-# for it (backups phase); until then this fails closed instead of writing a
-# repo to the root disk.
-mountpoint -q /mnt/backup
 DUMP_DIR=/mnt/fast/dumps
 mkdir -p "$DUMP_DIR"
 chmod 700 "$DUMP_DIR"
@@ -77,6 +73,7 @@ backup_important() {
   restic backup /opt "$DUMP_DIR" /mnt/data /etc /root/.ssh \
     --exclude /mnt/data/downloads \
     --exclude /mnt/data/media/downloads \
+    --exclude /mnt/data/media/music/messy \
     --exclude /mnt/data/media/music/inbox/slskd/incomplete \
     --exclude /mnt/data/media/movies \
     --exclude /mnt/data/media/tv
@@ -86,9 +83,16 @@ backup_important
 # DELIBERATE OMISSIONS: downloads, movies, and TV are re-downloadable bulk media.
 # /mnt/data/media/downloads is a manual music review queue: kept on the mirror
 # by choice, excluded from restic so 100G+ of staging never rides the backup.
+# /mnt/data/media/music/messy is a 65G raw-intake archive: kept, never delete,
+# excluded from restic for the same reason.
 # RESTIC_PRUNE=0 for an append-only remote: a popped host then cannot delete its own backups.
 case "${RESTIC_PRUNE:-1}" in 1) restic forget --prune --keep-daily 7 --keep-weekly 4 --keep-monthly 6 ;; esac
 
+# Local restic drive (1TB, host /mnt/backup). chill-01 needs a virtiofs share
+# for it (backups phase); until wired, only this local copy fails (loud) while
+# the cloud backup above keeps running. Never mkdir past this point unguarded:
+# a repo on the root disk would fill it.
+mountpoint -q /mnt/backup
 cloud_repo=$RESTIC_REPOSITORY
 export RESTIC_REPOSITORY="${LOCAL_RESTIC_REPOSITORY:-/mnt/backup/restic}"
 mkdir -p "$RESTIC_REPOSITORY"
