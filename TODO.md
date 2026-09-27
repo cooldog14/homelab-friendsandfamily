@@ -1,13 +1,35 @@
 # todo
 
-## next (updated 2026-09-21 evening)
+## next (updated 2026-09-27)
+
+- Tailnet move 2026-09-27 (UndauntedGeiger replaces frasseberry):
+  malice (.109) + chill-01 (.71) + fedora now on UndauntedGeiger.
+  Retire frasseberry: remove shared `malice.taila725ed.ts.net
+  100.90.216.64` copy from admin console, delete old machines,
+  move macbook/towa/pixel-8/hermes-01, revoke used auth keys.
+- VPS fallback SSH: `root@debian-13` key appended to
+  `/etc/pve/priv/authorized_keys` 2026-09-27, original at
+  `/root/authorized_keys.bak-2026-09-27`. Keep 24h, then delete
+  that one line.
+- Access (Tailscale UndauntedGeiger): `ssh malice` (100.99.204.109)
+  for Proxmox; `ssh <chill-01-tail-IP>` or `qm guest exec 101`
+  via malice for the VM; emergency only `ssh vps` ->
+  `ssh 10.30.0.3` (WG, needs fallback key while kept).
 
 - Commit pending docs (README, RUNBOOK, TODO, host/README,
   homelab.env.example, photos compose comment: role swap + vault).
-- Backups phase: `restic init` on /mnt/backup; solve chill-01 visibility
-  (new virtiofs share for /mnt/backup vs host-side restic); rewire
-  backup.sh/service defaults off guest /mnt/archive; extend restore-test
-  to kavita/dockge/beszel; re-run one restore drill to a temp path.
+- Backups phase 2026-09-27: ready in git, not live yet. Shipped in git:
+  backup.sh excludes media/downloads (122G review queue, kept) +
+  music/messy (65G intake archive, kept, never delete), LOCAL_RESTIC
+  default /mnt/backup/restic, /mnt/backup check moved to the local
+  section so cloud keeps running; service RequiresMountsFor /mnt/backup;
+  bootstrap fstab pve1-archive -> /mnt/vault. Live chill-01 still runs
+  the old cloud-only script: nightly S3 runs, staging included. After
+  next `make host`: cloud with excludes, local copy fails loud (Gotify)
+  until the share lands. Still owed: virtiofs share for /mnt/backup
+  (host mapping + qm set + guest mount, needs full VM stop/start, all
+  containers down) + `restic init`; extend restore-test to
+  kavita/dockge/beszel; re-run one restore drill to a temp path.
 - Deploy fix: `deploy@10.44.0.2` unreachable from towa (no route), key
   denied from malice. Repair SSH path or designate a connected host,
   then `make deploy` (ships jellyfin /mnt/fast cache move + guest
