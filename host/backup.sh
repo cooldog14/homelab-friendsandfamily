@@ -12,7 +12,10 @@ set -a
 set +a
 mountpoint -q /mnt/data
 mountpoint -q /mnt/fast
-mountpoint -q /mnt/archive
+# Local restic drive (1TB, host /mnt/backup). chill-01 needs a virtiofs share
+# for it (backups phase); until then this fails closed instead of writing a
+# repo to the root disk.
+mountpoint -q /mnt/backup
 DUMP_DIR=/mnt/fast/dumps
 mkdir -p "$DUMP_DIR"
 chmod 700 "$DUMP_DIR"
@@ -73,6 +76,7 @@ backup_important() {
   # /mnt/data covers /mnt/data/photos (mirror disk) — single path only.
   restic backup /opt "$DUMP_DIR" /mnt/data /etc /root/.ssh \
     --exclude /mnt/data/downloads \
+    --exclude /mnt/data/media/downloads \
     --exclude /mnt/data/media/music/inbox/slskd/incomplete \
     --exclude /mnt/data/media/movies \
     --exclude /mnt/data/media/tv
@@ -80,11 +84,13 @@ backup_important() {
 
 backup_important
 # DELIBERATE OMISSIONS: downloads, movies, and TV are re-downloadable bulk media.
+# /mnt/data/media/downloads is a manual music review queue: kept on the mirror
+# by choice, excluded from restic so 100G+ of staging never rides the backup.
 # RESTIC_PRUNE=0 for an append-only remote: a popped host then cannot delete its own backups.
 case "${RESTIC_PRUNE:-1}" in 1) restic forget --prune --keep-daily 7 --keep-weekly 4 --keep-monthly 6 ;; esac
 
 cloud_repo=$RESTIC_REPOSITORY
-export RESTIC_REPOSITORY="${LOCAL_RESTIC_REPOSITORY:-/mnt/archive/restic}"
+export RESTIC_REPOSITORY="${LOCAL_RESTIC_REPOSITORY:-/mnt/backup/restic}"
 mkdir -p "$RESTIC_REPOSITORY"
 restic snapshots >/dev/null 2>&1 || restic init
 backup_important

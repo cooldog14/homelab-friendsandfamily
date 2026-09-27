@@ -1,7 +1,7 @@
 [Unit]
 Description=Restic backup
 After=docker.service
-RequiresMountsFor=/mnt/data /mnt/fast /mnt/archive
+RequiresMountsFor=/mnt/data /mnt/fast /mnt/backup
 OnFailure=notify@%n.service
 
 [Service]
