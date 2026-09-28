@@ -35,6 +35,9 @@ services:
   beszel-agent:
     image: henrygd/beszel-agent:0.9
     restart: unless-stopped
+    # Exception to the WG_IP-bind rule: the agent needs host network visibility
+    # for host/container metrics. It exposes only PORT below; UFW still gates
+    # inbound access.
     network_mode: host
     environment:
       PORT: 45876

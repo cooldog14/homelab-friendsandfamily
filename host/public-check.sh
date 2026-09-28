@@ -14,6 +14,14 @@ list_http_hosts() {
   ' {} + | sort -u
 }
 
+list_private_hosts() {
+  awk '
+    /^[[:space:]]*@[^[:space:]]+[[:space:]]+host[[:space:]]+/ {
+      for (i = 3; i <= NF; i++) print $i
+    }
+  ' "$PRIVATE_CADDYFILE" | sort -u
+}
+
 if [[ ${1:-} == "--self-check" ]]; then
   tmp=$(mktemp -d)
   trap 'rm -rf "$tmp"' EXIT
@@ -31,6 +39,20 @@ CADDY
   actual=$(list_http_hosts)
   [[ $actual == "$expected" ]]
   echo "public-check self-check ok"
+  exit 0
+fi
+
+if [[ ${1:-} == "--config-lint" ]]; then
+  PRIVATE_CADDYFILE=${PRIVATE_CADDYFILE:-/opt/stacks/edge/Caddyfile}
+  [[ -d $PUBLIC_CADDY_SITES_DIR ]] || { echo "FAIL public Caddy sites dir missing: $PUBLIC_CADDY_SITES_DIR" >&2; exit 1; }
+  [[ -f $PRIVATE_CADDYFILE ]] || { echo "FAIL private Caddyfile missing: $PRIVATE_CADDYFILE" >&2; exit 1; }
+  dupes=$(comm -12 <(list_http_hosts) <(list_private_hosts))
+  if [[ -n $dupes ]]; then
+    echo "FAIL public host duplicated in private Caddy:" >&2
+    echo "$dupes" >&2
+    exit 1
+  fi
+  echo "public-check config-lint ok"
   exit 0
 fi
 
