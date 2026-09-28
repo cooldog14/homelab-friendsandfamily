@@ -45,8 +45,9 @@
   (immich.sql, paperless.sql, gotify/beszel/dockge/kavita dbs);
   last-ok stamped 2026-09-28T16:52, watchdog green. Full chain intact
   (37 snapshots). Prune left to the nightly run. First local backup
-  still running 18:16 (1h17 elapsed, ~40min CPU, steady — full first
-  read, verify on landing). Watchdog deadline now 09-30 16:52.
+  DONE 20:06 (snapshot 854102ff, 328G, all paths, 1h34 CPU) — 3-2-1
+  complete (cloud + local + weekly vzdump). last-ok restamped
+  2026-09-28T20:1x. Watchdog deadline now 09-30.
 - Virtiofs share for /mnt/backup — WIRED 2026-09-28 (~17:00 UTC,
   services down ~10 min, accepted): mapping `pve1-backup->/mnt/backup`
   created on malice, `qm set 101 --virtiofs4 pve1-backup`, full
@@ -67,6 +68,17 @@
   last-ok 09-28T16:52, cloud snapshot verified same day.
 
 ### P2 — app health after deploy
+
+- Gotify admin password restored 2026-09-28 (in-app password had
+  drifted from the .env seed; reset via bcrypt UPDATE, DB backed up
+  first, login verified PASS_OK). Link is private-only:
+  https://gotify.h.malice.biz (Tailscale).
+
+- Navidrome francis password rotated 2026-09-28 (user request, LOGIN_OK
+  verified via API). LESSON: 0.63 stores passwords encrypted-at-rest
+  (default shared key) — a direct bcrypt UPDATE silently breaks login;
+  use `navidrome user edit --user X --set-password` via pty instead.
+  DB backed up first (navidrome.db.bak-2026-09-28).
 
 - Jellyfin DB check DONE 2026-09-28: `PRAGMA integrity_check` ok on
   jellyfin.db + library.db (09-20 rollback leftover cleared by restart);
