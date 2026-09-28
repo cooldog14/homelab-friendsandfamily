@@ -25,13 +25,11 @@
 
 ### P1 — deploy path + backups (graceful, cloud first)
 
-- Deploy fix: `HOST=chill-01` (Tailscale) works; WG `10.44.0.2` path
-  does not. Use `make host HOST=chill-01` / `make deploy HOST=chill-01`
-  until Makefile default is updated or a connected host is designated.
-  Same for `make vps` on fedora: no `vps-ingress` alias here, use
-  `VPS_SSH="ssh vps" HOST=chill-01`. Then ship jellyfin /mnt/fast
-  cache move + guest pve1-archive path rename /mnt/archive -> /mnt/vault
-  (both already in git; bootstrap half shipped 2026-09-28).
+- Deploy DONE 2026-09-28: Makefile `HOST` defaults to `chill-01`
+  (Tailscale admin path); `vps-ingress` alias added on fedora so plain
+  `make vps` works. `make deploy` + `make vps` both verified green
+  today. Jellyfin /mnt/fast cache move + guest pve1-archive path rename
+  shipped via bootstrap; compose half live (HLS verify next film night).
 - Backups 2026-09-28: nightly FAILED this morning (last-ok
   2026-09-27T04:31, failed 2026-09-28T04:41, no script output). Cause:
   live script failed closed on early `mountpoint -q /mnt/backup` +
