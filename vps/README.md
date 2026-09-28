@@ -40,6 +40,7 @@ Use gotify.h.malice.biz.
 - Neko WebRTC: 52000 TCP and UDP
 - Screego TURN: 3478 TCP and UDP
 - Screego TURN range: 52100 to 52200 UDP
+- Minecraft: 25565 TCP
 
 ## old cleanup
 

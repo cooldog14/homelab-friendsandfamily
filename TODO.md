@@ -94,8 +94,12 @@
 
 ### P3 — hygiene / docs
 
-- Commit pending docs (README, RUNBOOK, TODO, host/README,
-  homelab.env.example, photos compose comment: role swap + vault).
+- Minecraft (games stack) SHIPPED 2026-09-28: Paper 26.2 on java25
+  image (java21 boot-looped: 26.1+ needs Java 25), mc.malice.biz:25565
+  TCP open end-to-end (VPS DNAT + WG + container on WG IP only).
+  RCON password generated live in /opt/stacks/games/.env (never git).
+  Owed: Chunky pre-gen (`chunky radius 2500` + `chunky start`) the
+  night before launch day — pins CPU, not while backups run.
 - `privacy` stack DITCHED 2026-09-28 (unused): no containers, no
   /opt/stacks/privacy; leftover volume privacy_companioncache (184K,
   unreferenced) removed. Nothing in git references it.

@@ -1,14 +1,17 @@
-HOST ?= deploy@10.44.0.2
+# Tailscale is the admin path (never the WG tunnel, which is VPS-only).
+HOST ?= chill-01
+# Bare `chill-01` needs an ssh alias (HostName 100.92.173.71, User deploy);
+# override with HOST=deploy@10.44.0.2 only from a WG-connected host.
 # VPS via the vps-ingress SSH alias (port 4522 + key in ~/.ssh/config); 22 is closed.
 VPS_SSH ?= ssh vps-ingress
-STACKS = apps comms docs edge media observability photos
+STACKS = apps comms docs edge games media observability photos
 
 # git is the source of truth; Dockge is for logs and restarts, not for editing YAML behind git's back.
 # Ship the local working tree (commit + push first). No git pull on the host,
 # so no deploy-key scoping issue when splitting repos.
 deploy: sync-public-sites
 	rsync -a --delete stacks/ $(HOST):/tmp/chill-stacks/
-	ssh $(HOST) 'set -e; sudo rsync -a --delete --exclude .env --exclude state/ --exclude docs/config/stirling/ /tmp/chill-stacks/ /opt/stacks/ && for d in /opt/stacks/apps/state/filebrowser-quantum /opt/stacks/apps/state/filebrowser-upload /opt/stacks/apps/state/filebrowser-family /opt/stacks/media/state /opt/stacks/media/state/gluetun /opt/stacks/media/state/jellyfin-config /opt/stacks/media/state/qbittorrent /opt/stacks/media/state/prowlarr /opt/stacks/media/state/radarr /opt/stacks/media/state/sonarr /opt/stacks/media/state/bazarr /opt/stacks/media/state/jellyseerr /opt/stacks/media/state/navidrome /opt/stacks/media/state/wrtag /opt/stacks/media/state/octo-fiesta /opt/stacks/media/state/slskd /mnt/fast/jellyfin-cache /mnt/fast/scratch /mnt/fast/imports /mnt/fast/build-cache /mnt/data/family /mnt/data/photos /mnt/data/apps/paperless/data /mnt/data/apps/paperless/media /mnt/data/apps/paperless/export /mnt/data/apps/paperless/consume /mnt/data/apps/stirling/tessdata /mnt/data/apps/stirling/config /mnt/data/apps/stirling/logs /mnt/data/apps/stirling/customFiles /mnt/data/apps/stirling/pipeline /mnt/data/apps/suwayomi /mnt/data/media/music/inbox/user /mnt/data/media/music/inbox/slskd/complete /mnt/data/media/music/inbox/slskd/incomplete; do sudo mkdir -p "$$d"; done && sudo install -d -m 0700 /mnt/fast/dumps && sudo chown -R 1000:1000 /opt/stacks/apps/state/filebrowser-quantum /opt/stacks/apps/state/filebrowser-upload /opt/stacks/apps/state/filebrowser-family /mnt/fast/jellyfin-cache /mnt/fast/scratch /mnt/fast/imports /mnt/fast/build-cache /mnt/data/family /mnt/data/photos /mnt/data/apps/paperless /mnt/data/apps/stirling /mnt/data/apps/suwayomi /mnt/data/media/music/inbox /opt/stacks/media/state && compose_up() { cd /opt/stacks/$$1 && set -a && . ../defaults.env && set +a && sudo env WG_IP="$$WG_IP" DATA_LOCATION="$$DATA_LOCATION" TIMEZONE="$$TIMEZONE" docker compose -p $$1 up -d --pull missing --remove-orphans; }; for s in $(STACKS); do (compose_up $$s); done'
+	ssh $(HOST) 'set -e; sudo rsync -a --delete --exclude .env --exclude state/ --exclude docs/config/stirling/ /tmp/chill-stacks/ /opt/stacks/ && for d in /opt/stacks/apps/state/filebrowser-quantum /opt/stacks/apps/state/filebrowser-upload /opt/stacks/apps/state/filebrowser-family /opt/stacks/media/state /opt/stacks/media/state/gluetun /opt/stacks/media/state/jellyfin-config /opt/stacks/media/state/qbittorrent /opt/stacks/media/state/prowlarr /opt/stacks/media/state/radarr /opt/stacks/media/state/sonarr /opt/stacks/media/state/bazarr /opt/stacks/media/state/jellyseerr /opt/stacks/media/state/navidrome /opt/stacks/media/state/wrtag /opt/stacks/media/state/octo-fiesta /opt/stacks/media/state/slskd /mnt/fast/jellyfin-cache /mnt/fast/scratch /mnt/fast/imports /mnt/fast/build-cache /mnt/data/family /mnt/data/photos /mnt/data/apps/paperless/data /mnt/data/apps/paperless/media /mnt/data/apps/paperless/export /mnt/data/apps/paperless/consume /mnt/data/apps/stirling/tessdata /mnt/data/apps/stirling/config /mnt/data/apps/stirling/logs /mnt/data/apps/stirling/customFiles /mnt/data/apps/stirling/pipeline /mnt/data/apps/suwayomi /mnt/data/apps/minecraft /mnt/data/media/music/inbox/user /mnt/data/media/music/inbox/slskd/complete /mnt/data/media/music/inbox/slskd/incomplete; do sudo mkdir -p "$$d"; done && sudo install -d -m 0700 /mnt/fast/dumps && sudo chown -R 1000:1000 /opt/stacks/apps/state/filebrowser-quantum /opt/stacks/apps/state/filebrowser-upload /opt/stacks/apps/state/filebrowser-family /mnt/fast/jellyfin-cache /mnt/fast/scratch /mnt/fast/imports /mnt/fast/build-cache /mnt/data/family /mnt/data/photos /mnt/data/apps/paperless /mnt/data/apps/stirling /mnt/data/apps/suwayomi /mnt/data/apps/minecraft /mnt/data/media/music/inbox /opt/stacks/media/state && compose_up() { cd /opt/stacks/$$1 && set -a && . ../defaults.env && set +a && sudo env WG_IP="$$WG_IP" DATA_LOCATION="$$DATA_LOCATION" TIMEZONE="$$TIMEZONE" docker compose -p $$1 up -d --pull missing --remove-orphans; }; for s in $(STACKS); do (compose_up $$s); done'
 	# NOTE: --pull missing (not always): the CLI flag overrides compose pull_policy, and redlib is a
 	# local source build (pull_policy: never) that --pull always would try to fetch from a registry.
 
@@ -45,7 +48,7 @@ tunnel:
 	$(VPS_SSH) 'sudo wg show chill0'
 
 check:
-	set -e; for s in $(STACKS); do (cd stacks/$$s; set -a; . ../defaults.env; [ ! -f .env.example ] || . .env.example; set +a; docker compose config -q); done
+	set -e; for s in $(STACKS); do (cd stacks/$$s; set -a; . ../defaults.env; [ ! -f .env.example ] || . ./.env.example; set +a; docker compose config -q); done
 	shellcheck bootstrap.sh host/backup.sh host/backup-watchdog.sh host/public-check.sh vps/bootstrap.sh stacks/media/config/slskd/autotag.sh
 
 # The private Caddyfile is a bind mount, so `make deploy` copies it but the
