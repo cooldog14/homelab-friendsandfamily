@@ -4,15 +4,13 @@
 
 ### P0 — access / tailnet (new identity live)
 
-- Tailnet move 2026-09-27 (UndauntedGeiger replaces frasseberry):
-  verified 2026-09-28 from fedora: `malice` (100.99.204.109) and
-  `chill-01` (100.92.173.71) ping + ssh ok on UndauntedGeiger;
-  `ssh malice` -> `qm list` shows 101 running, 102 stopped, 103 running;
-  `pct list` shows 200 stopped, 204 running. Stale
-  `malice.taila725ed.ts.net 100.90.216.64` still listed on frasseberry,
-  offline 20h. Retire frasseberry: remove that shared copy from admin
-  console, delete old machines, move macbook/towa/pixel-8/hermes-01,
-  revoke used auth keys.
+- Tailnet move DONE 2026-09-28 (UndauntedGeiger replaces frasseberry):
+  user removed all old-account devices; verified from fedora and malice:
+  only fedora, chill-01 (100.92.173.71), malice (100.99.204.109),
+  pixel-8 (offline, new account) remain. Stale
+  `malice.taila725ed.ts.net` + old net entries gone. Remaining: move
+  macbook/towa/hermes-01 over if still wanted; revoke any leftover
+  used auth keys.
 - VPS fallback SSH: REMOVED 2026-09-28 (line 5 `root@debian-13`
   deleted from `/etc/pve/priv/authorized_keys`; pre-removal copy at
   `/root/authorized_keys.before-fallback-removal-2026-09-28`). Original
@@ -30,8 +28,10 @@
 - Deploy fix: `HOST=chill-01` (Tailscale) works; WG `10.44.0.2` path
   does not. Use `make host HOST=chill-01` / `make deploy HOST=chill-01`
   until Makefile default is updated or a connected host is designated.
-  Then ship jellyfin /mnt/fast cache move + guest pve1-archive path
-  rename /mnt/archive -> /mnt/vault (both already in git).
+  Same for `make vps` on fedora: no `vps-ingress` alias here, use
+  `VPS_SSH="ssh vps" HOST=chill-01`. Then ship jellyfin /mnt/fast
+  cache move + guest pve1-archive path rename /mnt/archive -> /mnt/vault
+  (both already in git; bootstrap half shipped 2026-09-28).
 - Backups 2026-09-28: nightly FAILED this morning (last-ok
   2026-09-27T04:31, failed 2026-09-28T04:41, no script output). Cause:
   live script failed closed on early `mountpoint -q /mnt/backup` +
@@ -81,10 +81,16 @@
   zero errors. i7-8700K UHD 630 uses the same silicon either way;
   VAAPI drops the buggy overlay_qsv stage. Rollback: flip the tag back
   + restart.
-- qBittorrent hygiene with deploy: still references retired
-  /mnt/archive paths (seeding handles held 228G post-delete 09-21).
-  Remove dead torrents or repoint save-paths; expect torrent errors
-  until cleaned.
+- qBittorrent hygiene DONE 2026-09-28: all 41 torrents were erroring
+  (fast-resume size mismatch — /mnt/data/downloads now holds only the
+  music queue, content migrated to /pool; 6 more pointed at nonexistent
+  /mnt/bulk/downloads). Library spot-checked (Sunny, Handmaid, Rick
+  & Morty, Ford v Ferrari all on /pool). Moved all 41 .torrent +
+  .fastresume pairs + 4 orphans to
+  state/qbittorrent/quarantine-2026-09-28 (reversible, zero data
+  touched); clean restart, 0 restore errors. Arr re-grabs what's
+  wanted. NOTE: transient WebUI login failures from suwayomi/wrtag
+  post-boot (0 in last 10m) — watch, not live fire.
 
 ### P3 — hygiene / docs
 
@@ -93,6 +99,15 @@
 - `privacy` stack DITCHED 2026-09-28 (unused): no containers, no
   /opt/stacks/privacy; leftover volume privacy_companioncache (184K,
   unreferenced) removed. Nothing in git references it.
+- mg.malice.biz PUBLIC since 2026-09-28 (Suwayomi manga reader):
+  vhost in vps/sites/media.caddy -> 10.44.0.2:4567, VPS Caddy validated
+  + reloaded, wildcard DNS already covered it, https 200 verified.
+  Auth enforced live (ui_login, user francis). LESSON: compose expands
+  `$VAR` inside .env values, silently truncating `$`-passwords (first
+  password reached the container as 6 chars; login rejected). Fix in
+  git: compose uses AUTH_PASSWORD_FILE (/run/secrets mount, host-only
+  0600 file derived from media .env, never git) — login verified
+  LOGIN_OK via API. server.conf is a runtime copy only; env wins.
 - Document `beszel-agent` network_mode:host exception (AGENTS.md
   requires documented 0.0.0.0/host binds; screego has one, beszel
   does not).

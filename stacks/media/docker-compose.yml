@@ -263,9 +263,14 @@ services:
       TZ: ${TIMEZONE}
       AUTH_MODE: ui_login
       AUTH_USERNAME: ${SUWAYOMI_AUTH_USERNAME:?set SUWAYOMI_AUTH_USERNAME in media .env}
-      AUTH_PASSWORD: ${SUWAYOMI_AUTH_PASSWORD:?set SUWAYOMI_AUTH_PASSWORD in media .env}
+      # Password via file, not env: compose expands `$VAR` inside .env
+      # values, which silently truncates passwords containing `$`.
+      # The secret file lives on the host only (never git), created from
+      # media .env once: python3 -c reading SUWAYOMI_AUTH_PASSWORD.
+      AUTH_PASSWORD_FILE: /run/secrets/suwayomi-auth-password
     volumes:
       - /mnt/data/apps/suwayomi:/home/suwayomi/.local/share/Tachidesk
+      - /opt/stacks/media/suwayomi-auth-password:/run/secrets/suwayomi-auth-password:ro
     restart: unless-stopped
 
   slskd:
