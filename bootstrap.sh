@@ -30,7 +30,7 @@ new_daemon=$(md5sum /etc/docker/daemon.json | cut -d' ' -f1)
 install -m 755 host/backup.sh /usr/local/bin/homelab-backup
 install -m 755 host/backup-watchdog.sh /usr/local/bin/homelab-backup-watchdog
 install -m 755 host/public-check.sh /usr/local/bin/homelab-public-check
-install -m 644 host/homelab-backup.service host/homelab-backup.timer host/homelab-backup-watchdog.service host/homelab-backup-watchdog.timer host/homelab-public-check.service host/homelab-public-check.timer 'host/notify@.service' /etc/systemd/system/
+install -m 644 host/homelab-backup.service host/homelab-backup.timer host/homelab-backup-watchdog.service host/homelab-backup-watchdog.timer host/homelab-public-check.service host/homelab-public-check.timer host/homelab-docker-prune.service host/homelab-docker-prune.timer 'host/notify@.service' /etc/systemd/system/
 systemctl disable --now homelab-disk-usage.timer 2>/dev/null || true
 rm -f /usr/local/bin/homelab-disk-usage /etc/systemd/system/homelab-disk-usage.service /etc/systemd/system/homelab-disk-usage.timer
 printf 'PasswordAuthentication no\nPermitRootLogin no\n' > /etc/ssh/sshd_config.d/homelab.conf
@@ -66,7 +66,7 @@ else
   echo "daemon.json unchanged, skipping docker restart"
 fi
 systemctl reload ssh
-systemctl enable --now qemu-guest-agent tailscaled homelab-backup.timer homelab-backup-watchdog.timer homelab-public-check.timer
+systemctl enable --now qemu-guest-agent tailscaled homelab-backup.timer homelab-backup-watchdog.timer homelab-public-check.timer homelab-docker-prune.timer
 # wg0 is the static VPS<->chill-01 tunnel. Keep /etc/wireguard/wg0.conf at
 # 0600, then: systemctl enable --now wg-quick@wg0
 # tailscaled is installed and running but unauthenticated: join the tailnet once,

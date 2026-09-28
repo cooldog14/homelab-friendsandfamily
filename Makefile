@@ -49,6 +49,10 @@ tunnel:
 
 check:
 	set -e; for s in $(STACKS); do (cd stacks/$$s; set -a; . ../defaults.env; [ ! -f .env.example ] || . ./.env.example; set +a; docker compose config -q); done
+	host/public-check.sh --self-check
+	PUBLIC_CADDY_SITES_DIR=vps/sites PRIVATE_CADDYFILE=stacks/edge/Caddyfile host/public-check.sh --config-lint
+	wide_binds=$$(grep -RInE '^[[:space:]]*-[[:space:]]*"?(:|0\.0\.0\.0:)' stacks/*/docker-compose.yml || true); test -z "$$wide_binds" || { echo "Undocumented wide port bind(s):" >&2; echo "$$wide_binds" >&2; exit 1; }
+	host_net=$$(grep -RInE '^[[:space:]]*network_mode:[[:space:]]*host' stacks/*/docker-compose.yml | grep -Ev 'stacks/(comms|observability)/docker-compose.yml' || true); test -z "$$host_net" || { echo "Undocumented host network service(s):" >&2; echo "$$host_net" >&2; exit 1; }
 	shellcheck bootstrap.sh host/backup.sh host/backup-watchdog.sh host/public-check.sh vps/bootstrap.sh stacks/media/config/slskd/autotag.sh
 
 # The private Caddyfile is a bind mount, so `make deploy` copies it but the

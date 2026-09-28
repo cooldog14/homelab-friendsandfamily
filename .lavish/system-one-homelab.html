@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="en" data-theme="luxury">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>System One decision gates for the homelab</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/daisyui@5.5.19/daisyui.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/daisyui@5.5.19/themes.css">
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.2.4/dist/index.global.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    :where(.grid, .flex, .layout-grid, .layout-flex) > *,
+    :where([style*="display: grid"], [style*="display:grid"], [style*="display: flex"], [style*="display:flex"]) > * {
+      min-width: 0;
+    }
+    :where(p, h1, h2, h3, h4, h5, h6, li, dd, blockquote, figcaption, td, th, .badge, .label) {
+      overflow-wrap: anywhere;
+    }
+    :where(img, svg, video, canvas, iframe) {
+      max-width: 100%;
+      height: auto;
+    }
+    body { background: var(--color-base-300); }
+    .path { fill: none; stroke: currentColor; stroke-width: 3; opacity: .65; marker-end: url(#arrow); }
+    .node { fill: var(--color-base-100); stroke: currentColor; stroke-width: 1.5; opacity: .98; }
+    .node-strong { fill: var(--color-primary); color: var(--color-primary-content); stroke: currentColor; }
+    .node-warn { fill: var(--color-warning); color: var(--color-warning-content); stroke: currentColor; }
+    .svg-label { font: 600 15px system-ui, sans-serif; fill: currentColor; }
+    .svg-small { font: 12px system-ui, sans-serif; fill: currentColor; opacity: .78; }
+    code, .mono { word-break: break-word; }
+  </style>
+</head>
+<body class="text-base-content">
+  <main class="mx-auto max-w-7xl p-4 sm:p-6 lg:p-10">
+    <section class="hero rounded-box bg-base-100 shadow-xl">
+      <div class="hero-content max-w-5xl text-center">
+        <div>
+          <p class="mb-3">
+            <span class="badge badge-primary badge-lg">Recommendation</span>
+          </p>
+          <h1 class="text-4xl font-bold sm:text-5xl">Use System One as a decision gate, not as an infra pilot</h1>
+          <p class="mx-auto mt-5 max-w-3xl text-lg opacity-85">
+            Best first fit: enrich and route existing Gotify/systemd alerts with a typed local classifier.
+            Start in shadow mode. Let it explain and prioritize; do not let it edit firewall, WireGuard, secrets, or storage.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <section class="mt-6 grid gap-4 md:grid-cols-3">
+      <article class="card card-border bg-base-100 shadow">
+        <div class="card-body">
+          <h2 class="card-title">1. Keep hard checks hard</h2>
+          <p>Existing scripts like <code>public-check.sh</code>, <code>backup-watchdog.sh</code>, and <code>make check</code> should still fail deterministically.</p>
+        </div>
+      </article>
+      <article class="card card-border bg-base-100 shadow">
+        <div class="card-body">
+          <h2 class="card-title">2. Classify the messy part</h2>
+          <p>Use the model only where logs, timers, process state, and error text need interpretation.</p>
+        </div>
+      </article>
+      <article class="card card-border bg-base-100 shadow">
+        <div class="card-body">
+          <h2 class="card-title">3. Gate with thresholds</h2>
+          <p><code>high confidence = annotate/downgrade safe noise</code>; <code>low confidence = page human</code>. Auto-mutation comes later, if ever.</p>
+        </div>
+      </article>
+    </section>
+
+    <section class="mt-6 card card-border bg-base-100 shadow-xl">
+      <div class="card-body">
+        <div class="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h2 class="card-title text-2xl">Minimal architecture</h2>
+            <p class="opacity-80">One local service, one policy gate, one audit trail. No new platform.</p>
+          </div>
+          <span class="badge badge-outline">localhost-only</span>
+        </div>
+        <figure class="mt-4 overflow-hidden rounded-box bg-base-200 p-2">
+          <svg role="img" aria-labelledby="diagram-title diagram-desc" viewBox="0 0 960 360" width="100%">
+            <title id="diagram-title">Decision gate flow for homelab alerts</title>
+            <desc id="diagram-desc">Events flow through deterministic checks, context gathering, a typed decision service, threshold policy, then notification or safe action with audit logging.</desc>
+            <defs>
+              <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+                <path d="M0,0 L0,6 L9,3 z" fill="currentColor"></path>
+              </marker>
+            </defs>
+
+            <rect id="sources" class="node" x="30" y="54" width="150" height="86" rx="16"><title>Sources: systemd, Caddy, Docker, restic, slskd</title></rect>
+            <text class="svg-label" x="105" y="88" text-anchor="middle">Events</text>
+            <text class="svg-small" x="105" y="112" text-anchor="middle">systemd / Caddy</text>
+            <text class="svg-small" x="105" y="130" text-anchor="middle">Docker / restic</text>
+
+            <rect id="hard-rules" class="node" x="230" y="54" width="160" height="86" rx="16"><title>Hard rules keep binary checks deterministic</title></rect>
+            <text class="svg-label" x="310" y="88" text-anchor="middle">Hard checks</text>
+            <text class="svg-small" x="310" y="112" text-anchor="middle">curl code, mountpoint</text>
+            <text class="svg-small" x="310" y="130" text-anchor="middle">unit active, schema exists</text>
+
+            <rect id="context" class="node" x="440" y="54" width="170" height="86" rx="16"><title>Context bundle is redacted before classification</title></rect>
+            <text class="svg-label" x="525" y="88" text-anchor="middle">Context bundle</text>
+            <text class="svg-small" x="525" y="112" text-anchor="middle">journal tail + timers</text>
+            <text class="svg-small" x="525" y="130" text-anchor="middle">docker ps + safe logs</text>
+
+            <rect id="decisiond" class="node node-strong" x="660" y="44" width="170" height="106" rx="18"><title>Local typed classifier returns enum/bool and confidence</title></rect>
+            <text class="svg-label" x="745" y="80" text-anchor="middle">decisiond</text>
+            <text class="svg-small" x="745" y="106" text-anchor="middle">enum / bool</text>
+            <text class="svg-small" x="745" y="126" text-anchor="middle">confidence 0..1</text>
+
+            <rect id="policy" class="node-warn" x="390" y="220" width="180" height="92" rx="18"><title>Deterministic policy applies thresholds and allowlists</title></rect>
+            <text class="svg-label" x="480" y="254" text-anchor="middle">Policy gate</text>
+            <text class="svg-small" x="480" y="278" text-anchor="middle">thresholds + allowlists</text>
+
+            <rect id="notify" class="node" x="650" y="210" width="130" height="86" rx="16"><title>Gotify notification with label and confidence</title></rect>
+            <text class="svg-label" x="715" y="244" text-anchor="middle">Gotify</text>
+            <text class="svg-small" x="715" y="268" text-anchor="middle">label + score</text>
+
+            <rect id="safe-action" class="node" x="800" y="210" width="130" height="86" rx="16"><title>Only safe actions at first, such as quarantine media or downgrade noise</title></rect>
+            <text class="svg-label" x="865" y="244" text-anchor="middle">Safe action</text>
+            <text class="svg-small" x="865" y="268" text-anchor="middle">quarantine / TTL</text>
+
+            <rect id="audit" class="node" x="70" y="222" width="210" height="74" rx="16"><title>Append-only audit line for every decision</title></rect>
+            <text class="svg-label" x="175" y="252" text-anchor="middle">Audit log</text>
+            <text class="svg-small" x="175" y="274" text-anchor="middle">input hash, label, confidence</text>
+
+            <path class="path" d="M180 97 H228"></path>
+            <path class="path" d="M390 97 H438"></path>
+            <path class="path" d="M610 97 H658"></path>
+            <path class="path" d="M745 150 C745 190 560 178 510 218"></path>
+            <path class="path" d="M570 266 H648"></path>
+            <path class="path" d="M780 253 H798"></path>
+            <path class="path" d="M390 266 H282"></path>
+          </svg>
+        </figure>
+      </div>
+    </section>
+
+    <section class="mt-6 card card-border bg-base-100 shadow-xl">
+      <div class="card-body">
+        <h2 class="card-title text-2xl">Where it is useful here</h2>
+        <p class="opacity-80">Ranked by value versus blast radius for this homelab.</p>
+        <div class="mt-4 overflow-x-auto rounded-box border border-base-content/10">
+          <table class="table table-zebra">
+            <thead>
+              <tr>
+                <th>Fit</th>
+                <th>Hook in this repo</th>
+                <th>Typed decision</th>
+                <th>High-confidence action</th>
+                <th>Risk</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><span class="badge badge-success">Start</span> Gotify alert triage</td>
+                <td><code>notify@.service</code>, systemd failures, Beszel alerts</td>
+                <td><code>scheduled_noise | public_edge | backup | disk | unknown</code></td>
+                <td>Attach label/confidence; maybe lower priority for known scheduled noise after shadow data.</td>
+                <td>Low if notification still sends.</td>
+              </tr>
+              <tr>
+                <td><span class="badge badge-success">Start</span> Public-check diagnosis</td>
+                <td><code>host/public-check.sh</code>, Caddy/VPS checks</td>
+                <td><code>caddy_drift | wg_down | backend_down | dns_tls | unknown</code></td>
+                <td>Gotify says likely cause and next command, no automatic Caddy/nftables edits.</td>
+                <td>Low.</td>
+              </tr>
+              <tr>
+                <td><span class="badge badge-success">Start</span> Media intake routing</td>
+                <td><code>stacks/media/config/slskd/autotag.sh</code>, wrtag flow</td>
+                <td><code>studio | live | vinyl | transcode | corrupt | unknown</code></td>
+                <td>Move suspect files to review/quarantine instead of primary music library.</td>
+                <td>Low; bad decision is reversible.</td>
+              </tr>
+              <tr>
+                <td><span class="badge badge-warning">Next</span> Restore verification</td>
+                <td><code>make restore-test</code>, restic restore logs, DB diff summary</td>
+                <td><code>ok_drift | missing_data | corrupt_dump | unknown</code></td>
+                <td>Annotate restore result; hard-fail on missing tables/files before model runs.</td>
+                <td>Medium; never let model override hard corruption signals.</td>
+              </tr>
+              <tr>
+                <td><span class="badge badge-warning">Later</span> Public probe triage</td>
+                <td>Caddy access logs, CrowdSec context</td>
+                <td><code>scanner | normal_app | ambiguous</code></td>
+                <td>Only TTL block after repeated high-confidence scanner label plus existing deny signal.</td>
+                <td>Medium; false positives block users.</td>
+              </tr>
+              <tr>
+                <td><span class="badge badge-error">Avoid first</span> Container self-heal</td>
+                <td>Docker health events / compose services</td>
+                <td><code>transient | oom | config | secret | bug</code></td>
+                <td>At most one rate-limited restart for known transient services.</td>
+                <td>High; can hide real incidents.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section class="mt-6 grid gap-4 lg:grid-cols-2">
+      <article class="card card-border bg-base-100 shadow">
+        <div class="card-body">
+          <h2 class="card-title">Small implementation path</h2>
+          <ul class="steps steps-vertical">
+            <li class="step step-primary">Create localhost-only <code>decisiond</code></li>
+            <li class="step step-primary">Add <code>homelab-notify</code> wrapper for <code>notify@</code></li>
+            <li class="step">Shadow mode: log decisions, do not suppress</li>
+            <li class="step">Enable one safe action: media quarantine or notification priority</li>
+            <li class="step">Review audit logs before any auto-remediation</li>
+          </ul>
+        </div>
+      </article>
+      <article class="card card-border bg-base-100 shadow">
+        <div class="card-body">
+          <h2 class="card-title">Policy shape</h2>
+          <div class="mockup-code text-sm">
+            <pre data-prefix=">"><code>if confidence &gt;= 0.95 and label in safe_noise:</code></pre>
+            <pre data-prefix=">"><code>  downgrade_or_hold_notification()</code></pre>
+            <pre data-prefix=">"><code>elif confidence &lt; 0.80 or label == "unknown":</code></pre>
+            <pre data-prefix=">"><code>  page_human_now()</code></pre>
+            <pre data-prefix=">"><code>else:</code></pre>
+            <pre data-prefix=">"><code>  notify_with_label_and_score()</code></pre>
+          </div>
+          <p class="mt-4 text-sm opacity-75">Use allowlists per unit/service. A model score alone should never authorize destructive work.</p>
+        </div>
+      </article>
+    </section>
+
+    <section class="mt-6 card card-border bg-base-100 shadow-xl">
+      <div class="card-body">
+        <h2 class="card-title text-2xl">Do not use it for these</h2>
+        <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div class="alert alert-error"><span>Editing <code>/etc/wireguard</code> or nftables</span></div>
+          <div class="alert alert-error"><span>Deleting media, backups, or stack state</span></div>
+          <div class="alert alert-error"><span>Changing Tailscale/VPS access paths</span></div>
+          <div class="alert alert-error"><span>Declaring backups valid when hard checks fail</span></div>
+        </div>
+      </div>
+    </section>
+
+    <footer class="mt-8 text-sm opacity-70">
+      Design source: Lavish fallback Tailwind CSS + DaisyUI, because this infrastructure repo has no app design system to match.
+      Content is grounded in AGENTS.md, Makefile, host public/backup checks, and media autotag flow.
+    </footer>
+  </main>
+</body>
+</html>
