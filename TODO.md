@@ -23,7 +23,12 @@
   use bare `make deploy`/`make host` until fixed — override
   `HOST=chill-01` instead. Emergency only `ssh vps` -> `ssh 10.30.0.3`.
 
-### P1 — deploy path + backups (graceful, cloud first)
+- Credential rotation: rotate all app passwords/tokens without printing them.
+  Do `.env`-backed secrets first (stack `.env`, `host/homelab.env`, deploy/restart),
+  then app-internal users/API keys in each UI/state DB, then the Screego users
+  file.
+
+### P1 � deploy path + backups (graceful, cloud first)
 
 - Deploy DONE 2026-09-28: Makefile `HOST` defaults to `chill-01`
   (Tailscale admin path); `vps-ingress` alias added on fedora so plain
