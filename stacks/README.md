@@ -12,6 +12,7 @@ Stack .env files and state folders stay on the host.
 - photos: Immich
 - docs: Paperless, Stirling PDF, Kavita
 - comms: Mumble, Neko, Screego
+- games: Minecraft (Paper)
 - media: Jellyfin, qBittorrent, Prowlarr, Radarr, Sonarr, Bazarr, Jellyseerr, Navidrome, Octo-Fiesta, Feishin, Suwayomi, slskd, wrtag
 - observability: Gotify, Dockge, Beszel
 - edge: private Caddy and homepage
