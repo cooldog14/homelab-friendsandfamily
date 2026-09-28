@@ -34,3 +34,7 @@ nvdr.malice.biz {
 	import access_log
 	reverse_proxy 10.44.0.2:4533
 }
+mg.malice.biz {
+	import access_log
+	reverse_proxy 10.44.0.2:4567
+}
