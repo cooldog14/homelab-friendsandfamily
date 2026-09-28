@@ -1,6 +1,7 @@
 [Unit]
 Description=Restic backup
 After=docker.service
+# /mnt/backup share wired 2026-09-28 (pve1-backup mapping + virtiofs4 on 101).
 RequiresMountsFor=/mnt/data /mnt/fast /mnt/backup
 OnFailure=notify@%n.service
 

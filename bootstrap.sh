@@ -40,7 +40,8 @@ grep -q pve1-fast /etc/fstab || echo 'pve1-fast /mnt/fast virtiofs rw,relatime,n
 # Tag pve1-archive never changes; only the guest mountpoint moved (/mnt/archive -> /mnt/vault).
 grep -q 'pve1-archive /mnt/vault' /etc/fstab || { sed -i 's|pve1-archive /mnt/archive|pve1-archive /mnt/vault|' /etc/fstab; grep -q pve1-archive /etc/fstab || echo 'pve1-archive /mnt/vault virtiofs rw,relatime,nofail 0 0' >> /etc/fstab; }
 grep -q pve1-pool /etc/fstab || echo 'pve1-pool /mnt/pool virtiofs rw,relatime,nofail 0 0' >> /etc/fstab
-mkdir -p /mnt/data /mnt/fast /mnt/vault /mnt/pool && mount -a
+grep -q pve1-backup /etc/fstab || echo 'pve1-backup /mnt/backup virtiofs rw,relatime,nofail 0 0' >> /etc/fstab
+mkdir -p /mnt/data /mnt/fast /mnt/vault /mnt/pool /mnt/backup && mount -a
 rmdir /mnt/archive 2>/dev/null || true
 install -d -m 0755 -o 1000 -g 1000 /mnt/fast/jellyfin-cache /mnt/fast/scratch /mnt/fast/imports /mnt/fast/build-cache
 install -d -m 0700 /mnt/fast/dumps
