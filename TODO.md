@@ -44,8 +44,9 @@
   new media/downloads + messy excludes), all dumps present
   (immich.sql, paperless.sql, gotify/beszel/dockge/kavita dbs);
   last-ok stamped 2026-09-28T16:52, watchdog green. Full chain intact
-  (37 snapshots). Prune left to the nightly run. Local copy still owed
-  (share below). Watchdog deadline 09-29 04:31.
+  (37 snapshots). Prune left to the nightly run. First local backup
+  still running 18:16 (1h17 elapsed, ~40min CPU, steady — full first
+  read, verify on landing). Watchdog deadline now 09-30 16:52.
 - Virtiofs share for /mnt/backup — WIRED 2026-09-28 (~17:00 UTC,
   services down ~10 min, accepted): mapping `pve1-backup->/mnt/backup`
   created on malice, `qm set 101 --virtiofs4 pve1-backup`, full
