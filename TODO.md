@@ -63,8 +63,8 @@
   /mnt/vault shipped with it.
 - Restore drill: extend `make restore-test` to kavita/dockge/beszel
   (currently immich/paperless/gotify + homelab.env + wg0.conf + VPS
-  Caddy/nftables), then re-run one drill to a temp path. Watchdog gives
-  48h (last-ok 09-27, so must succeed by 09-29).
+  Caddy/nftables), then re-run one drill to a temp path. No rush:
+  last-ok 09-28T16:52, cloud snapshot verified same day.
 
 ### P2 — app health after deploy
 
