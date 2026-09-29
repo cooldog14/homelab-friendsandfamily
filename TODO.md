@@ -13,7 +13,7 @@
   people/admin path.
 - Run one `make restore-test` drill to a temp path, record the result in
   `RUNBOOK.md`, and repeat quarterly.
-- Add healthchecks for the critical ingress/stateful services first: private
+- Add app/ingress HTTP healthchecks after live endpoint confirmation: private
   Caddy, Immich, Paperless, Jellyfin, Gotify, and Beszel.
 
 ### P1 — hardening, validation, and monitoring

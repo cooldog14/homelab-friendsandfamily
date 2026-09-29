@@ -20,8 +20,10 @@ services:
     volumes:
       - /mnt/data/photos:/photos
     depends_on:
-      - immich-db
-      - immich-redis
+      immich-db:
+        condition: service_healthy
+      immich-redis:
+        condition: service_healthy
 
   immich-machine-learning:
     image: ghcr.io/immich-app/immich-machine-learning:v3.2.0
@@ -32,6 +34,11 @@ services:
   immich-redis:
     image: redis:7-alpine
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
 
   immich-db:
     # Immich >= 1.133 requires VectorChord (pgvecto.rs support dropped in 3.0).
@@ -43,3 +50,8 @@ services:
       POSTGRES_DB: immich
     volumes:
       - ./state/immich/db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
