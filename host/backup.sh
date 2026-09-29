@@ -75,7 +75,7 @@ if [ -n "$SQLITE_FAILED" ]; then
   alert "sqlite backup FAILED on $(hostname): $SQLITE_FAILED (backup continuing)"
 fi
 
-backup_important() {
+backup_and_prune() {
   # /mnt/data covers /mnt/data/photos (mirror disk) — single path only.
   restic backup /opt "$DUMP_DIR" /mnt/data /etc /root/.ssh \
     --exclude /mnt/data/downloads \
@@ -84,10 +84,6 @@ backup_important() {
     --exclude /mnt/data/media/music/inbox/slskd/incomplete \
     --exclude /mnt/data/media/movies \
     --exclude /mnt/data/media/tv
-}
-
-backup_and_prune() {
-  backup_important
   case "${RESTIC_PRUNE:-1}" in 1) restic forget --prune --keep-daily 7 --keep-weekly 4 --keep-monthly 6 ;; esac
 }
 

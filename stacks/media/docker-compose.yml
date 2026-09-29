@@ -49,7 +49,7 @@ services:
       WIREGUARD_ADDRESSES: ${WIREGUARD_ADDRESSES}
       VPN_ENDPOINT_IP: ${VPN_ENDPOINT_IP}
       VPN_ENDPOINT_PORT: ${VPN_ENDPOINT_PORT}
-      FIREWALL_VPN_INPUT_PORTS: ${FIREWALL_VPN_INPUT_PORTS:-6881,50300}
+      FIREWALL_VPN_INPUT_PORTS: "6881,50300"
       # Local docker networks bypass the VPN (arr apps reach qbit/prowlarr
       # through gluetun). /12 covers every compose bridge; Docker assigns
       # subnets dynamically, so a narrower value breaks after re-creation.
@@ -223,7 +223,6 @@ services:
       Subsonic__ExplicitFilter: All
       Subsonic__FolderTemplate: "{artist}/({year}) {album}/{track} - {title}"
       Deezer__Arl: ${DEEZER_ARL}
-      Deezer__ArlFallback: ${DEEZER_ARL_FALLBACK:-}
       Deezer__Quality: "flac"
     volumes:
       - /mnt/data/media/music/clean:/app/downloads
