@@ -92,7 +92,7 @@ while IFS= read -r host; do
 done <<< "$hosts"
 
 # UDP forwards exist too, but there is no cheap connect-only UDP smoke.
-for port in 64738 52000 3478; do
+for port in 64738 52000 3478 25565; do
   check_tcp "$first_host" "$port"
 done
 exit "$FAIL"
