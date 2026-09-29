@@ -22,66 +22,41 @@
 	# (its `default` line is silently dropped — verified 2026-09-16), and an
 	# unset placeholder makes `!= ""` true, proxying unknowns to :0 (502).
 	# Extend the same way, keep the 404 last.
-	@home host home.h.malice.biz
-	handle @home {
-		root * /srv/home
-		file_server
-	}
-	@dockge host dockge.h.malice.biz
-	handle @dockge {
-		reverse_proxy {env.UPSTREAM}:5001
-	}
 	@files host files.h.malice.biz
-	handle @files {
-		reverse_proxy {env.UPSTREAM}:8085
-	}
+	@stirling host stirling.h.malice.biz
 	@gotify host gotify.h.malice.biz
-	handle @gotify {
-		reverse_proxy {env.UPSTREAM}:8070
-	}
 	@beszel host beszel.h.malice.biz
-	handle @beszel {
-		reverse_proxy {env.UPSTREAM}:8090
-	}
+	@cockpit host cockpit.h.malice.biz
 	# Private Immich: uploads from own devices avoid hairpinning through
 	# the VPS (see the port comment in stacks/photos/docker-compose.yml).
 	@immich host immich.h.malice.biz
-	handle @immich {
-		reverse_proxy {env.UPSTREAM}:2283
-	}
 	@qbittorrent host qbittorrent.h.malice.biz
-	handle @qbittorrent {
-		reverse_proxy {env.UPSTREAM}:8701
-	}
 	@prowlarr host prowlarr.h.malice.biz
-	handle @prowlarr {
-		reverse_proxy {env.UPSTREAM}:9696
-	}
 	@radarr host radarr.h.malice.biz
-	handle @radarr {
-		reverse_proxy {env.UPSTREAM}:7878
-	}
 	@sonarr host sonarr.h.malice.biz
-	handle @sonarr {
-		reverse_proxy {env.UPSTREAM}:8989
-	}
 	@bazarr host bazarr.h.malice.biz
-	handle @bazarr {
-		reverse_proxy {env.UPSTREAM}:6767
-	}
 	@slskd host slskd.h.malice.biz
-	handle @slskd {
-		reverse_proxy {env.UPSTREAM}:5030
-	}
 	@wrtag host wrtag.h.malice.biz
-	handle @wrtag {
-		reverse_proxy {env.UPSTREAM}:7373
-	}
 	@suwayomi host suwayomi.h.malice.biz
-	handle @suwayomi {
-		reverse_proxy {env.UPSTREAM}:4567
-	}
-	handle {
+	route {
+		reverse_proxy @files 10.44.0.2:8085
+		reverse_proxy @stirling 10.44.0.2:8091
+		reverse_proxy @gotify 10.44.0.2:8070
+		reverse_proxy @beszel 10.44.0.2:8090
+		reverse_proxy @cockpit https://host.docker.internal:9090 {
+			transport http {
+				tls_insecure_skip_verify
+			}
+		}
+		reverse_proxy @immich 10.44.0.2:2283
+		reverse_proxy @qbittorrent 10.44.0.2:8701
+		reverse_proxy @prowlarr 10.44.0.2:9696
+		reverse_proxy @radarr 10.44.0.2:7878
+		reverse_proxy @sonarr 10.44.0.2:8989
+		reverse_proxy @bazarr 10.44.0.2:6767
+		reverse_proxy @slskd 10.44.0.2:5030
+		reverse_proxy @wrtag 10.44.0.2:7373
+		reverse_proxy @suwayomi 10.44.0.2:4567
 		respond "unknown private service" 404
 	}
 }

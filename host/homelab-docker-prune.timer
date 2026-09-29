@@ -1,5 +1,5 @@
 [Unit]
-Description=Weekly Docker image and builder prune
+Description=Weekly Docker image prune
 
 [Timer]
 OnCalendar=weekly

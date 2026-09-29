@@ -17,6 +17,9 @@ mkdir -p "$DUMP_DIR"
 chmod 700 "$DUMP_DIR"
 
 log() { printf '[%s] %s\n' "$(date -Is)" "$*"; }
+alert() {
+  curl -fsS -X POST -F "message=$1" -F "priority=5" "${ALERT_URL:-}" > /dev/null 2>&1 || true
+}
 
 # VPS pull (Caddy, nftables, WireGuard identity) so restic carries it to cloud.
 # Fail-open: a dark VPS must not kill the home backup. Data never lands in git.
@@ -34,7 +37,7 @@ else
   log "vps pull FAILED (continuing backup without it)"
   # Fail-open for data, fail-loud for awareness: a config drift during a VPS outage
   # would otherwise vanish silently. Never fail the backup over this.
-  curl -fsS -X POST -F "message=vps pull FAILED on $(hostname) (backup continuing without VPS config)" -F "priority=5" "${ALERT_URL:-}" > /dev/null 2>&1 || true
+  alert "vps pull FAILED on $(hostname) (backup continuing without VPS config)"
 fi
 
 pg_dump_container() {
@@ -51,6 +54,7 @@ pg_dump_container photos-immich-db-1 "$DUMP_DIR/immich.sql"
 pg_dump_container docs-paperless-db-1 "$DUMP_DIR/paperless.sql"
 # SQLite hot-backup: raw restic copies of live sqlite files can be corrupt.
 # .backup takes a consistent snapshot; failures must not fail the backup.
+SQLITE_FAILED=
 sql_backup() {
   if [ -f "$1" ]; then
     if sqlite3 "$1" ".backup '$2'" 2>/dev/null; then
@@ -58,6 +62,7 @@ sql_backup() {
     else
       log "sqlite dump FAILED (continuing): $1"
       rm -f "$2"
+      SQLITE_FAILED="${SQLITE_FAILED}${SQLITE_FAILED:+, }$1"
     fi
   fi
 }
@@ -65,8 +70,10 @@ sql_backup() {
 # copy of /opt covers it; do not add it here.
 sql_backup /opt/stacks/docs/state/kavita/kavita.db "$DUMP_DIR/kavita.db"
 sql_backup /opt/stacks/observability/state/gotify/gotify.db "$DUMP_DIR/gotify.db"
-sql_backup /opt/stacks/observability/state/dockge/dockge.db "$DUMP_DIR/dockge.db"
 sql_backup /opt/stacks/observability/state/beszel/data.db "$DUMP_DIR/beszel.db"
+if [ -n "$SQLITE_FAILED" ]; then
+  alert "sqlite backup FAILED on $(hostname): $SQLITE_FAILED (backup continuing)"
+fi
 
 backup_important() {
   # /mnt/data covers /mnt/data/photos (mirror disk) — single path only.
@@ -90,9 +97,13 @@ case "${RESTIC_PRUNE:-1}" in 1) restic forget --prune --keep-daily 7 --keep-week
 
 # Local restic drive (1TB, host /mnt/backup, guest via pve1-backup virtiofs).
 # Never mkdir past this point unguarded: a repo on the root disk would fill it.
-mountpoint -q /mnt/backup
+if ! mountpoint -q /mnt/backup; then
+  log "local restic mount missing: /mnt/backup"
+  alert "local restic mount missing on $(hostname): /mnt/backup (cloud backup completed)"
+  exit 1
+fi
 cloud_repo=$RESTIC_REPOSITORY
-export RESTIC_REPOSITORY="${LOCAL_RESTIC_REPOSITORY:-/mnt/backup/restic}"
+export RESTIC_REPOSITORY=/mnt/backup/restic
 mkdir -p "$RESTIC_REPOSITORY"
 restic snapshots >/dev/null 2>&1 || restic init
 backup_important

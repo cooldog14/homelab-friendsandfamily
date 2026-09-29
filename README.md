@@ -8,6 +8,9 @@ homelab for friends&family.
 - `TODO.md`: transient work and open follow-ups.
 - `RUNBOOK.md`: incidents, drills, and recovery notes.
 
+Documentation rule: keep `README.md` and `stacks/README.md` small; put the big
+current operating context in `AGENTS.md`.
+
 ## layout
 
 - `host/`: chill-01 bootstrap, backups, checks, and timers.

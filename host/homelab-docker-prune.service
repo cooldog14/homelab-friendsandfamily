@@ -1,5 +1,5 @@
 [Unit]
-Description=Weekly Docker image and builder prune
+Description=Weekly Docker image prune
 After=docker.service
 Requires=docker.service
 OnFailure=notify@%n.service
@@ -7,4 +7,3 @@ OnFailure=notify@%n.service
 [Service]
 Type=oneshot
 ExecStart=/usr/bin/docker image prune -af --filter until=168h
-ExecStart=/usr/bin/docker builder prune -f --filter until=168h

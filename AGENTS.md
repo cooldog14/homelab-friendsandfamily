@@ -59,26 +59,30 @@ keep-last 8, writes `/mnt/vault/dump` (verified 2026-09-27).
   public `upload.malice.biz`).
 - `photos`: Immich (`:2283`, public + private). Library empty as of
   2026-09-27 (`/photos` 4K); uploads land on mirror.
-- `docs`: Paperless (`:8092`), Stirling (`:8091`), Kavita (`:8094`),
-  Gotenberg, Tika.
+- `docs`: Paperless (`:8092`), Stirling (`:8091`, private only),
+  Kavita (`:8094`), Gotenberg, Tika.
 - `comms`: Mumble (`:64738/tcp+udp`), Neko (`:8097` + `:52000`),
   Screego (`:5050`, `network_mode: host` — documented exception).
 - `media`: Jellyfin (`:8096` WG + LAN bind for TVs),
   qBittorrent/Prowlarr/FlareSolverr/slskd behind gluetun (VPN egress),
   Radarr/Sonarr/Bazarr/Jellyseerr, Navidrome (`:4533` WG + localhost),
-  Feishin/player (`:9180`), Octo-fiesta (`:5274`), Suwayomi (`:4567`),
-  wrtag (`:7373`). Jellyfin `/cache` -> `/mnt/fast/jellyfin-cache`;
+  Feishin/player (`:9180`), Octo-fiesta (`:5274`), Suwayomi (`:4567`,
+  public `mg.malice.biz` + private), wrtag (`:7373`). Jellyfin
+  `/cache` -> `/mnt/fast/jellyfin-cache`;
   `/pool/movies|tv` ro. GPU `renderD128` present, QSV->VAAPI flip open.
-- `observability`: Gotify (`:8070`, private only), Dockge (`:5001`),
-  Beszel (`:8090`) + beszel-agent (`network_mode: host` — documented
+- `observability`: Gotify (`:8070`, private only), Beszel (`:8090`) +
+  beszel-agent (`network_mode: host` — documented
   exception for host/container metrics; UFW still gates inbound).
+- Host admin: Cockpit (`cockpit.h.malice.biz` / `:9090`, includes web
+  terminal) is Tailscale/private Caddy only; no public route and blocked
+  from the VPS WireGuard tunnel.
 - `edge`: private Caddy (`*.h.malice.biz`, DNS-01 wildcard, Tailscale
-  bind) + homepage. Exact-host matchers; never duplicate a public name.
+  bind). Exact-host matchers; never duplicate a public name.
 
 ## public edge (VPS, git-owned `vps/sites/*.caddy`)
 
-- `chill.caddy`: photos, files, paperless, stirling, kavita, neko, screego.
-- `media.caddy`: jellyfin, requests, player, fiesta, upload, nvdr.
+- `chill.caddy`: photos, files, paperless, kavita, neko, screego.
+- `media.caddy`: jellyfin, requests, player, fiesta, upload, nvdr, mg.
   All backends `reverse_proxy 10.44.0.2:<port>`.
 - nftables NAT: `52000` (Neko), `3478` + `52100-52200` (Screego) both
   forwarded; Mumble `64738` documented but DNAT missing (verify);
@@ -92,7 +96,7 @@ keep-last 8, writes `/mnt/vault/dump` (verified 2026-09-27).
 - Nightly `homelab-backup` (restic offsite + local
   `/mnt/backup/restic`): `/opt`, `/mnt/fast/dumps`, `/mnt/data`,
   `/etc`, `/root/.ssh`. Excludes downloads, movies, TV, and raw music
-  staging. Dumps fresh for immich/paperless/gotify/kavita/beszel/dockge.
+  staging. Dumps fresh for immich/paperless/gotify/kavita/beszel.
 - `homelab-backup-watchdog` (48h), `homelab-public-check`, Gotify, and
   Beszel are the alert path. Weekly Docker prune is in git; verify the
   live timer and Beszel >85% disk alert after host deploys.

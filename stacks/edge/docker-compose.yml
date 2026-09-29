@@ -2,11 +2,15 @@
 # were bare http://10.44.0.2:<port> URLs before. Nothing here is public — the VPS
 # Caddy still owns every *.malice.biz vhost, and this file must never duplicate one.
 # Binds ONLY to the Tailscale address, so reaching it needs a tailnet device.
-# .env (0600, live-only, never in git): TS_IP, CF_API_TOKEN, UPSTREAM
+# .env (0600, live-only, never in git): TS_IP, CF_API_TOKEN
 services:
   caddy:
     image: ghcr.io/caddybuilds/caddy-cloudflare:2.11.4-alpine
     restart: unless-stopped
+    extra_hosts:
+      # Lets private Caddy reach host services like Cockpit without exposing
+      # them on the public VPS WireGuard path.
+      - host.docker.internal:host-gateway
     ports:
       # Default is 127.0.0.1, not empty and not 0.0.0.0: a missing .env must
       # fail CLOSED. Empty would render ":443:443" and bind every interface
@@ -21,12 +25,8 @@ services:
       # Zone:DNS:Edit on malice.biz and nothing else. Unset means no cert,
       # which is loud and harmless — not a wide-open listener.
       CF_API_TOKEN: ${CF_API_TOKEN:-unset}
-      # Where Caddy proxies to. Stays 10.44.0.2 because WireGuard is the
-      # infrastructure link between VPS and chill-01.
-      UPSTREAM: ${UPSTREAM:-10.44.0.2}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - ./home:/srv/home:ro
       # Holds the wildcard cert + ACME account key. Losing it re-issues on next
       # boot (rate limits permitting); it is not a peer database, so it is not sacred.
       - ./state/caddy:/data

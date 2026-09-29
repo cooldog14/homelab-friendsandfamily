@@ -4,10 +4,28 @@
 # the unit (=> notify@). No Uptime Kuma container by design.
 set -euo pipefail
 
-PUBLIC_CADDY_SITES_DIR=${PUBLIC_CADDY_SITES_DIR:-/opt/homelab-public-sites}
+PUBLIC_CADDY_SITES_DIR=${PUBLIC_CADDY_SITES_DIR:-}
 FAIL=0
 
-list_http_hosts() {
+list_public_hosts() {
+  cat <<'HOSTS' | sort -u
+fiesta.malice.biz
+files.malice.biz
+jellyfin.malice.biz
+kavita.malice.biz
+mg.malice.biz
+neko.malice.biz
+nvdr.malice.biz
+paperless.malice.biz
+photos.malice.biz
+player.malice.biz
+requests.malice.biz
+screego.malice.biz
+upload.malice.biz
+HOSTS
+}
+
+list_site_hosts() {
   find "$PUBLIC_CADDY_SITES_DIR" -type f -name '*.caddy' -exec awk '
     /^[[:space:]]*#/ { next }
     /^[[:space:]]*[[:alnum:]-]+(\.[[:alnum:]-]+)+[[:space:]]*\{/ { print $1 }
@@ -22,48 +40,33 @@ list_private_hosts() {
   ' "$PRIVATE_CADDYFILE" | sort -u
 }
 
-if [[ ${1:-} == "--self-check" ]]; then
-  tmp=$(mktemp -d)
-  trap 'rm -rf "$tmp"' EXIT
-  cat > "$tmp/routes.caddy" <<'CADDY'
-# ignored.malice.biz {
-photos.malice.biz {
-	reverse_proxy 10.44.0.2:2283
-}
-upload.malice.biz {
-	reverse_proxy 10.44.0.2:8087
-}
-CADDY
-  PUBLIC_CADDY_SITES_DIR=$tmp
-  expected=$(printf '%s\n' photos.malice.biz upload.malice.biz)
-  actual=$(list_http_hosts)
-  [[ $actual == "$expected" ]]
-  echo "public-check self-check ok"
-  exit 0
-fi
-
 if [[ ${1:-} == "--config-lint" ]]; then
   PRIVATE_CADDYFILE=${PRIVATE_CADDYFILE:-/opt/stacks/edge/Caddyfile}
-  [[ -d $PUBLIC_CADDY_SITES_DIR ]] || { echo "FAIL public Caddy sites dir missing: $PUBLIC_CADDY_SITES_DIR" >&2; exit 1; }
   [[ -f $PRIVATE_CADDYFILE ]] || { echo "FAIL private Caddyfile missing: $PRIVATE_CADDYFILE" >&2; exit 1; }
-  dupes=$(comm -12 <(list_http_hosts) <(list_private_hosts))
+  dupes=$(comm -12 <(list_public_hosts) <(list_private_hosts))
   if [[ -n $dupes ]]; then
     echo "FAIL public host duplicated in private Caddy:" >&2
     echo "$dupes" >&2
     exit 1
   fi
+  if [[ -n $PUBLIC_CADDY_SITES_DIR ]]; then
+    [[ -d $PUBLIC_CADDY_SITES_DIR ]] || { echo "FAIL public Caddy sites dir missing: $PUBLIC_CADDY_SITES_DIR" >&2; exit 1; }
+    missing=$(comm -23 <(list_public_hosts) <(list_site_hosts))
+    extra=$(comm -13 <(list_public_hosts) <(list_site_hosts))
+    if [[ -n $missing || -n $extra ]]; then
+      echo "FAIL public host list differs from $PUBLIC_CADDY_SITES_DIR:" >&2
+      [[ -z $missing ]] || printf 'missing from sites:\n%s\n' "$missing" >&2
+      [[ -z $extra ]] || printf 'extra in sites:\n%s\n' "$extra" >&2
+      exit 1
+    fi
+  fi
   echo "public-check config-lint ok"
   exit 0
 fi
 
-if [[ ! -d $PUBLIC_CADDY_SITES_DIR ]]; then
-  echo "FAIL public Caddy sites dir missing: $PUBLIC_CADDY_SITES_DIR" >&2
-  exit 1
-fi
-
-hosts=$(list_http_hosts)
+hosts=$(list_public_hosts)
 if [[ -z $hosts ]]; then
-  echo "FAIL no public Caddy hosts found in $PUBLIC_CADDY_SITES_DIR" >&2
+  echo "FAIL no public Caddy hosts configured" >&2
   exit 1
 fi
 
@@ -95,7 +98,7 @@ while IFS= read -r host; do
 done <<< "$hosts"
 
 # UDP forwards exist too, but there is no cheap connect-only UDP smoke.
-for port in 64738 52000 3478; do
+for port in 64738 52000 3478 25565; do
   check_tcp "$first_host" "$port"
 done
 exit "$FAIL"

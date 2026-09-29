@@ -4,22 +4,11 @@ services:
     image: gotify/server:2.5.0
     restart: unless-stopped
     ports:
-      - "${WG_IP}:8070:80"   # private via gotify.h.malice.biz
+      - "10.44.0.2:8070:80"   # private via gotify.h.malice.biz
     environment:
       GOTIFY_DEFAULTUSER_PASS: ${GOTIFY_DEFAULTUSER_PASS}
     volumes:
       - ./state/gotify:/app/data
-
-  # Stacks: start/stop, edit compose, exec. Files stay plain YAML in /opt/stacks so git review still works.
-  dockge:
-    image: louislam/dockge:1.4.2
-    restart: unless-stopped
-    ports:
-      - "${WG_IP}:5001:5001"
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-      - /opt/stacks:/opt/stacks
-      - ./state/dockge:/app/data
 
   # Host metrics and the disk >85% alert, in a GUI instead of df piped through awk.
   beszel:
@@ -28,7 +17,7 @@ services:
     extra_hosts:
       - host.docker.internal:host-gateway
     ports:
-      - "${WG_IP}:8090:8090"
+      - "10.44.0.2:8090:8090"
     volumes:
       - ./state/beszel:/beszel_data
 

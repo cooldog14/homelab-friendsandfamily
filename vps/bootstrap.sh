@@ -5,10 +5,6 @@ set -eu
 cd "$(dirname "$0")"
 
 apt-get update
-apt-get install -y ca-certificates curl gnupg
-curl -1sLf https://dl.cloudsmith.io/public/caddy/stable/gpg.key | gpg --dearmor --yes -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
-curl -1sLf https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt -o /etc/apt/sources.list.d/caddy-stable.list
-apt-get update
 apt-get install -y caddy nftables unattended-upgrades wireguard
 mkdir -p /var/log/caddy && chown caddy:caddy /var/log/caddy
 mkdir -p /etc/systemd/system/caddy.service.d
@@ -18,9 +14,6 @@ Wants=wg-quick@chill0.service
 After=wg-quick@chill0.service
 EOF
 
-mkdir -p /var/backups
-cp -a /etc/caddy/Caddyfile "/var/backups/Caddyfile.$(date +%F-%T)" 2>/dev/null || true
-tar -C /etc/caddy -czf "/var/backups/caddy-sites.$(date +%F-%T).tgz" sites 2>/dev/null || true
 install -m 644 Caddyfile /etc/caddy/Caddyfile
 mkdir -p /etc/caddy/sites
 rm -f /etc/caddy/sites/*.caddy

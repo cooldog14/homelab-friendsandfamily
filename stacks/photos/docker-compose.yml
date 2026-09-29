@@ -6,7 +6,7 @@ services:
       # Public via VPS Caddy at photos.malice.biz (2026-09-15), AND private at
       # immich.h.malice.biz. Prefer the private name from your own devices: public
       # uploads hairpin through the VPS and eat its bandwidth twice.
-      - "${WG_IP}:2283:2283"
+      - "10.44.0.2:2283:2283"
     environment:
       DB_HOSTNAME: immich-db
       DB_USERNAME: immich
