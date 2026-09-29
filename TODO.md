@@ -32,8 +32,7 @@
 - Add cheap hardening to public/privileged containers first:
   `no-new-privileges`, explicit non-root `user` where supported, `cap_drop:
   [ALL]`, and read-only mounts where they do not break stateful apps.
-- Bring VPS input firewall rules under audit: either document the live rules or
-  own a minimal git-managed include for homelab input ports.
+- Compare live VPS input/forward rules against `vps/README.md` and fix drift.
 
 ### P2 — policy and drift control
 
