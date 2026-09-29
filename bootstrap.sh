@@ -33,7 +33,9 @@ install -d -m 0755 /usr/local/share/homelab-public-sites
 rm -f /usr/local/share/homelab-public-sites/*.caddy
 install -m 644 "$PUBLIC_SITES_SRC"/*.caddy /usr/local/share/homelab-public-sites/
 install -m 644 host/homelab-backup.service host/homelab-backup.timer host/homelab-backup-watchdog.service host/homelab-backup-watchdog.timer host/homelab-public-check.service host/homelab-public-check.timer host/homelab-docker-prune.service host/homelab-docker-prune.timer 'host/notify@.service' /etc/systemd/system/
-printf 'PasswordAuthentication no\nPermitRootLogin no\n' > /etc/ssh/sshd_config.d/homelab.conf
+# LAN keeps password SSH (no key needed on the home network); everywhere else
+# stays key-only, root never logs in directly.
+printf 'PasswordAuthentication no\nPermitRootLogin no\nMatch Address 192.168.1.0/24\n    PasswordAuthentication yes\n' > /etc/ssh/sshd_config.d/homelab.conf
 printf 'Unattended-Upgrade::Automatic-Reboot "true";\nUnattended-Upgrade::Automatic-Reboot-Time "03:00";\n' > /etc/apt/apt.conf.d/51homelab
 ensure_virtiofs() {
   tag=$1
@@ -58,7 +60,8 @@ sysctl --system > /dev/null
 # Humans use Tailscale/private Caddy for admin apps.
 # Public app traffic arrives over the wg0 tunnel from the VPS.
 # No DNS service here.
-ufw delete allow 22/tcp 2>/dev/null || true
+# LAN keeps plain SSH (no Tailscale/key needed on the home network).
+ufw allow in on eth0 from 192.168.1.0/24 to any port 22 2>/dev/null || true
 ufw delete allow 53/tcp 2>/dev/null || true
 ufw delete allow 53/udp 2>/dev/null || true
 # Cockpit is host admin + web terminal. Keep it a people-only path:
