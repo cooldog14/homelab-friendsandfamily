@@ -17,9 +17,7 @@ It backs up config, stack state, photos, and secrets.
 It skips downloads, movies, and TV.
 DB dumps stage in `/mnt/fast/dumps` before restic snapshots them.
 It writes the same important-data set to Hetzner S3 and the local repo
-(`/mnt/backup/restic` on sda; OPEN as of 2026-09-21: chill-01 cannot see
-/mnt/backup yet — repo wiring, i.e. a new virtiofs share or host-side
-restic, belongs to the backups phase; `restic init` still owed).
+(`/mnt/backup/restic` on sda).
 
 VPS config is pulled into the restic backup.
 A failed VPS pull alerts but does not fail the home backup.

@@ -8,7 +8,7 @@ Stack .env files and state folders stay on the host.
 
 ## stacks
 
-- apps: Filebrowser Quantum, public upload drop
+- apps: Filebrowser Quantum, public family files, public upload drop
 - photos: Immich
 - docs: Paperless, Stirling PDF, Kavita
 - comms: Mumble, Neko, Screego
@@ -16,6 +16,18 @@ Stack .env files and state folders stay on the host.
 - media: Jellyfin, qBittorrent, Prowlarr, Radarr, Sonarr, Bazarr, Jellyseerr, Navidrome, Octo-Fiesta, Feishin, Suwayomi, slskd, wrtag
 - observability: Gotify, Dockge, Beszel
 - edge: private Caddy and homepage
+
+## storage exposure
+
+- Private Quantum (`files.h.malice.biz`) mounts `/mnt/data` and exposes
+  bulk media under `/srv/pool`; keep it on Tailscale.
+- Public family files (`files.malice.biz`) mounts only `/mnt/data/family`.
+- Public upload (`upload.malice.biz`) mounts only
+  `/mnt/data/media/music/inbox/user`.
+- Immich writes photos to `/mnt/data/photos`.
+- Kavita reads books from `/mnt/data/media/books`.
+- Filebrowser auth enables passwords and passkeys from
+  `apps/config/filebrowser/config.yaml`.
 
 ## private routes
 

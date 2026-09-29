@@ -88,10 +88,8 @@ backup_important
 # RESTIC_PRUNE=0 for an append-only remote: a popped host then cannot delete its own backups.
 case "${RESTIC_PRUNE:-1}" in 1) restic forget --prune --keep-daily 7 --keep-weekly 4 --keep-monthly 6 ;; esac
 
-# Local restic drive (1TB, host /mnt/backup). chill-01 needs a virtiofs share
-# for it (backups phase); until wired, only this local copy fails (loud) while
-# the cloud backup above keeps running. Never mkdir past this point unguarded:
-# a repo on the root disk would fill it.
+# Local restic drive (1TB, host /mnt/backup, guest via pve1-backup virtiofs).
+# Never mkdir past this point unguarded: a repo on the root disk would fill it.
 mountpoint -q /mnt/backup
 cloud_repo=$RESTIC_REPOSITORY
 export RESTIC_REPOSITORY="${LOCAL_RESTIC_REPOSITORY:-/mnt/backup/restic}"
