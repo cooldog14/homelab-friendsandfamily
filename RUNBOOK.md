@@ -4,6 +4,26 @@ Break one thing at a time.
 Use a quiet window.
 Do not test by deleting data.
 
+## service expectations
+
+- Availability: best effort, not HA. There is one hypervisor, one app VM, and
+  one VPS edge.
+- RPO: latest successful nightly `homelab-backup` snapshot for `/opt`,
+  `/mnt/data`, `/etc`, `/root/.ssh`, and fresh DB dumps. Downloads, movies, TV,
+  and raw music staging are excluded by design.
+- RTO: manual restore after host, VM, or disk loss. Record the real time after
+  each `make restore-test` drill; do not invent an SLA before a measured drill.
+
+## deploy rollback
+
+- Detect: service regression after `make deploy`, `make host`, or `make vps`.
+- Repair: redeploy the previous good commit first:
+  `git checkout <good-commit>` then run only the affected deploy target.
+- Repair: restore app state only for a confirmed data-changing migration; do
+  not roll back databases just because a container image is bad.
+- Record: bad commit, good commit, affected stack, and whether state restore was
+  needed.
+
 ## public service down
 
 - Drill: stop one harmless public service.
@@ -119,5 +139,7 @@ Do not test by deleting data.
 ## lesson 2026-09-28: public app rollout checks
 
 - Detect: native auth must work off-tailnet before a private app becomes public.
+- Check: from a non-tailnet browser/session, verify login, logout, expected
+  anonymous behavior, upload/write paths if exposed, and no admin UI bypass.
 - Repair: add only the exact public Caddy host, run `make check`, run
   `make vps`, and verify `homelab-public-check`.
