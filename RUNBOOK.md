@@ -147,3 +147,10 @@ Do not test by deleting data.
   anonymous behavior, upload/write paths if exposed, and no admin UI bypass.
 - Repair: add only the exact public Caddy host, run `make check`, run
   `make vps`, and verify `homelab-public-check`.
+
+## drill 2026-09-29: restore-test ok
+
+- Proof: snapshot 6cd039f7 (2026-09-29 04:16 UTC) restored to a temp path;
+  immich/paperless dumps, kavita/gotify/beszel DBs (integrity ok),
+  homelab.env, wg0.conf, VPS Caddy/nftables, and /mnt/data/photos all present.
+- Repeat quarterly.
