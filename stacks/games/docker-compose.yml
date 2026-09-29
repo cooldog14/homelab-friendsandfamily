@@ -1,24 +1,28 @@
 services:
   mc:
-    # 26.1+ servers need Java 25+: keep the -java25 image variant.
     image: itzg/minecraft-server:2026.9.2-java25
     restart: unless-stopped
     user: "1000:1000"
     stdin_open: true
     tty: true
     ports:
-      - "10.44.0.2:25565:25565" # DNAT'd from the VPS
+      - "${WG_IP}:25565:25565" # DNAT'd from the VPS
     environment:
       EULA: "TRUE"
       VERSION: "26.2"
       TYPE: PAPER
       MEMORY: 4G
-      TZ: Europe/Paris
+      TZ: ${TIMEZONE}
       ENABLE_RCON: "true"
       RCON_PASSWORD: ${RCON_PASSWORD}
-      # Chunky pre-generates chunks before launch day.
       PLUGINS: |
         https://cdn.modrinth.com/data/fALzjamp/versions/MdY6JATr/Chunky-Bukkit-1.5.3.jar
+      # Optional knobs (uncomment as needed):
+      # MAX_PLAYERS: "20"
+      # MOTD: "homelab friends and family"
+      # DIFFICULTY: normal
+      # VIEW_DISTANCE: "10"
+      # OPS: "player1,player2"
     volumes:
       # World + config live on the mirror disk: covered by restic /mnt/data.
       - /mnt/data/apps/minecraft:/data

@@ -26,8 +26,3 @@
   `homelab-docker-prune.timer`, and the Beszel >85% disk Gotify alert.
 - Verify Jellyfin HLS/cache on `/mnt/fast/jellyfin-cache`; delete old empty
   cache dirs only after confirming no active references.
-
-### P2 — apps and family-facing services
-
-- Run Minecraft Chunky pregen (`chunky radius 2500`, `chunky start`) before
-  launch, outside backup windows.

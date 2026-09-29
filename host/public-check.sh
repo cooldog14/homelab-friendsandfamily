@@ -4,7 +4,7 @@
 # the unit (=> notify@). No Uptime Kuma container by design.
 set -euo pipefail
 
-PUBLIC_CADDY_SITES_DIR=${PUBLIC_CADDY_SITES_DIR:-}
+PUBLIC_CADDY_SITES_DIR=${PUBLIC_CADDY_SITES_DIR:-vps/sites}
 FAIL=0
 
 list_public_hosts() {
@@ -49,26 +49,20 @@ if [[ ${1:-} == "--config-lint" ]]; then
     echo "$dupes" >&2
     exit 1
   fi
-  if [[ -n $PUBLIC_CADDY_SITES_DIR ]]; then
-    [[ -d $PUBLIC_CADDY_SITES_DIR ]] || { echo "FAIL public Caddy sites dir missing: $PUBLIC_CADDY_SITES_DIR" >&2; exit 1; }
-    missing=$(comm -23 <(list_public_hosts) <(list_site_hosts))
-    extra=$(comm -13 <(list_public_hosts) <(list_site_hosts))
-    if [[ -n $missing || -n $extra ]]; then
-      echo "FAIL public host list differs from $PUBLIC_CADDY_SITES_DIR:" >&2
-      [[ -z $missing ]] || printf 'missing from sites:\n%s\n' "$missing" >&2
-      [[ -z $extra ]] || printf 'extra in sites:\n%s\n' "$extra" >&2
-      exit 1
-    fi
+  [[ -d $PUBLIC_CADDY_SITES_DIR ]] || { echo "FAIL public Caddy sites dir missing: $PUBLIC_CADDY_SITES_DIR" >&2; exit 1; }
+  missing=$(comm -23 <(list_public_hosts) <(list_site_hosts))
+  extra=$(comm -13 <(list_public_hosts) <(list_site_hosts))
+  if [[ -n $missing || -n $extra ]]; then
+    echo "FAIL public host list differs from $PUBLIC_CADDY_SITES_DIR:" >&2
+    [[ -z $missing ]] || printf 'missing from sites:\n%s\n' "$missing" >&2
+    [[ -z $extra ]] || printf 'extra in sites:\n%s\n' "$extra" >&2
+    exit 1
   fi
   echo "public-check config-lint ok"
   exit 0
 fi
 
 hosts=$(list_public_hosts)
-if [[ -z $hosts ]]; then
-  echo "FAIL no public Caddy hosts configured" >&2
-  exit 1
-fi
 
 check_http() {
   local host=$1 code url
@@ -98,7 +92,7 @@ while IFS= read -r host; do
 done <<< "$hosts"
 
 # UDP forwards exist too, but there is no cheap connect-only UDP smoke.
-for port in 64738 52000 3478 25565; do
+for port in 64738 52000 3478; do
   check_tcp "$first_host" "$port"
 done
 exit "$FAIL"

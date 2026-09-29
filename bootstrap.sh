@@ -21,11 +21,8 @@ apt-get install -y cockpit docker-ce docker-compose-plugin qemu-guest-agent rest
 install -d /opt/stacks
 # Restart docker only when its config actually changed: an unconditional
 # restart flaps every container (and trips the public black-box check).
-if cmp -s host/daemon.json /etc/docker/daemon.json; then
-  daemon_changed=0
-else
-  daemon_changed=1
-fi
+daemon_changed=0
+cmp -s host/daemon.json /etc/docker/daemon.json || daemon_changed=1
 install -m 644 host/daemon.json /etc/docker/daemon.json
 install -m 755 host/backup.sh /usr/local/bin/homelab-backup
 install -m 755 host/backup-watchdog.sh /usr/local/bin/homelab-backup-watchdog
