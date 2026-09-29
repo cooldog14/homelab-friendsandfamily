@@ -19,4 +19,9 @@
 	}
 }
 
+(public_proxy) {
+	import access_log
+	reverse_proxy 10.44.0.2:{args[0]}
+}
+
 import /etc/caddy/sites/*.caddy

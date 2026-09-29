@@ -4,17 +4,42 @@ Break one thing at a time.
 Use a quiet window.
 Do not test by deleting data.
 
+## operating decisions: audit cuts kept
+
+Feishin stays: it is the family-facing player at `player.malice.biz`, locked to
+Octo-Fiesta/Subsonic. Navidrome stays as backend/library UI.
+
+slskd + wrtag stay, but without a custom image. Use `slskd/slskd`; the
+completion hook rewrites `/data/...` to `/mnt/data/...` and calls wrtag at
+`http://wrtag:7373/op/move`. If the stock image cannot run
+`/app/scripts/autotag.sh --self-check` on `chill-01`, revisit.
+
+Cockpit is Debian's browser admin UI (`cockpit.socket`, usually port 9090),
+including a web terminal. Keep it host-admin only: `cockpit.h.malice.biz`
+through private Caddy or direct Tailscale `:9090`; blocked from the VPS
+WireGuard tunnel and never public.
+
+Beszel stays: it is the GUI for disk >85% alerts and host/container metrics.
+Gotify-only shell checks are smaller but lose the dashboard.
+
+Immich machine learning stays with Immich's stock compose shape. The photo
+library is empty now, but faces/search are expected once uploads start.
+
+Minecraft keeps Chunky plus `stdin_open`/`tty`: Chunky is the planned launch
+pregeneration tool, and the interactive flags keep the container usable from
+`docker attach` if RCON is unavailable.
+
 ## public service down
 
 Break: stop one harmless public service.
 Observe: public-check fails, Gotify alerts, systemd logs show failure.
-Repair: restart the stack from Dockge or docker compose.
+Repair: restart the stack with docker compose.
 Note: detection time and repair time.
 
 ## private caddy bad config
 
 Break: test a bad edge Caddy config.
-Observe: edge-reload must fail before restart.
+Observe: Caddy validation must fail before restart.
 Repair: restore the valid config.
 Note: whether validation blocked the outage.
 
@@ -28,7 +53,7 @@ Note: alert path and delay.
 ## WireGuard link
 
 Break: only with console access, stop the tunnel briefly.
-Observe: public HTTP fails and make tunnel shows the issue.
+Observe: public HTTP fails and `ssh vps-ingress 'sudo wg show chill0'` shows the issue.
 Repair: restart wg-quick.
 Note: user impact and recovery command.
 
@@ -73,7 +98,7 @@ speed/quality, and overlay_vaapi avoids the green-frame bug; UHD 630 has no
 QSV-only features worth keeping.
 Repair time: ~1h alongside playback; tuning ~15 min post-film.
 Prevention: jellyfin-cache moved to /mnt/fast/jellyfin-cache in git
-2026-09-21; weekly builder/image prune is in git; verify the live timer and
+2026-09-21; weekly image prune is in git; verify the live timer and
 Beszel >85% disk Gotify alert.
 Lesson: check disk before blaming the database; filter-stage corruption logs
 nothing, so isolate with client-side toggles first.

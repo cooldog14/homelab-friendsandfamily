@@ -1,5 +1,5 @@
 # An admin user is created on first start and its password is printed to the
-# container log once — read it from Dockge and change it immediately.
+# container log once — read it with docker logs and change it immediately.
 server:
   port: 80
   baseURL: "/"

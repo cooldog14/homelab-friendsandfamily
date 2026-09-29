@@ -1,49 +1,20 @@
 # stacks
 
-Docker Compose stacks run on chill-01.
+Docker Compose stacks for chill-01. `make deploy` syncs this folder to
+`/opt/stacks`; live `.env` files and `state/` stay on the host.
 
-make deploy syncs this folder to /opt/stacks.
-`defaults.env` holds shared non-secret defaults; Makefile loads it for compose.
-Stack .env files and state folders stay on the host.
+## map
 
-## stacks
-
-- apps: Filebrowser Quantum, public family files, public upload drop
+- apps: Filebrowser Quantum, family files, upload drop
 - photos: Immich
 - docs: Paperless, Stirling PDF, Kavita
 - comms: Mumble, Neko, Screego
-- games: Minecraft (Paper)
-- media: Jellyfin, qBittorrent, Prowlarr, Radarr, Sonarr, Bazarr, Jellyseerr, Navidrome, Octo-Fiesta, Feishin, Suwayomi, slskd, wrtag
-- observability: Gotify, Dockge, Beszel
-- edge: private Caddy and homepage
+- games: Minecraft Paper
+- media: Jellyfin, qBittorrent, Prowlarr, Radarr, Sonarr, Bazarr, Jellyseerr,
+  Navidrome, Octo-Fiesta, Feishin, Suwayomi, slskd, wrtag
+- observability: Gotify, Beszel
+- edge: private Caddy for `*.h.malice.biz`
 
-## storage exposure
-
-- Private Quantum (`files.h.malice.biz`) mounts `/mnt/data` and exposes
-  bulk media under `/srv/pool`; keep it on Tailscale.
-- Public family files (`files.malice.biz`) mounts only `/mnt/data/family`.
-- Public upload (`upload.malice.biz`) mounts only
-  `/mnt/data/media/music/inbox/user`.
-- Immich writes photos to `/mnt/data/photos`.
-- Kavita reads books from `/mnt/data/media/books`.
-- Filebrowser auth enables passwords and passkeys from
-  `apps/config/filebrowser/config.yaml`.
-
-## private routes
-
-These routes work on Tailscale only.
-
-- home.h.malice.biz
-- dockge.h.malice.biz
-- files.h.malice.biz
-- gotify.h.malice.biz
-- beszel.h.malice.biz
-- immich.h.malice.biz
-- qbittorrent.h.malice.biz
-- prowlarr.h.malice.biz
-- radarr.h.malice.biz
-- sonarr.h.malice.biz
-- bazarr.h.malice.biz
-- slskd.h.malice.biz
-- wrtag.h.malice.biz
-- suwayomi.h.malice.biz
+Public HTTP routes live in `vps/sites/*.caddy`; private tailnet routes live in
+`edge/Caddyfile`. Bulk video is `/mnt/pool`; important app/photo/music data is
+`/mnt/data`; scratch/cache is `/mnt/fast`.

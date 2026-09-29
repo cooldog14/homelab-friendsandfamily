@@ -9,8 +9,7 @@ soulseek:
     child_limit: 25
 
 directories:
-  # Matches compose env SLSKD_INCOMPLETE_DIR / SLSKD_DOWNLOADS_DIR.
-  # Compose mounts DATA_LOCATION from stacks/defaults.env at /data.
+  # Compose mounts /mnt/data at /data.
   incomplete: /data/media/music/inbox/slskd/incomplete
   downloads: /data/media/music/inbox/slskd/complete
 
@@ -47,7 +46,6 @@ web:
   authentication:
     disabled: true
 
-# Matches compose env SLSKD_REMOTE_CONFIGURATION / SLSKD_REMOTE_FILE_MANAGEMENT.
 remote_configuration: false
 remote_file_management: false
 
@@ -64,12 +62,6 @@ retention:
   files:
     incomplete: 43200
   logs: 30
-
-metrics:
-  enabled: true
-  url: /metrics
-  authentication:
-    disabled: false
 
 integrations:
   scripts:

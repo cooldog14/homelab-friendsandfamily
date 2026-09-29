@@ -3,8 +3,8 @@ services:
     image: mumblevoip/mumble-server:v1.5.634
     restart: unless-stopped
     ports:
-      - "${WG_IP}:64738:64738"       # DNAT'd from the VPS
-      - "${WG_IP}:64738:64738/udp"
+      - "10.44.0.2:64738:64738"       # DNAT'd from the VPS
+      - "10.44.0.2:64738:64738/udp"
     environment:
       MUMBLE_SUPERUSER_PASSWORD: ${MUMBLE_SUPERUSER_PASSWORD}
     volumes:
@@ -17,9 +17,9 @@ services:
     restart: unless-stopped
     shm_size: "2gb"
     ports:
-      - "${WG_IP}:8097:8080"   # public via VPS Caddy at neko.malice.biz
-      - "${WG_IP}:52000:52000/udp"
-      - "${WG_IP}:52000:52000/tcp"
+      - "10.44.0.2:8097:8080"   # public via VPS Caddy at neko.malice.biz
+      - "10.44.0.2:52000:52000/udp"
+      - "10.44.0.2:52000:52000/tcp"
     environment:
       NEKO_DESKTOP_SCREEN: "1280x720@30"
       NEKO_SERVER_PROXY: "true"

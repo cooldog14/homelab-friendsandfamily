@@ -1,13 +1,13 @@
 [Unit]
 Description=Restic backup
 After=docker.service
-# /mnt/backup share wired 2026-09-28 (pve1-backup mapping + virtiofs4 on 101).
-RequiresMountsFor=/mnt/data /mnt/fast /mnt/backup
+# Cloud backup must still run if the local restic disk is missing; backup.sh
+# checks /mnt/backup only after the offsite snapshot has completed.
+RequiresMountsFor=/mnt/data /mnt/fast
 OnFailure=notify@%n.service
 
 [Service]
 Type=oneshot
 ExecStart=/usr/local/bin/homelab-backup
-Environment=HOME=/root XDG_CACHE_HOME=/root/.cache
 Nice=10
 IOSchedulingClass=best-effort

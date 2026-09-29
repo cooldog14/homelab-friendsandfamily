@@ -15,8 +15,13 @@
 
 ### P1 — backup and monitoring
 
-- Extend `make restore-test` to kavita/dockge/beszel, then run one
-  restore drill to a temp path.
+- Run one `make restore-test` drill to a temp path.
+- When `chill-01` is reachable, deploy the repo and verify Dockge is gone,
+  `/opt/homelab-public-sites` is no longer needed by public-check, and slskd's
+  default image can run `/app/scripts/autotag.sh --self-check`; remove any
+  leftover `homelab-disk-usage` unit/script if still present; verify
+  `cockpit.h.malice.biz` works and Cockpit is blocked from the VPS/WireGuard
+  side.
 - After 2026-09-30, verify `homelab-backup-watchdog`, latest cloud +
   local snapshots, `homelab-docker-prune.timer`, and the Beszel >85%
   disk Gotify alert.
