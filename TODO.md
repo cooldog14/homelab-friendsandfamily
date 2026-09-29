@@ -2,27 +2,40 @@
 
 ## next (updated 2026-09-29)
 
-### P0 — access and secrets
+### P0 — access, secrets, and recovery
 
 - Rotate app passwords/tokens without printing them. Do `.env`-backed
   secrets first (stack `.env`, `host/homelab.env`, deploy/restart), then
-  app-internal users/API keys, then the Screego users file.
+  app-internal users/API keys, then the Screego users file. Record rotation
+  dates only, never values.
 - Audit macbook/towa/hermes-01; move wanted devices to UndauntedGeiger and
   revoke old auth keys. Use `HOST=chill-01`; `deploy@10.44.0.2` is not the
   people/admin path.
-- Retire legacy edge leftovers after primary access is proven: old
-  `wg0`/10.30 rules, Mumble DNAT verification, and stale fallback refs.
+- Run one `make restore-test` drill to a temp path, record the result in
+  `RUNBOOK.md`, and repeat quarterly.
+- Add healthchecks for the critical ingress/stateful services first: private
+  Caddy, Immich, Paperless, Jellyfin, Gotify, and Beszel.
 
-### P1 — backup and monitoring
+### P1 — hardening, validation, and monitoring
 
-- Run one `make restore-test` drill to a temp path.
-- When `chill-01` is reachable, deploy the repo and verify Dockge is gone,
-  `/opt/homelab-public-sites` is no longer needed by public-check, and slskd's
-  default image can run `/app/scripts/autotag.sh --self-check`; remove any
-  leftover `homelab-disk-usage` unit/script if still present; verify
+- When `chill-01` is reachable, deploy the repo and verify slskd's default
+  image can run `/app/scripts/autotag.sh --self-check`; verify
   `cockpit.h.malice.biz` works and Cockpit is blocked from the VPS/WireGuard
   side.
 - Verify `homelab-backup-watchdog`, latest cloud + local snapshots,
   `homelab-docker-prune.timer`, and the Beszel >85% disk Gotify alert.
 - Verify Jellyfin HLS/cache on `/mnt/fast/jellyfin-cache`; delete old empty
   cache dirs only after confirming no active references.
+- Tighten `chill-01` UFW from broad active `wg0`/`10.44` allow to exact
+  inbound ports needed from the VPS. Keep Tailscale broad only if tailnet ACLs
+  enforce identity.
+- Add cheap hardening to public/privileged containers first:
+  `no-new-privileges`, explicit non-root `user` where supported, `cap_drop:
+  [ALL]`, and read-only mounts where they do not break stateful apps.
+- Bring VPS input firewall rules under audit: either document the live rules or
+  own a minimal git-managed include for homelab input ports.
+
+### P2 — policy and drift control
+
+- Consider digest pinning only for public or privileged containers if Renovate
+  tag updates are not enough.

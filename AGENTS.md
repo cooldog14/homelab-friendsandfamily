@@ -26,9 +26,10 @@ incidents in `RUNBOOK.md`.
 - Authority: UndauntedGeiger (`taila725ed.ts.net`). `malice .109`,
   `chill-01 .71`. Retire leftovers per `TODO.md` (shared
   `malice.taila725ed.ts.net` `.64` copy, old machines, remaining leaves).
-- WireGuard infra only: `chill0` (`chill-01 10.44.0.2` <-> `VPS:51824`)
-  carries all public backends. Legacy `wg0` (`malice 10.30.0.3` <->
-  `VPS:51820`) still handshaking, retirement owed.
+- WireGuard infra only: `chill0` on the VPS and `wg0` on `chill-01`
+  (`10.44.0.1` <-> `10.44.0.2`, VPS `:51824`) carries public backends.
+  The former `malice` <-> VPS `10.30` fallback is retired; people/admin
+  access is Tailscale only.
 - LAN `192.168.1.0/24` (`vmbr0`): host `.2`, chill `.28`.
   SSH malice<->chill over LAN currently `No route`; use Tailscale.
 
@@ -81,9 +82,9 @@ keep-last 8, writes `/mnt/vault/dump`.
 - `chill.caddy`: photos, files, paperless, kavita, neko, screego.
 - `media.caddy`: jellyfin, requests, player, fiesta, upload, nvdr, mg.
   All backends `reverse_proxy 10.44.0.2:<port>`.
-- nftables NAT: `52000` (Neko), `3478` + `52100-52200` (Screego) both
-  forwarded; Mumble `64738` documented but DNAT missing (verify);
-  old `10.30` rules removal owed. CrowdSec blacklist active.
+- nftables NAT: Mumble `64738`, Neko `52000`, Screego `3478` +
+  `52100-52200`, and Minecraft `25565` are forwarded to `10.44.0.2`.
+  CrowdSec blacklist active.
 - If public-check goes red, compare git-owned `vps/sites/*.caddy`
   against VPS live config before changing apps.
 
@@ -101,7 +102,7 @@ keep-last 8, writes `/mnt/vault/dump`.
 
 | Target | Primary (Tailscale) | Fallback |
 |---|---|---|
-| malice | `ssh malice` | `ssh vps` -> `ssh 10.30.0.3` (WG, only while fallback key kept) |
+| malice | `ssh malice` | local/Proxmox console |
 | chill-01 | `ssh <chill-01-tail-IP>` | `qm guest exec 101 -- <cmd>` via malice (JSON wrapper, no rsync/scp) |
 | VPS | never via Tailscale | `ssh vps` (public `:4522`) |
 | other guests | via malice (`qm`/`pct`) | Proxmox console |
