@@ -24,6 +24,7 @@
 	@gotify host gotify.h.malice.biz
 	@beszel host beszel.h.malice.biz
 	@cockpit host cockpit.h.malice.biz
+	@home host home.h.malice.biz
 	# Private Immich: uploads from own devices avoid hairpinning through
 	# the VPS (see the port comment in stacks/photos/docker-compose.yml).
 	@immich host immich.h.malice.biz
@@ -54,6 +55,8 @@
 		reverse_proxy @slskd 10.44.0.2:5030
 		reverse_proxy @wrtag 10.44.0.2:7373
 		reverse_proxy @suwayomi 10.44.0.2:4567
+		root @home /srv/home
+		file_server @home
 		respond "unknown private service" 404
 	}
 }

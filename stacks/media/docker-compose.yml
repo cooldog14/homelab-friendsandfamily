@@ -168,6 +168,7 @@ services:
     user: "1000:1000"
     ports:
       - "10.44.0.2:4533:4533"
+      - "127.0.0.1:4533:4533"
     environment:
       TZ: Europe/Paris
       ND_ENABLEINSIGHTSCOLLECTOR: "false"
