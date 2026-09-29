@@ -27,6 +27,11 @@ install -m 644 host/daemon.json /etc/docker/daemon.json
 install -m 755 host/backup.sh /usr/local/bin/homelab-backup
 install -m 755 host/backup-watchdog.sh /usr/local/bin/homelab-backup-watchdog
 install -m 755 host/public-check.sh /usr/local/bin/homelab-public-check
+PUBLIC_SITES_SRC=public-sites
+[ -d "$PUBLIC_SITES_SRC" ] || PUBLIC_SITES_SRC=vps/sites
+install -d -m 0755 /usr/local/share/homelab-public-sites
+rm -f /usr/local/share/homelab-public-sites/*.caddy
+install -m 644 "$PUBLIC_SITES_SRC"/*.caddy /usr/local/share/homelab-public-sites/
 install -m 644 host/homelab-backup.service host/homelab-backup.timer host/homelab-backup-watchdog.service host/homelab-backup-watchdog.timer host/homelab-public-check.service host/homelab-public-check.timer host/homelab-docker-prune.service host/homelab-docker-prune.timer 'host/notify@.service' /etc/systemd/system/
 printf 'PasswordAuthentication no\nPermitRootLogin no\n' > /etc/ssh/sshd_config.d/homelab.conf
 printf 'Unattended-Upgrade::Automatic-Reboot "true";\nUnattended-Upgrade::Automatic-Reboot-Time "03:00";\n' > /etc/apt/apt.conf.d/51homelab

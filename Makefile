@@ -16,6 +16,7 @@ deploy:
 
 host:
 	rsync -a bootstrap.sh host $(HOST):/tmp/chill/
+	rsync -a --delete vps/sites/ $(HOST):/tmp/chill/public-sites/
 	ssh $(HOST) 'cd /tmp/chill && sudo sh bootstrap.sh'
 
 vps:
