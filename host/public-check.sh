@@ -4,28 +4,10 @@
 # the unit (=> notify@). No Uptime Kuma container by design.
 set -euo pipefail
 
-PUBLIC_CADDY_SITES_DIR=${PUBLIC_CADDY_SITES_DIR:-vps/sites}
+PUBLIC_CADDY_SITES_DIR=${PUBLIC_CADDY_SITES_DIR:-/usr/local/share/homelab-public-sites}
 FAIL=0
 
 list_public_hosts() {
-  cat <<'HOSTS' | sort -u
-fiesta.malice.biz
-files.malice.biz
-jellyfin.malice.biz
-kavita.malice.biz
-mg.malice.biz
-neko.malice.biz
-nvdr.malice.biz
-paperless.malice.biz
-photos.malice.biz
-player.malice.biz
-requests.malice.biz
-screego.malice.biz
-upload.malice.biz
-HOSTS
-}
-
-list_site_hosts() {
   find "$PUBLIC_CADDY_SITES_DIR" -type f -name '*.caddy' -exec awk '
     /^[[:space:]]*#/ { next }
     /^[[:space:]]*[[:alnum:]-]+(\.[[:alnum:]-]+)+[[:space:]]*\{/ { print $1 }
@@ -43,19 +25,13 @@ list_private_hosts() {
 if [[ ${1:-} == "--config-lint" ]]; then
   PRIVATE_CADDYFILE=${PRIVATE_CADDYFILE:-/opt/stacks/edge/Caddyfile}
   [[ -f $PRIVATE_CADDYFILE ]] || { echo "FAIL private Caddyfile missing: $PRIVATE_CADDYFILE" >&2; exit 1; }
-  dupes=$(comm -12 <(list_public_hosts) <(list_private_hosts))
+  [[ -d $PUBLIC_CADDY_SITES_DIR ]] || { echo "FAIL public Caddy sites dir missing: $PUBLIC_CADDY_SITES_DIR" >&2; exit 1; }
+  hosts=$(list_public_hosts)
+  [[ -n $hosts ]] || { echo "FAIL no public hosts found in $PUBLIC_CADDY_SITES_DIR" >&2; exit 1; }
+  dupes=$(comm -12 <(printf '%s\n' "$hosts") <(list_private_hosts))
   if [[ -n $dupes ]]; then
     echo "FAIL public host duplicated in private Caddy:" >&2
     echo "$dupes" >&2
-    exit 1
-  fi
-  [[ -d $PUBLIC_CADDY_SITES_DIR ]] || { echo "FAIL public Caddy sites dir missing: $PUBLIC_CADDY_SITES_DIR" >&2; exit 1; }
-  missing=$(comm -23 <(list_public_hosts) <(list_site_hosts))
-  extra=$(comm -13 <(list_public_hosts) <(list_site_hosts))
-  if [[ -n $missing || -n $extra ]]; then
-    echo "FAIL public host list differs from $PUBLIC_CADDY_SITES_DIR:" >&2
-    [[ -z $missing ]] || printf 'missing from sites:\n%s\n' "$missing" >&2
-    [[ -z $extra ]] || printf 'extra in sites:\n%s\n' "$extra" >&2
     exit 1
   fi
   echo "public-check config-lint ok"
@@ -63,6 +39,10 @@ if [[ ${1:-} == "--config-lint" ]]; then
 fi
 
 hosts=$(list_public_hosts)
+if [[ -z $hosts ]]; then
+  echo "FAIL no public hosts found in $PUBLIC_CADDY_SITES_DIR" >&2
+  exit 1
+fi
 
 check_http() {
   local host=$1 code url
