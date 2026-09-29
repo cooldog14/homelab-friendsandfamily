@@ -67,13 +67,14 @@ Repair (live, no pauses): builder prune (2.8G) + orphan-image removal only
 (never running images, never the active session) -> 13G free, ENOSPC gone.
 Post-film: encoding.xml set HEVC HW decode on, throttling on, segment
 deletion on/keep 120s; jellyfin restarted clean (0 errors); h264_qsv encode
-+ hevc_qsv decode smoke-tested on the real file. Decision qsv->vaapi pending:
-same iHD driver/silicon (QSV on Linux wraps VAAPI), same speed/quality, and
-overlay_vaapi avoids the green-frame bug; UHD 630 has no QSV-only features
-worth keeping.
++ hevc_qsv decode smoke-tested on the real file. QSV -> VAAPI flip completed
+2026-09-28: same iHD driver/silicon (QSV on Linux wraps VAAPI), same
+speed/quality, and overlay_vaapi avoids the green-frame bug; UHD 630 has no
+QSV-only features worth keeping.
 Repair time: ~1h alongside playback; tuning ~15 min post-film.
 Prevention: jellyfin-cache moved to /mnt/fast/jellyfin-cache in git
-2026-09-21; still add >85% / Gotify alert and weekly builder/image prune.
+2026-09-21; weekly builder/image prune is in git; verify the live timer and
+Beszel >85% disk Gotify alert.
 Lesson: check disk before blaming the database; filter-stage corruption logs
 nothing, so isolate with client-side toggles first.
 
@@ -133,9 +134,56 @@ Wire the dump target by adding `backup` to the store content
 (`pvesm set <store> --content ...`); Proxmox manages `<path>/dump/`
 itself. Proof-run a stopped small guest first, then create the schedule
 via `pvesh create /cluster/backup` (here: all guests, snapshot, zstd,
-Sun 03:30, keep-last 8). Open after this run: chill-01 cannot see the
-1TB, so restic wiring (new virtiofs share or host-side restic) plus
-`restic init` belong to the backups phase.
+Sun 03:30, keep-last 8).
+
+## lesson 2026-09-28: local restic and cloud-first backup cutover
+
+Incident: `homelab-backup` failed closed when `/mnt/backup` was listed in
+`RequiresMountsFor` before the guest actually had that mount.
+Impact: the offsite backup did not run even though only the local backup disk
+was missing.
+Detection: failed timer with no useful script output; previous `last-ok` was
+still 2026-09-27.
+Repair: make cloud backup run first; check `/mnt/backup` inside the local
+section so missing local storage fails loud after offsite completes. Once
+`pve1-backup -> /mnt/backup` was wired into VM 101 and mounted, restore the
+mount requirement, initialize `/mnt/backup/restic`, and run the local backup.
+Notes: if a manual restic run churns because it lacks the latest parent, stop
+it, clear the stale lock, and rerun with the known parent snapshot. If S3
+returns 503s or hangs but a fresh verified cloud snapshot exists, stop poking
+and let the timer retry. A full VM stop/start for virtiofs can regenerate
+cloud-init SSH host keys; verify the new fingerprint through `qm guest exec`
+before trusting SSH again.
+
+## lesson 2026-09-28: app credentials are not all env vars
+
+Gotify: the `.env` default password only seeds the initial admin password; if
+the in-app password drifted, reset the app DB/API state after backing it up.
+Navidrome 0.63: passwords are encrypted at rest with the app key; direct
+bcrypt SQL updates can silently break login. Use `navidrome user edit --user
+<name> --set-password`.
+Compose: `$` inside `.env` values is expanded by compose and can truncate
+passwords. For app passwords containing `$`, mount a host-only `0600` file and
+use the app's `*_PASSWORD_FILE` support instead of passing the value directly.
+
+## lesson 2026-09-28: storage migrations leave stale app state
+
+qBittorrent can keep `.fastresume` paths and sizes from retired storage after
+content has moved to `/pool`. Do not delete media to make torrent state happy.
+Quarantine the stale `.torrent`/`.fastresume` files first, restart cleanly,
+and let Arr re-grab what is still wanted.
+For Jellyfin, prove cache location with real playback after deploy before
+deleting old cache directories; only remove empty old paths with no active
+references.
+
+## lesson 2026-09-28: public app rollout checks
+
+Before exposing a private app publicly, confirm native app auth works
+off-tailnet, add only the exact public Caddy host, run `make check`, run
+`make vps`, and verify `homelab-public-check`.
+Minecraft Paper 26.2 needs Java 25; Java 21 boot-loops. Keep RCON passwords
+only in the live stack `.env`, never in git. Run Chunky pregen the night before
+launch, not during backup windows.
 
 ## postmortem template
 

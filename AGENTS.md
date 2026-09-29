@@ -39,12 +39,14 @@ incidents in `RUNBOOK.md`.
 | Host disk | Mount | Shared as | Guest sees | Holds |
 |---|---|---|---|---|
 | sdd 4TB | `/mnt/bulk` -> `/mnt/pool` (bind) | `pve1-pool` | `/mnt/pool` | movies, tv, downloads (re-downloadable, no backup) |
-| sdc 2TB | `/mnt/primary` | `pve1-mirror` | `/mnt/data` | photos, family, apps data, clean music (backed up) |
-| sdf 466G SSD | `/mnt/fast` | `pve1-fast` | `/mnt/fast` | jellyfin-cache, dumps staging, scratch (disposable) |
-| sdb 466G | `/mnt/vault` | `pve1-archive` | `/mnt/archive` (rename to `/mnt/vault` owed) | vzdump target + pre-migration keeps (backup-only) |
-| sda 1TB | `/mnt/backup` (host-only) | — | not visible in guest | future local restic (`restic init` owed) |
+| sdc 2TB | `/mnt/primary` | `pve1-mirror` | `/mnt/data` | photos, family, app data, music, books (backed up) |
+| sdf 466G SSD | `/mnt/fast` | `pve1-fast` | `/mnt/fast` | jellyfin-cache, imports, scratch, DB dumps (disposable) |
+| sdb 466G | `/mnt/vault` | `pve1-archive` | `/mnt/vault` | vzdump target + pre-migration keeps (backup-only) |
+| sda 1TB | `/mnt/backup` | `pve1-backup` | `/mnt/backup` | local restic repo (backup-only) |
 | sde SSD | Proxmox + `local-lvm` | — | VM disks | Data% ~38%, VFree ~16G |
 
+chill-01 root disk holds Docker images and `/opt/stacks/*/state`;
+keep bulk files off it.
 Notes: `/mnt/primary/media/music` is bind-mounted ro onto
 `/mnt/bulk/media/music` (same files counted twice by `du`).
 `weekly-vault` vzdump job: all guests, snapshot, zstd, Sun 03:30,
@@ -68,12 +70,10 @@ keep-last 8, writes `/mnt/vault/dump` (verified 2026-09-27).
   wrtag (`:7373`). Jellyfin `/cache` -> `/mnt/fast/jellyfin-cache`;
   `/pool/movies|tv` ro. GPU `renderD128` present, QSV->VAAPI flip open.
 - `observability`: Gotify (`:8070`, private only), Dockge (`:5001`),
-  Beszel (`:8090`) + beszel-agent (`network_mode: host` — undocumented,
-  see `TODO.md`).
+  Beszel (`:8090`) + beszel-agent (`network_mode: host` — documented
+  exception for host/container metrics; UFW still gates inbound).
 - `edge`: private Caddy (`*.h.malice.biz`, DNS-01 wildcard, Tailscale
   bind) + homepage. Exact-host matchers; never duplicate a public name.
-- Stale: `/opt/stacks/privacy` state+volume only, no compose, not in
-  `Makefile STACKS` — decide add vs remove.
 
 ## public edge (VPS, git-owned `vps/sites/*.caddy`)
 
@@ -83,21 +83,19 @@ keep-last 8, writes `/mnt/vault/dump` (verified 2026-09-27).
 - nftables NAT: `52000` (Neko), `3478` + `52100-52200` (Screego) both
   forwarded; Mumble `64738` documented but DNAT missing (verify);
   old `10.30` rules removal owed. CrowdSec blacklist active.
-- Live incident 2026-09-27: `files.malice.biz` TLS error — VPS
-  `chill.caddy` missing the `files` block present in git.
-  Fix = `make vps`. `public-check` FAILs `000` since 09-26.
+- `files.malice.biz` drift was fixed with `make vps` on 2026-09-28;
+  if public-check goes red, compare git-owned `vps/sites/*.caddy`
+  against VPS live config before changing apps.
 
 ## backups + checks
 
-- Nightly `homelab-backup` (restic offsite, ~509G, 36 snaps as of
-  09-27): `/opt` (incl. `/opt/dumps`), `/mnt/data`, `/etc`,
-  `/root/.ssh`. Excludes downloads/movies/tv. Dumps fresh for
-  immich/paperless/gotify/kavita/beszel/dockge; dead-app dumps
-  (bookstack/gonic/navidrome/vaultwarden/joplin/...) still shipped.
-  Docs say dumps in `/mnt/fast/dumps`, script uses `/opt/dumps`.
-- `homelab-backup-watchdog` (48h) green; `homelab-public-check`
-  red (files). Gotify is the alert path; Beszel covers disks
-  (>85% alert + weekly prune still owed, images back at 31G).
+- Nightly `homelab-backup` (restic offsite + local
+  `/mnt/backup/restic`): `/opt`, `/mnt/fast/dumps`, `/mnt/data`,
+  `/etc`, `/root/.ssh`. Excludes downloads, movies, TV, and raw music
+  staging. Dumps fresh for immich/paperless/gotify/kavita/beszel/dockge.
+- `homelab-backup-watchdog` (48h), `homelab-public-check`, Gotify, and
+  Beszel are the alert path. Weekly Docker prune is in git; verify the
+  live timer and Beszel >85% disk alert after host deploys.
 
 ## access matrix
 
@@ -116,5 +114,4 @@ while changing tailnets; verify both directions; keep fallback 24h.
 Never print/commit: `/etc/homelab.env`, stack `.env` files, WireGuard
 privkeys, Tailscale auth keys. Pre-migration Proxmox auth backup:
 `/root/authorized_keys.bak-2026-09-27` on malice; temporary
-`root@debian-13` line in `/etc/pve/priv/authorized_keys` removed per
-`TODO.md`.
+`root@debian-13` line in `/etc/pve/priv/authorized_keys` was removed.
