@@ -33,12 +33,18 @@ install -m 755 host/public-check.sh /usr/local/bin/homelab-public-check
 install -m 644 host/homelab-backup.service host/homelab-backup.timer host/homelab-backup-watchdog.service host/homelab-backup-watchdog.timer host/homelab-public-check.service host/homelab-public-check.timer host/homelab-docker-prune.service host/homelab-docker-prune.timer 'host/notify@.service' /etc/systemd/system/
 printf 'PasswordAuthentication no\nPermitRootLogin no\n' > /etc/ssh/sshd_config.d/homelab.conf
 printf 'Unattended-Upgrade::Automatic-Reboot "true";\nUnattended-Upgrade::Automatic-Reboot-Time "03:00";\n' > /etc/apt/apt.conf.d/51homelab
-grep -q pve1-mirror /etc/fstab || echo 'pve1-mirror /mnt/data virtiofs rw,relatime,nofail 0 0' >> /etc/fstab
-grep -q pve1-fast /etc/fstab || echo 'pve1-fast /mnt/fast virtiofs rw,relatime,nofail 0 0' >> /etc/fstab
+ensure_virtiofs() {
+  tag=$1
+  target=$2
+  grep -q "$tag" /etc/fstab || echo "$tag $target virtiofs rw,relatime,nofail 0 0" >> /etc/fstab
+}
+ensure_virtiofs pve1-mirror /mnt/data
+ensure_virtiofs pve1-fast /mnt/fast
 # Tag pve1-archive never changes; only the guest mountpoint moved (/mnt/archive -> /mnt/vault).
-grep -q 'pve1-archive /mnt/vault' /etc/fstab || { sed -i 's|pve1-archive /mnt/archive|pve1-archive /mnt/vault|' /etc/fstab; grep -q pve1-archive /etc/fstab || echo 'pve1-archive /mnt/vault virtiofs rw,relatime,nofail 0 0' >> /etc/fstab; }
-grep -q pve1-pool /etc/fstab || echo 'pve1-pool /mnt/pool virtiofs rw,relatime,nofail 0 0' >> /etc/fstab
-grep -q pve1-backup /etc/fstab || echo 'pve1-backup /mnt/backup virtiofs rw,relatime,nofail 0 0' >> /etc/fstab
+grep -q 'pve1-archive /mnt/vault' /etc/fstab || sed -i 's|pve1-archive /mnt/archive|pve1-archive /mnt/vault|' /etc/fstab
+ensure_virtiofs pve1-archive /mnt/vault
+ensure_virtiofs pve1-pool /mnt/pool
+ensure_virtiofs pve1-backup /mnt/backup
 mkdir -p /mnt/data /mnt/fast /mnt/vault /mnt/pool /mnt/backup && mount -a
 rmdir /mnt/archive 2>/dev/null || true
 install -d -m 0755 -o 1000 -g 1000 /mnt/fast/jellyfin-cache /mnt/fast/scratch /mnt/fast/imports

@@ -1,5 +1,4 @@
 services:
-  # Push notifications for systemd unit failures and anything else you want to alert on.
   gotify:
     image: gotify/server:2.5.0
     restart: unless-stopped
@@ -10,7 +9,6 @@ services:
     volumes:
       - ./state/gotify:/app/data
 
-  # Host metrics and the disk >85% alert, in a GUI instead of df piped through awk.
   beszel:
     image: henrygd/beszel:0.9
     restart: unless-stopped
