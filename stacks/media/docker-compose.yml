@@ -236,10 +236,11 @@ services:
     ports:
       - "10.44.0.2:9180:9180"
     environment:
-      SERVER_NAME: "malice.biz"
+      SERVER_NAME: "Octo-Fiesta"
       SERVER_TYPE: subsonic
       SERVER_URL: "https://fiesta.malice.biz"
       SERVER_LOCK: "true"
+      LEGACY_AUTHENTICATION: "true"
       ANALYTICS_DISABLED: "true"
     depends_on:
       - octo-fiesta
