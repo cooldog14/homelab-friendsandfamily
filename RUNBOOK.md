@@ -135,6 +135,10 @@ Do not test by deleting data.
   not always change live credentials.
 - Repair: if a secret contains `$`, prefer app-supported `*_PASSWORD_FILE` with
   a host-only `0600` file.
+- Repair: Filebrowser resets via `filebrowser set` (upserts in place); only
+  `admin` exists in all three DBs.
+- Troubleshoot: this Filebrowser fork takes username as query param plus
+  URL-encoded password in `X-Password` header; JSON body always 401s.
 
 ## lesson 2026-09-28: public app rollout checks
 

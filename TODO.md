@@ -11,6 +11,8 @@
 - Audit macbook/towa/hermes-01; move wanted devices to UndauntedGeiger and
   revoke old auth keys. Use `HOST=chill-01`; `deploy@10.44.0.2` is not the
   people/admin path.
+- Filebrowser admin passwords rotated 2026-09-28 (quantum, family, upload,
+  LOGIN_OK).
 - Run one `make restore-test` drill to a temp path, record the result in
   `RUNBOOK.md`, and repeat quarterly.
 - Add app/ingress HTTP healthchecks after live endpoint confirmation: private
