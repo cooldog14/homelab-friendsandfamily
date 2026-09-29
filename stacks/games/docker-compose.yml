@@ -1,11 +1,6 @@
 services:
   mc:
-    # Paper 26.2: latest STABLE Paper (26.3 is experimental-alpha only as of
-    # 2026-09-28, needs Java 25). Players set their launcher profile to 26.2
-    # until Paper headlines 26.3 stable (~late Oct by past drops), then bump
-    # VERSION + image tag. Same world format either way, no reset.
-    # Purpur instead: TYPE: PURPUR (same API, more config knobs), one line.
-    # NB: 26.1+ servers need Java 25+: keep the -java25 image variant.
+    # 26.1+ servers need Java 25+: keep the -java25 image variant.
     image: itzg/minecraft-server:2026.9.2-java25
     restart: unless-stopped
     user: "1000:1000"
@@ -21,11 +16,7 @@ services:
       TZ: Europe/Paris
       ENABLE_RCON: "true"
       RCON_PASSWORD: ${RCON_PASSWORD}
-      # Server-side plugins (players install nothing). Pinned jars, bump
-      # the URLs alongside VERSION. spark is pre-bundled in Paper 1.21+,
-      # so only Chunky (pre-generate chunks before launch day) is listed.
-      # Jars land in /data/plugins (mirror disk, restic-backed); removing
-      # a URL auto-removes its jar on next start.
+      # Chunky pre-generates chunks before launch day.
       PLUGINS: |
         https://cdn.modrinth.com/data/fALzjamp/versions/MdY6JATr/Chunky-Bukkit-1.5.3.jar
     volumes:

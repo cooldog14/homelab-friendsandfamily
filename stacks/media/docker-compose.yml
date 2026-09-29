@@ -20,8 +20,6 @@ services:
       # Disposable HLS/transcode cache lives on the fast SSD, not the VM root.
       - /mnt/fast/jellyfin-cache:/cache
       - /mnt/data:/data
-      # Bulk media lives on the 4TB disk (VM /mnt/pool, TODO storage layout).
-      # Change library paths to /pool/movies and /pool/tv in the jellyfin UI.
       - /mnt/pool/media/movies:/pool/movies:ro
       - /mnt/pool/media/tv:/pool/tv:ro
     restart: unless-stopped
@@ -75,8 +73,6 @@ services:
     volumes:
       - ./state/qbittorrent:/config
       - /mnt/data:/data
-      # Video downloads live on the 4TB disk. Point save paths at
-      # /pool/downloads in the qbittorrent UI after migrating state.
       - /mnt/pool/downloads:/pool/downloads
     restart: unless-stopped
 
@@ -118,8 +114,6 @@ services:
     volumes:
       - ./state/radarr:/config
       - /mnt/data:/data
-      # Movies root folder is /pool/movies (4TB disk). Update root folders
-      # and download-client remote path mappings in the radarr UI.
       - /mnt/pool/media/movies:/pool/movies
       - /mnt/pool/downloads:/pool/downloads
 
@@ -135,8 +129,6 @@ services:
     volumes:
       - ./state/sonarr:/config
       - /mnt/data:/data
-      # TV root folder is /pool/tv (4TB disk). Update root folders
-      # and download-client remote path mappings in the sonarr UI.
       - /mnt/pool/media/tv:/pool/tv
       - /mnt/pool/downloads:/pool/downloads
 

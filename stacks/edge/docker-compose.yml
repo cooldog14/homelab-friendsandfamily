@@ -12,18 +12,11 @@ services:
       # them on the public VPS WireGuard path.
       - host.docker.internal:host-gateway
     ports:
-      # Default is 127.0.0.1, not empty and not 0.0.0.0: a missing .env must
-      # fail CLOSED. Empty would render ":443:443" and bind every interface
-      # (LAN included, since docker publishes past ufw). The localhost default
-      # also keeps `make check` working on a clone with no .env.
+      # Localhost default fails closed when .env is missing.
       - "${TS_IP:-127.0.0.1}:443:443"
-      # :80 is only Caddy's http->https redirect. Without it, typing a bare
-      # hostname gets connection-refused instead of bouncing to TLS.
       - "${TS_IP:-127.0.0.1}:80:80"
     environment:
-      # DNS-01 only, so no inbound port is ever needed. Token is scoped to
-      # Zone:DNS:Edit on malice.biz and nothing else. Unset means no cert,
-      # which is loud and harmless — not a wide-open listener.
+      # DNS-01 token; unset fails cert issuance without widening listeners.
       CF_API_TOKEN: ${CF_API_TOKEN:-unset}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro

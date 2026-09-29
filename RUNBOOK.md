@@ -4,217 +4,156 @@ Break one thing at a time.
 Use a quiet window.
 Do not test by deleting data.
 
-## operating decisions: audit cuts kept
-
-Feishin stays: it is the family-facing player at `player.malice.biz`, locked to
-Octo-Fiesta/Subsonic. Navidrome stays as backend/library UI.
-
-slskd + wrtag stay, but without a custom image. Use `slskd/slskd`; the
-completion hook rewrites `/data/...` to `/mnt/data/...` and calls wrtag at
-`http://wrtag:7373/op/move`. If the stock image cannot run
-`/app/scripts/autotag.sh --self-check` on `chill-01`, revisit.
-
-Cockpit is Debian's browser admin UI (`cockpit.socket`, usually port 9090),
-including a web terminal. Keep it host-admin only: `cockpit.h.malice.biz`
-through private Caddy or direct Tailscale `:9090`; blocked from the VPS
-WireGuard tunnel and never public.
-
-Beszel stays: it is the GUI for disk >85% alerts and host/container metrics.
-Gotify-only shell checks are smaller but lose the dashboard.
-
-Immich machine learning stays with Immich's stock compose shape. The photo
-library is empty now, but faces/search are expected once uploads start.
-
-Minecraft keeps Chunky plus `stdin_open`/`tty`: Chunky is the planned launch
-pregeneration tool, and the interactive flags keep the container usable from
-`docker attach` if RCON is unavailable.
-
 ## public service down
 
-Break: stop one harmless public service.
-Observe: public-check fails, Gotify alerts, systemd logs show failure.
-Repair: restart the stack with docker compose.
-Note: detection time and repair time.
+- Drill: stop one harmless public service.
+- Detect: `homelab-public-check` fails; Gotify alerts; systemd logs show failure.
+- Repair: restart the stack with Docker Compose.
+- Record: detection time and repair time.
 
 ## private caddy bad config
 
-Break: test a bad edge Caddy config.
-Observe: Caddy validation must fail before restart.
-Repair: restore the valid config.
-Note: whether validation blocked the outage.
+- Drill: test a bad edge Caddy config.
+- Detect: Caddy validation fails before restart.
+- Repair: restore the valid config.
+- Record: whether validation blocked the outage.
 
 ## backup stale
 
-Break: simulate an old backup marker.
-Observe: backup watchdog alerts Gotify.
-Repair: run backup or restore the marker.
-Note: alert path and delay.
+- Drill: simulate an old backup marker.
+- Detect: `homelab-backup-watchdog` alerts Gotify.
+- Repair: run backup or restore the marker.
+- Record: alert path and delay.
 
 ## WireGuard link
 
-Break: only with console access, stop the tunnel briefly.
-Observe: public HTTP fails and `ssh vps-ingress 'sudo wg show chill0'` shows the issue.
-Repair: restart wg-quick.
-Note: user impact and recovery command.
+- Drill: only with console access, stop the tunnel briefly.
+- Detect: public HTTP fails; `ssh vps-ingress 'sudo wg show chill0'` shows the issue.
+- Repair: `sudo systemctl restart wg-quick@chill0` on the broken side.
+- Record: user impact and recovery command.
 
 ## VPS Caddy bad config
 
-Break: test a bad site file.
-Observe: Caddy validation blocks reload.
-Repair: fix the file and run make vps.
-Note: what the validation caught.
-
-## restore drill
-
-Break: nothing in production.
-Restore: one small DB dump or state file to a temp path.
-Verify: file readable or DB integrity ok.
-Note: RTO, RPO, and exact commands.
+- Drill: test a bad site file.
+- Detect: Caddy validation blocks reload.
+- Repair: fix the git-owned site file and run `make vps`.
+- Record: what validation caught.
 
 ## incident 2026-09-20: jellyfin disk full, then green glitch
 
-Incident: chill-01 (VM 101) root disk filled to 100% mid-film (F1 4K remux,
-family movie night); after recovery the next film (Ford v Ferrari 4K remux)
-showed green glitch everywhere on the Tizen TV app.
-Impact: film 1 stalled (ffmpeg exit 228, 0-byte HLS playlist/segments, 80x
-SQLite Error 13, 1354x rollback cascade, resume not saving); container stayed
-healthy, no data loss. Film 2 unwatchable with PGS subtitles (silent frame
-corruption, encoder log clean at ~2x speed).
-Detection: user report during playback. `docker logs` showed `No space left
-on device` on ffmpeg log writes; `df` showed 100%/0 free; `du` found a 26G
-single-session HLS cache + 42G docker images on the 80G root disk.
-Thought process: the rollback/SQLite errors looked like DB corruption at
-first, but `database or disk is full` + ffmpeg ENOSPC pointed at disk, not
-the DB. For the green glitch, a clean encode log + `overlay_qsv` subtitle
-burn-in stage in the ffmpeg chain pointed at silent filter corruption;
-isolation proposed via subs-off toggle on the TV.
-Repair (live, no pauses): builder prune (2.8G) + orphan-image removal only
-(never running images, never the active session) -> 13G free, ENOSPC gone.
-Post-film: encoding.xml set HEVC HW decode on, throttling on, segment
-deletion on/keep 120s; jellyfin restarted clean (0 errors); h264_qsv encode
-+ hevc_qsv decode smoke-tested on the real file. QSV -> VAAPI flip completed
-2026-09-28: same iHD driver/silicon (QSV on Linux wraps VAAPI), same
-speed/quality, and overlay_vaapi avoids the green-frame bug; UHD 630 has no
-QSV-only features worth keeping.
-Repair time: ~1h alongside playback; tuning ~15 min post-film.
-Prevention: jellyfin-cache moved to /mnt/fast/jellyfin-cache in git
-2026-09-21; weekly image prune is in git; verify the live timer and
-Beszel >85% disk Gotify alert.
-Lesson: check disk before blaming the database; filter-stage corruption logs
-nothing, so isolate with client-side toggles first.
+Impact: playback stalled from root-disk ENOSPC; later PGS subtitle burn-in
+showed green frames. No data loss.
+
+Detect:
+- `docker logs` shows ffmpeg `No space left on device` / ENOSPC.
+- `df -h` shows root full; `du -sh` finds HLS cache and Docker image use.
+- Clean encode logs plus subtitle burn-in in the ffmpeg chain points at filter
+  corruption; confirm with client-side subtitle toggles.
+
+Repair:
+- Free safe space only: builder prune + orphan-image removal. Never remove
+  running images or the active HLS session.
+- Move Jellyfin cache to `/mnt/fast/jellyfin-cache`.
+- Keep Jellyfin HEVC HW decode on, throttling on, segment deletion on, keep
+  120s.
+- Use VAAPI overlay on UHD 630; it avoids the QSV green-frame path.
+
+Prevent:
+- Verify weekly Docker prune, Beszel >85% disk Gotify alert, and real playback
+  using `/mnt/fast/jellyfin-cache`.
+- Check disk before blaming the database; isolate filter/client bugs with
+  client-side toggles first.
 
 ## lesson 2026-09-21: host-side deletes on virtiofs shares don't free space
 
-Context: cleared /mnt/archive on malice (media/ + downloads/, ~228G).
-`rm` exited clean and `du` showed 32K, but `df` still showed 228G used
-while `df -i` showed inodes free: unlinked-but-open files.
-Detect: compare `df -h` vs `du -sh` on the share; confirm with `df -i`.
-List holders with `lsof -n | grep '(deleted)' | grep -v memfd` — grep
-`(deleted)` broadly, not the share path: virtiofsd fd links display
-relative to the share (`/media/...`), so `grep archive` misses them,
-and so does `find /proc/*/fd -lname '/mnt/archive/*'`.
-Repair (zero downtime, no reboot): the guest owns the references, so
-release from the guest via malice:
-`qm guest exec <VMID> -- bash -c "sync; echo 2 > /proc/sys/vm/drop_caches"`.
-`sync` first (only clean caches are dropped); `2` drops slab
-(dentries/inodes), which is what triggers the FUSE release (`1` is
-pagecache only and won't do it). Re-check `df` twice, ~10-30s apart:
-block accounting lags (observed a transient 79G before settling to 2M).
-Escalate: if space stays held, a guest process has files actively open —
-find it with guest-side `lsof`/`fuser` (usually the torrent client
-seeding retired paths) and stop that workload first. Last resort is a
-full VM stop/start (restarts host virtiofsd workers; guest reboot alone
-keeps the old virtiofsd).
-Prevention: delete shared-tree data from the guest side when possible,
-or stop consumers (pause/remove dead torrents) before host-side `rm`.
-After any storage migration, `drop_caches` once and verify `df` ~= `du`
-before declaring space reclaimed.
+Detect:
+- Compare `df -h` vs `du -sh`; free inodes with held blocks means unlinked
+  open files.
+- List holders with `lsof -n | grep '(deleted)' | grep -v memfd`. Grep
+  `(deleted)` broadly because virtiofs fd links can be share-relative.
+
+Repair:
+- From malice, release clean guest caches:
+  `qm guest exec <VMID> -- bash -c "sync; echo 2 > /proc/sys/vm/drop_caches"`
+- Re-check `df` twice, 10-30s apart.
+- If space stays held, find guest holders with `lsof`/`fuser` and stop that
+  workload. Last resort: full VM stop/start.
+
+Prevent:
+- Delete shared-tree data from the guest side when possible.
+- Stop consumers before host-side `rm`.
+- After storage migrations, drop caches once and verify `df` ~= `du`.
 
 ## process 2026-09-21: storage role swap (sdb -> vault/vzdump, sda -> backup/restic)
 
-Capacity forced it: /mnt/primary is 504G and growing, so a restic repo
-could never fit on the 466G disk; the 1TB holds it with headroom, while
-vzdump generations (~20G each) fit the 466G for many rotations.
-Rename a host mountpoint (here /mnt/archive -> /mnt/vault): only the
-path moves, never the store id or mapping name. Touch fstab (UUID line,
-keep a copy under /root), storage.cfg (`data` path), and
-mapping/directory.cfg (mapping path). The mapping-path change needs a
-full VM stop/start for every guest using the share (here only 101);
-a guest reboot alone keeps the old virtiofsd. The guest-side mountpoint
-may keep the old name (tag unchanged, still mounts) — rename it with
-the next deploy instead of a second bounce. Delete any skeleton left
-under the old path after unmounting, or silent root-disk writes follow.
-Prove redundancy before deleting a stale mirror: build sorted file
-lists on both sides (`find . -type f | sort`) and `comm -23` them —
-here all 26,980 mirror files existed in live primary (only live runtime
-logs differed). Spot-md5 overlapping pairs; differing sizes across
-releases (Backrooms 2.7G vs 16.9G) mean upgrades, not loss.
-Move flagged keeps with `cp -a` (preserves key perms), verify by md5 +
-`diff -r`, then delete sources. API-first for guest disks: `pct destroy`
-for dead containers, `pct set <id> -delete unused<N>` for detached disks
-(Proxmox removes the raws itself); never `rm` a live rootfs.
-Expect `df` to lag `du` after big deletes on shared trees — see the
-virtiofs lesson above; guest `drop_caches` frees it with no reboot.
-Wire the dump target by adding `backup` to the store content
-(`pvesm set <store> --content ...`); Proxmox manages `<path>/dump/`
-itself. Proof-run a stopped small guest first, then create the schedule
-via `pvesh create /cluster/backup` (here: all guests, snapshot, zstd,
-Sun 03:30, keep-last 8).
+- Local restic belongs on `/mnt/backup`; vzdump belongs on `/mnt/vault`.
+- Rename host mountpoints by changing `fstab`, `storage.cfg`, and
+  `mapping/directory.cfg`; path changes need a full stop/start for guests using
+  the share.
+- Keep store IDs, virtiofs tags, and guest mountpoints stable unless a deploy
+  changes them.
+- Delete old mountpoint skeletons after unmounting to avoid silent root-disk
+  writes.
+- Before deleting stale mirrors, compare sorted file lists:
+  `find . -type f | sort` and `comm -23`; spot-check overlaps with md5.
+- Move keeps with `cp -a`, verify with md5 + `diff -r`, then delete sources.
+- For guest disks, use `pct destroy` or `pct set <id> -delete unused<N>`;
+  never `rm` a live rootfs.
+- Expect `df` to lag `du` after shared-tree deletes; use the virtiofs cache
+  release above.
+- Wire dump storage with `pvesm set <store> --content ...`; Proxmox manages
+  `<path>/dump/`.
+- Proof-run a stopped small guest, then create the schedule with
+  `pvesh create /cluster/backup`.
 
 ## lesson 2026-09-28: local restic and cloud-first backup cutover
 
-Incident: `homelab-backup` failed closed when `/mnt/backup` was listed in
-`RequiresMountsFor` before the guest actually had that mount.
-Impact: the offsite backup did not run even though only the local backup disk
-was missing.
-Detection: failed timer with no useful script output; previous `last-ok` was
-still 2026-09-27.
-Repair: make cloud backup run first; check `/mnt/backup` inside the local
-section so missing local storage fails loud after offsite completes. Once
-`pve1-backup -> /mnt/backup` was wired into VM 101 and mounted, restore the
-mount requirement, initialize `/mnt/backup/restic`, and run the local backup.
-Notes: if a manual restic run churns because it lacks the latest parent, stop
-it, clear the stale lock, and rerun with the known parent snapshot. If S3
-returns 503s or hangs but a fresh verified cloud snapshot exists, stop poking
-and let the timer retry. A full VM stop/start for virtiofs can regenerate
-cloud-init SSH host keys; verify the new fingerprint through `qm guest exec`
-before trusting SSH again.
+Failure: `homelab-backup` skipped offsite backup when `/mnt/backup` was in
+`RequiresMountsFor` before the guest had that mount.
+
+Detect:
+- Failed timer with no useful script output.
+- Stale `last-ok` marker.
+
+Repair:
+- Run cloud backup first.
+- Check `/mnt/backup` inside the local section so missing local storage fails
+  after offsite completes.
+- Once `pve1-backup -> /mnt/backup` is mounted, restore the mount requirement,
+  initialize `/mnt/backup/restic`, and run the local backup.
+
+Troubleshoot:
+- Manual restic churn from a missing latest parent: stop it, clear the stale
+  lock, rerun with the known parent snapshot.
+- S3 503s/hangs with a fresh verified cloud snapshot: stop poking and let the
+  timer retry.
+- Full VM stop/start for virtiofs can regenerate cloud-init SSH host keys;
+  verify the new fingerprint through `qm guest exec` before trusting SSH.
 
 ## lesson 2026-09-28: app credentials are not all env vars
 
-Gotify: the `.env` default password only seeds the initial admin password; if
-the in-app password drifted, reset the app DB/API state after backing it up.
-Navidrome 0.63: passwords are encrypted at rest with the app key; direct
-bcrypt SQL updates can silently break login. Use `navidrome user edit --user
-<name> --set-password`.
-Compose: `$` inside `.env` values is expanded by compose and can truncate
-passwords. For app passwords containing `$`, mount a host-only `0600` file and
-use the app's `*_PASSWORD_FILE` support instead of passing the value directly.
+- Gotify: `.env` default password only seeds initial admin; reset app DB/API
+  state after backing it up if the in-app password drifted.
+- Navidrome 0.63: passwords are encrypted with the app key; use
+  `navidrome user edit --user <name> --set-password`.
+- Compose: `$` inside `.env` values is expanded and can truncate passwords.
+  For passwords containing `$`, mount a host-only `0600` file and use the
+  app's `*_PASSWORD_FILE` support.
 
 ## lesson 2026-09-28: storage migrations leave stale app state
 
-qBittorrent can keep `.fastresume` paths and sizes from retired storage after
-content has moved to `/pool`. Do not delete media to make torrent state happy.
-Quarantine the stale `.torrent`/`.fastresume` files first, restart cleanly,
-and let Arr re-grab what is still wanted.
-For Jellyfin, prove cache location with real playback after deploy before
-deleting old cache directories; only remove empty old paths with no active
-references.
+- qBittorrent can keep `.fastresume` paths and sizes from retired storage
+  after content moves to `/pool`. Quarantine stale `.torrent`/`.fastresume`
+  first; do not delete media to satisfy torrent state.
+- Jellyfin: prove cache location with real playback after deploy before
+  deleting old cache directories. Only remove empty old paths with no active
+  references.
 
 ## lesson 2026-09-28: public app rollout checks
 
-Before exposing a private app publicly, confirm native app auth works
-off-tailnet, add only the exact public Caddy host, run `make check`, run
-`make vps`, and verify `homelab-public-check`.
-Minecraft Paper 26.2 needs Java 25; Java 21 boot-loops. Keep RCON passwords
-only in the live stack `.env`, never in git. Run Chunky pregen the night before
-launch, not during backup windows.
-
-## postmortem template
-
-Incident:
-Impact:
-Detection:
-Cause:
-Repair:
-Prevention:
+- Before exposing a private app publicly: confirm native auth works off-tailnet,
+  add only the exact public Caddy host, run `make check`, run `make vps`, and
+  verify `homelab-public-check`.
+- Minecraft Paper 26.2 needs Java 25; Java 21 boot-loops. Keep RCON passwords
+  only in the live stack `.env`, never in git. Run Chunky pregen before launch,
+  outside backup windows.

@@ -18,10 +18,7 @@
 		dns cloudflare {env.CF_API_TOKEN}
 	}
 
-	# Exact host matchers, NOT map: map leaves {svcport} unset for unknown names
-	# (its `default` line is silently dropped — verified 2026-09-16), and an
-	# unset placeholder makes `!= ""` true, proxying unknowns to :0 (502).
-	# Extend the same way, keep the 404 last.
+	# Exact host matchers avoid map's bad unknown-host fallback; keep the 404 last.
 	@files host files.h.malice.biz
 	@stirling host stirling.h.malice.biz
 	@gotify host gotify.h.malice.biz

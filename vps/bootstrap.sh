@@ -26,10 +26,7 @@ chown caddy:caddy /var/log/caddy/caddy.log /var/log/caddy/access.log
 chmod 600 /var/log/caddy/caddy.log /var/log/caddy/access.log
 
 # homelab_nat is its own table: apply without touching /etc/nftables.conf
-# (which carries provider/local rules). Persist via include (once):
-#   mkdir -p /etc/nftables.d
-#   install -m 644 nftables.conf /etc/nftables.d/homelab_nat.conf
-#   grep -q homelab_nat /etc/nftables.conf || echo 'include "/etc/nftables.d/homelab_nat.conf"' >> /etc/nftables.conf
+# (which carries provider/local rules). Persist via include once.
 mkdir -p /etc/nftables.d
 install -m 644 nftables.conf /etc/nftables.d/homelab_nat.conf
 grep -q 'nftables.d/homelab_nat.conf' /etc/nftables.conf \

@@ -86,14 +86,18 @@ backup_important() {
     --exclude /mnt/data/media/tv
 }
 
-backup_important
+backup_and_prune() {
+  backup_important
+  case "${RESTIC_PRUNE:-1}" in 1) restic forget --prune --keep-daily 7 --keep-weekly 4 --keep-monthly 6 ;; esac
+}
+
 # DELIBERATE OMISSIONS: downloads, movies, and TV are re-downloadable bulk media.
 # /mnt/data/media/downloads is a manual music review queue: kept on the mirror
 # by choice, excluded from restic so 100G+ of staging never rides the backup.
 # /mnt/data/media/music/messy is a 65G raw-intake archive: kept, never delete,
 # excluded from restic for the same reason.
 # RESTIC_PRUNE=0 for an append-only remote: a popped host then cannot delete its own backups.
-case "${RESTIC_PRUNE:-1}" in 1) restic forget --prune --keep-daily 7 --keep-weekly 4 --keep-monthly 6 ;; esac
+backup_and_prune
 
 # Local restic drive (1TB, host /mnt/backup, guest via pve1-backup virtiofs).
 # Never mkdir past this point unguarded: a repo on the root disk would fill it.
@@ -106,8 +110,7 @@ cloud_repo=$RESTIC_REPOSITORY
 export RESTIC_REPOSITORY=/mnt/backup/restic
 mkdir -p "$RESTIC_REPOSITORY"
 restic snapshots >/dev/null 2>&1 || restic init
-backup_important
-case "${RESTIC_PRUNE:-1}" in 1) restic forget --prune --keep-daily 7 --keep-weekly 4 --keep-monthly 6 ;; esac
+backup_and_prune
 export RESTIC_REPOSITORY="$cloud_repo"
 # Success marker for the watchdog timer (a disabled timer fails silently otherwise).
 mkdir -p /var/lib && date -Is > /var/lib/homelab-backup.last-ok

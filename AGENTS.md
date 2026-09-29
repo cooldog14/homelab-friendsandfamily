@@ -17,17 +17,15 @@ incidents in `RUNBOOK.md`.
   WG `10.44.0.2`, Tailscale `100.92.173.71`.
 - VM 103 `debian-01` (running, 8G/16G+64G disks), VM 102 `alpine-01`
   (stopped), LXC 204 `hermes-01` (running), LXC 200 `friend` (stopped
-  but `onboot: 1`, 100G rootfs on `fast` SSD). VM 100 + LXC 888
-  destroyed 2026-09-21 (last images in `/mnt/vault/backup-old-vm-lxc`).
+  but `onboot: 1`, 100G rootfs on `fast` SSD).
 - VPS `debian-13` (`194.58.47.21:4522`): public edge, Caddy TLS +
   nftables NAT. No apps.
 
-## tailnet + links (UndauntedGeiger replaces frasseberry)
+## tailnet + links
 
-- Authority: UndauntedGeiger (`taila725ed.ts.net`).
-  `malice .109`, `chill-01 .71`, `fedora` moved 2026-09-27.
-  Retire leftovers per `TODO.md` (shared `malice.taila725ed.ts.net`
-  `.64` copy, old machines, remaining leaves).
+- Authority: UndauntedGeiger (`taila725ed.ts.net`). `malice .109`,
+  `chill-01 .71`. Retire leftovers per `TODO.md` (shared
+  `malice.taila725ed.ts.net` `.64` copy, old machines, remaining leaves).
 - WireGuard infra only: `chill0` (`chill-01 10.44.0.2` <-> `VPS:51824`)
   carries all public backends. Legacy `wg0` (`malice 10.30.0.3` <->
   `VPS:51820`) still handshaking, retirement owed.
@@ -50,15 +48,14 @@ keep bulk files off it.
 Notes: `/mnt/primary/media/music` is bind-mounted ro onto
 `/mnt/bulk/media/music` (same files counted twice by `du`).
 `weekly-vault` vzdump job: all guests, snapshot, zstd, Sun 03:30,
-keep-last 8, writes `/mnt/vault/dump` (verified 2026-09-27).
+keep-last 8, writes `/mnt/vault/dump`.
 
 ## app stacks (all on chill-01, `/opt/stacks`, `make deploy` ships git)
 
 - `apps`: Filebrowser Quantum (`:8085`), family (`:8086`,
   public `files.malice.biz`), upload drop (`:8087`,
   public `upload.malice.biz`).
-- `photos`: Immich (`:2283`, public + private). Library empty as of
-  2026-09-27 (`/photos` 4K); uploads land on mirror.
+- `photos`: Immich (`:2283`, public + private); uploads land on mirror.
 - `docs`: Paperless (`:8092`), Stirling (`:8091`, private only),
   Kavita (`:8094`), Gotenberg, Tika.
 - `comms`: Mumble (`:64738/tcp+udp`), Neko (`:8097` + `:52000`),
@@ -87,8 +84,7 @@ keep-last 8, writes `/mnt/vault/dump` (verified 2026-09-27).
 - nftables NAT: `52000` (Neko), `3478` + `52100-52200` (Screego) both
   forwarded; Mumble `64738` documented but DNAT missing (verify);
   old `10.30` rules removal owed. CrowdSec blacklist active.
-- `files.malice.biz` drift was fixed with `make vps` on 2026-09-28;
-  if public-check goes red, compare git-owned `vps/sites/*.caddy`
+- If public-check goes red, compare git-owned `vps/sites/*.caddy`
   against VPS live config before changing apps.
 
 ## backups + checks
@@ -116,6 +112,4 @@ while changing tailnets; verify both directions; keep fallback 24h.
 ## secrets
 
 Never print/commit: `/etc/homelab.env`, stack `.env` files, WireGuard
-privkeys, Tailscale auth keys. Pre-migration Proxmox auth backup:
-`/root/authorized_keys.bak-2026-09-27` on malice; temporary
-`root@debian-13` line in `/etc/pve/priv/authorized_keys` was removed.
+privkeys, Tailscale auth keys.
