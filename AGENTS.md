@@ -63,7 +63,7 @@ keep-last 8, writes `/mnt/vault/dump`.
   Screego (`:5050`, `network_mode: host` — documented exception).
 - `media`: Jellyfin (`:8096` WG + LAN bind for TVs),
   qBittorrent/Prowlarr/FlareSolverr/slskd behind gluetun (VPN egress),
-  Radarr/Sonarr/Bazarr/Jellyseerr, Navidrome (`:4533` WG + localhost),
+  Radarr/Sonarr/Bazarr/Jellyseerr, Navidrome (`:4533` WG),
   Feishin/player (`:9180`), Octo-fiesta (`:5274`), Suwayomi (`:4567`,
   public `mg.malice.biz` + private), wrtag (`:7373`). Jellyfin
   `/cache` -> `/mnt/fast/jellyfin-cache`;

@@ -5,8 +5,6 @@ HOST ?= chill-01
 # VPS via the vps-ingress SSH alias (port 4522 + key in ~/.ssh/config); 22 is closed.
 VPS_SSH ?= ssh vps-ingress
 STACKS = apps comms docs edge games media observability photos
-CADDY_IMAGE ?= caddy:2
-CADDY_CF_IMAGE ?= ghcr.io/caddybuilds/caddy-cloudflare:2.11.4-alpine
 
 # git is the source of truth.
 # Ship the local working tree (commit + push first). No git pull on the host,
@@ -36,8 +34,8 @@ check:
 	set -e; for s in $(STACKS); do (cd stacks/$$s; set -a; [ ! -f .env.example ] || . ./.env.example; set +a; docker compose config >/dev/null); done
 	# Edge uses adapt, not validate: the cloudflare DNS plugin rejects any
 	# non-real API token during provisioning, and the real token never leaves hosts.
-	docker run --rm -v "$(CURDIR)/stacks/edge/Caddyfile:/etc/caddy/Caddyfile:ro" $(CADDY_CF_IMAGE) caddy adapt --config /etc/caddy/Caddyfile --adapter caddyfile >/dev/null
-	docker run --rm -v "$(CURDIR)/vps/Caddyfile:/etc/caddy/Caddyfile:ro" -v "$(CURDIR)/vps/sites:/etc/caddy/sites:ro" $(CADDY_IMAGE) caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+	docker run --rm -v "$(CURDIR)/stacks/edge/Caddyfile:/etc/caddy/Caddyfile:ro" ghcr.io/caddybuilds/caddy-cloudflare:2.11.4-alpine caddy adapt --config /etc/caddy/Caddyfile --adapter caddyfile >/dev/null
+	docker run --rm -v "$(CURDIR)/vps/Caddyfile:/etc/caddy/Caddyfile:ro" -v "$(CURDIR)/vps/sites:/etc/caddy/sites:ro" caddy:2 caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
 	PUBLIC_CADDY_SITES_DIR=vps/sites PRIVATE_CADDYFILE=stacks/edge/Caddyfile host/public-check.sh --config-lint
 	wide_binds=$$(grep -RInE '^[[:space:]]*-[[:space:]]*"?(:|0\.0\.0\.0:)' stacks/*/docker-compose.yml || true); test -z "$$wide_binds" || { echo "Undocumented wide port bind(s):" >&2; echo "$$wide_binds" >&2; exit 1; }
 	host_net=$$(grep -RInE '^[[:space:]]*network_mode:[[:space:]]*host' stacks/*/docker-compose.yml | grep -Ev 'stacks/(comms|observability)/docker-compose.yml' || true); test -z "$$host_net" || { echo "Undocumented host network service(s):" >&2; echo "$$host_net" >&2; exit 1; }
