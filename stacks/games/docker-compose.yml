@@ -2,6 +2,9 @@ services:
   mc:
     image: itzg/minecraft-server:2026.9.2-java25
     restart: unless-stopped
+    mem_limit: 5g
+    mem_reservation: 3g
+    cpus: 2.0
     user: "1000:1000"
     stdin_open: true
     tty: true

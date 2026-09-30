@@ -15,6 +15,9 @@ services:
   neko:
     image: ghcr.io/m1k1o/neko/firefox:3.1.5
     restart: unless-stopped
+    mem_limit: 3g
+    mem_reservation: 1g
+    cpus: 2.0
     shm_size: "2gb"
     ports:
       - "10.44.0.2:8097:8080"   # public via VPS Caddy at neko.malice.biz
