@@ -154,3 +154,52 @@ Do not test by deleting data.
   immich/paperless dumps, kavita/gotify/beszel DBs (integrity ok),
   homelab.env, wg0.conf, VPS Caddy/nftables, and /mnt/data/photos all present.
 - Repeat quarterly.
+
+## maintenance 2026-09-30: destroy stale guests, big-only mem limits, virtiofs rename
+
+- Destroy: `qm destroy 102` + `pct destroy 200` after final
+  `vzdump 102 200 --storage data` (`vzdump-qemu-102-2026_09_30*`,
+  `vzdump-lxc-200-2026_09_30*`, 588M + 738M). `qm list/pct list` clean,
+  `/mnt/fast` 8.9G -> 5.7G (sparse, so small actual reclaim).
+- Mem limits (big hogs only, per live `docker stats` 12Gi used / 234Mi free):
+  `mc 5g`, `jellyfin 3g`, `suwayomi 1536m`, `stirling 2g`, `paperless 1536m`,
+  `immich-server 2g`, `immich-ml 3g`, `neko 3g` + `cpus 2.0` on mc/jellyfin/
+  stirling/ml/neko. Tiny services (mumble, redis, filebrowser, etc.) left
+  unconstrained by choice. `make check` ok (except missing shellcheck bin),
+  `make deploy` recreated 8, `docker inspect` confirms, `public-check` green
+  after warmup (paperless/stirling 502 + mc TCP fail for ~2min post-reboot).
+- Rename: `pve1-mirror -> pve1-primary` (/mnt/primary), `pve1-archive ->
+  pve1-vault` (/mnt/vault). Kept `pve1-pool/fast/backup` (already accurate).
+  Added new mappings alongside old, updated guest `/etc/fstab` + `qm set 101
+  --virtiofs0/2` (went to [PENDING]), `qm stop/start 101` to apply, verified
+  `mount | grep virtiofs` shows new tags on all 5, `make host + deploy` green,
+  removed old mappings. Backups in `/tmp/*.bak-20260930` on malice + guest
+  `/tmp/fstab.bak-20260930`.
+- Verify next: Beszel OOM kills over 7d, `homelab-backup` tonight still green
+  with new tags, quarterly `restore-test`.
+- Destroy 2026-09-30: LXC 204 `hermes-01` (2vCPU/2G/20G `fast` + unused
+  `local-lvm` vol). Persona/config/scripts copied to
+  `/mnt/primary/users/francis/hermes/hermes-state` (88M, secrets excluded:
+  no `.env`, `auth.json`, DBs, `sessions/`, `pairing/`, `.ssh/`), container
+  was `nousresearch/hermes-agent:latest` (`hermes gateway run`). Final
+  `vzdump-lxc-204-2026_09_30*` 2.4G ok (73s stop), then `pct stop + destroy
+  --purge`. `/mnt/fast` 5.7G -> 119M. No LXCs remain. TODO: remove stale
+  `hermes-01` tailnet device + auth key per tailnet hygiene.
+
+## lesson 2026-09-30: player login blocked by double CORS origin on fiesta
+
+- Impact: player showed a network error for every account while nvdr logins
+  worked. Auth succeeded server-side; the browser rejected the response.
+- Detect: console shows CORS header Access-Control-Allow-Origin does not match
+  https://player.malice.biz, * on fiesta getUser.view. Octo-Fiesta sends * on
+  200 responses and nothing on 401s; VPS Caddy added the locked origin on top.
+- Repair: strip the backend header in the fiesta Caddy block with header_down
+  on Access-Control-Allow-Origin, keep only the player origin, then run make
+  check and make vps. Verify with an authenticated ping and getUser through
+  the public hostname with an Origin header: HTTP 200 and exactly one ACAO.
+- Prevent: unauthenticated curl probes only hit the 401 path and curl never
+  enforces CORS, so they cannot catch this. Verify CORS changes with an
+  authenticated request plus Origin header.
+- Note: fiesta is API-only with no login page; web login lives on player.
+  Legacy auth sends the password as a p query param that VPS access.log
+  records, so rotate a Navidrome password after pasting such a URL anywhere.
