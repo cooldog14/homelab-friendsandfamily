@@ -15,9 +15,12 @@ incidents in `RUNBOOK.md`.
   `hostpci0 00:02.0` Intel iGPU passthrough (UHD 630, vfio-pci).
   Runs all Docker Compose apps (~37 containers). IP LAN `192.168.1.28`,
   WG `10.44.0.2`, Tailscale `100.92.173.71`.
-- VM 103 `debian-01` (running, 8G/16G+64G disks), VM 102 `alpine-01`
-  (stopped), LXC 204 `hermes-01` (running), LXC 200 `friend` (stopped
-  but `onboot: 1`, 100G rootfs on `fast` SSD).
+- VM 103 `debian-01` (running, 8G/16G+64G disks). VM 102 `alpine-01` +
+  LXC 200 `friend` destroyed 2026-09-30 (final vzdumps
+  `vzdump-qemu-102-2026_09_30*`, `vzdump-lxc-200-2026_09_30*` on
+  `/mnt/vault/dump`, keep-last 8). LXC 204 `hermes-01` destroyed 2026-09-30
+  (persona/config saved to `/mnt/primary/users/francis/hermes`, final
+  `vzdump-lxc-204-2026_09_30*` 2.4G retained).
 - VPS `debian-13` (`194.58.47.21:4522`): public edge, Caddy TLS +
   nftables NAT. No apps.
 
@@ -33,14 +36,14 @@ incidents in `RUNBOOK.md`.
 - LAN `192.168.1.0/24` (`vmbr0`): host `.2`, chill `.28`.
   SSH malice<->chill over LAN currently `No route`; use Tailscale.
 
-## storage (Proxmox paths and virtiofs tags never change)
+## storage (Proxmox paths stable; virtiofs tags renamed 2026-09-30)
 
 | Host disk | Mount | Shared as | Guest sees | Holds |
 |---|---|---|---|---|
 | sdd 4TB | `/mnt/bulk` -> `/mnt/pool` (bind) | `pve1-pool` | `/mnt/pool` | movies, tv, downloads (re-downloadable, no backup) |
-| sdc 2TB | `/mnt/primary` | `pve1-mirror` | `/mnt/data` | photos, family, app data, music, books (backed up) |
+| sdc 2TB | `/mnt/primary` | `pve1-primary` (was `pve1-mirror`) | `/mnt/data` | photos, family, app data, music, books (backed up) |
 | sdf 466G SSD | `/mnt/fast` | `pve1-fast` | `/mnt/fast` | jellyfin-cache, imports, scratch, DB dumps (disposable) |
-| sdb 466G | `/mnt/vault` | `pve1-archive` | `/mnt/vault` | vzdump target + pre-migration keeps (backup-only) |
+| sdb 466G | `/mnt/vault` | `pve1-vault` (was `pve1-archive`) | `/mnt/vault` | vzdump target + pre-migration keeps (backup-only) |
 | sda 1TB | `/mnt/backup` | `pve1-backup` | `/mnt/backup` | local restic repo (backup-only) |
 | sde SSD | Proxmox + `local-lvm` | — | VM disks | Data% ~38%, VFree ~16G |
 
