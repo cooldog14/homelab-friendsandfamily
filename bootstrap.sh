@@ -42,11 +42,13 @@ ensure_virtiofs() {
   target=$2
   grep -q "$tag" /etc/fstab || echo "$tag $target virtiofs rw,relatime,nofail 0 0" >> /etc/fstab
 }
-ensure_virtiofs pve1-mirror /mnt/data
+ensure_virtiofs pve1-primary /mnt/data
 ensure_virtiofs pve1-fast /mnt/fast
-# Tag pve1-archive never changes; only the guest mountpoint moved (/mnt/archive -> /mnt/vault).
-grep -q 'pve1-archive /mnt/vault' /etc/fstab || sed -i 's|pve1-archive /mnt/archive|pve1-archive /mnt/vault|' /etc/fstab
-ensure_virtiofs pve1-archive /mnt/vault
+# Renamed 2026-09-30: pve1-mirror -> pve1-primary, pve1-archive -> pve1-vault.
+# Migrate live guests still on old tags before ensuring new ones.
+grep -q 'pve1-primary /mnt/data' /etc/fstab || sed -i 's|pve1-mirror /mnt/data|pve1-primary /mnt/data|' /etc/fstab
+grep -q 'pve1-vault /mnt/vault' /etc/fstab || sed -i 's|pve1-archive /mnt/vault|pve1-vault /mnt/vault|' /etc/fstab
+ensure_virtiofs pve1-vault /mnt/vault
 ensure_virtiofs pve1-pool /mnt/pool
 ensure_virtiofs pve1-backup /mnt/backup
 mkdir -p /mnt/data /mnt/fast /mnt/vault /mnt/pool /mnt/backup && mount -a
