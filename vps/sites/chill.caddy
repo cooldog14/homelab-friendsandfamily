@@ -20,5 +20,18 @@ neko.malice.biz {
 	import public_proxy 8097
 }
 screego.malice.biz {
-	import public_proxy 5050
+	# Inlined from public_proxy (same logging): screego reads only
+	# X-Real-IP for client attribution, which reverse_proxy does not set
+	# by default. {http.request.remote.host} is the real client IP here
+	# (VPS terminates TLS, no upstream proxy).
+	log {
+		output file /var/log/caddy/access.log {
+			roll_size 50mb
+			roll_keep 5
+		}
+		format json
+	}
+	reverse_proxy 10.44.0.2:5050 {
+		header_up X-Real-IP {http.request.remote.host}
+	}
 }
