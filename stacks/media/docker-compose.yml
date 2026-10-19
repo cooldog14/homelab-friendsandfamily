@@ -250,7 +250,7 @@ services:
     restart: unless-stopped
 
   suwayomi:
-    image: ghcr.io/suwayomi/suwayomi-server:v2.3.2361-preview
+    image: ghcr.io/suwayomi/suwayomi-server:v2.4.2422-preview
     mem_limit: 1536m
     mem_reservation: 768m
     ports:
