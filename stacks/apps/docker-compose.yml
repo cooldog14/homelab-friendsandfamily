@@ -1,6 +1,10 @@
 services:
   filebrowser:
     image: ghcr.io/gtsteffaniak/filebrowser:1.5.6-stable
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     restart: unless-stopped
     ports:
       - "10.44.0.2:8085:80"
@@ -12,6 +16,10 @@ services:
 
   filebrowser-upload:
     image: ghcr.io/gtsteffaniak/filebrowser:1.5.6-stable
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     restart: unless-stopped
     ports:
       - "10.44.0.2:8087:80"
@@ -22,6 +30,10 @@ services:
 
   filebrowser-family:
     image: ghcr.io/gtsteffaniak/filebrowser:1.5.6-stable
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     restart: unless-stopped
     ports:
       - "10.44.0.2:8086:80"
