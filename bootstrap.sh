@@ -36,19 +36,23 @@ install -m 644 host/homelab-backup.service host/homelab-backup.timer host/homela
 # LAN keeps password SSH (no key needed on the home network); everywhere else
 # stays key-only, root never logs in directly.
 printf 'PasswordAuthentication no\nPermitRootLogin no\nMatch Address 192.168.1.0/24\n    PasswordAuthentication yes\n' > /etc/ssh/sshd_config.d/homelab.conf
-printf 'Unattended-Upgrade::Automatic-Reboot "true";\nUnattended-Upgrade::Automatic-Reboot-Time "03:00";\n' > /etc/apt/apt.conf.d/51homelab
+printf 'Unattended-Upgrade::Automatic-Reboot "true";\nUnattended-Upgrade::Automatic-Reboot-Time "04:30";\n' > /etc/apt/apt.conf.d/51homelab
 ensure_virtiofs() {
   tag=$1
   target=$2
+  # Takeover guard (2026-11-02): /mnt/data is a pool bind, not virtiofs.
+  # Never append over a live bind: check the mountpoint first.
+  if grep -Eq "[[:space:]]${target}[[:space:]]" /etc/fstab; then
+    echo "ensure_virtiofs: $target already in fstab, skipping $tag" >&2
+    return 0
+  fi
   # Match the full mount line, not a substring: "pve1-primary" also appears in
   # paths like /mnt/pool/takeover-primary, and a loose match skips the append.
   grep -qE "^${tag}[[:space:]]+${target}[[:space:]]" /etc/fstab \
     || echo "$tag $target virtiofs rw,relatime,nofail 0 0" >> /etc/fstab
 }
-# A leftover bind mount on /mnt/data (2026-10 takeover experiment) shadows the
-# virtiofs share and silently sends app writes to the 4 TB bulk disk. Drop it
-# before ensuring the real share.
-sed -i '\|/mnt/data none bind|d' /etc/fstab
+# NOTE (2026-11-02): /mnt/data as a pool bind IS the live layout (takeover).
+# Never auto-delete it: the guard above skips ensure_virtiofs when present.
 # Renamed 2026-09-30: migrate old tags before ensuring the new ones.
 sed -i 's|pve1-mirror /mnt/data|pve1-primary /mnt/data|' /etc/fstab
 sed -i 's|pve1-archive /mnt/vault|pve1-vault /mnt/vault|' /etc/fstab

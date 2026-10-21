@@ -30,7 +30,7 @@ incidents in `RUNBOOK.md`.
 
 ## tailnet + links
 
-- Authority: UndauntedGeiger (`taila725ed.ts.net`). `malice .109`,
+- Authority: UndauntedGeiger (`tail61489d.ts.net`). `malice .109`,
   `chill-01 .71`, workstation `fedora .28`. The tailnet is intentional and
   clean: every registered device is a live admin device the owner keeps
   (offline phones/laptops stay registered on purpose, they are not
@@ -54,7 +54,6 @@ incidents in `RUNBOOK.md`.
   cloud-init host key, so verify the new fingerprint with
   `qm guest exec 101 -- ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub`
   before updating known_hosts.
-
 ## storage (Proxmox paths stable; virtiofs tags renamed 2026-09-30)
 
 | Host disk | Mount | Shared as | Guest sees | Holds |

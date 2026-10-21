@@ -90,8 +90,7 @@
   cache dirs only after confirming no active references.
 - ~~Tighten `chill-01` UFW from broad active `wg0`/`10.44` allow to exact
   inbound ports needed from the VPS.~~ Done 2026-10-30: `wg0` now allows only
-  `from 10.44.0.1` (v4+v6). Tailscale stays broad; tailnet ACLs are the gate.
-- Add cheap hardening to public/privileged containers first:
+  `from 10.44.0.1` (v4+v6). Tailscale stays broad; tailnet ACLs are the gate.- Add cheap hardening to public/privileged containers first:
   `no-new-privileges`, explicit non-root `user` where supported, `cap_drop:
   [ALL]`, and read-only mounts where they do not break stateful apps.
 - ~~Compare live VPS input/forward rules against `vps/README.md` and fix
@@ -136,10 +135,8 @@
 
 - Consider digest pinning only for public or privileged containers if Renovate
   tag updates are not enough.
-- Reconcile `stirling.malice.biz` exposure: `AGENTS.md` says `Stirling (:8091,
-  private only)`, while `vps/sites/chill.caddy` exposes `stirling.malice.biz`
-  publicly (HTTP 401). Either remove from `vps/sites/chill.caddy` or update
-  `AGENTS.md`.
+- Removed `stirling.malice.biz` from `vps/sites/chill.caddy` 2026-10-21;
+  Stirling `:8091` kept private-only (`stirling.h.malice.biz`).
 - Stagger `Unattended-Upgrade::Automatic-Reboot-Time` between `vps-ingress`
   (`vps/bootstrap.sh`) and `chill-01` (`bootstrap.sh`) so both ends of the
   WireGuard tunnel do not reboot simultaneously at `03:00` (and collide with

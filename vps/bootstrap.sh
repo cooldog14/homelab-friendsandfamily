@@ -46,7 +46,7 @@ grep -q 'nftables.d/homelab_nat.conf' /etc/nftables.conf \
 # BBR survives policer/shaper loss (e.g. 30 Mbit/s client caps) far better
 # than cubic, which collapses to cwnd 2-3 on loss. qdisc fq is BBR's pair.
 printf 'net.ipv4.ip_forward=1\nnet.core.default_qdisc=fq\nnet.ipv4.tcp_congestion_control=bbr\n' > /etc/sysctl.d/99-homelab.conf
-printf 'Unattended-Upgrade::Automatic-Reboot "true";\nUnattended-Upgrade::Automatic-Reboot-Time "03:00";\n' > /etc/apt/apt.conf.d/51homelab
+printf 'Unattended-Upgrade::Automatic-Reboot "true";\nUnattended-Upgrade::Automatic-Reboot-Time "01:30";\n' > /etc/apt/apt.conf.d/51homelab
 echo tcp_bbr > /etc/modules-load.d/homelab-bbr.conf
 modprobe tcp_bbr 2>/dev/null || true
 sysctl --system > /dev/null
