@@ -73,7 +73,9 @@ ufw allow in on eth0 from 192.168.1.0/24 to any port 22 2>/dev/null || true
 ufw delete allow 53/tcp 2>/dev/null || true
 ufw delete allow 53/udp 2>/dev/null || true
 # Cockpit is host admin + web terminal. Keep it a people-only path:
-# reachable over Tailscale/private Caddy, not from the VPS WireGuard tunnel.
+# tailscale0 allow covers direct tailnet clients; 172.16/12 covers the
+# private Caddy container (host.docker.internal) that proxies
+# cockpit.h.malice.biz; wg0 deny keeps it off the VPS/WireGuard path.
 ufw delete deny in on wg0 to any port 9090 2>/dev/null || true
 ufw insert 1 deny in on wg0 to any port 9090
 ufw allow from 172.16.0.0/12 to any port 9090 proto tcp

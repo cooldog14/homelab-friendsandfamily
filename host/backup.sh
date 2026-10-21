@@ -87,19 +87,20 @@ backup_and_prune() {
   # /mnt/data covers /mnt/data/photos (mirror disk) — single path only.
   restic backup /opt "$DUMP_DIR" /mnt/data /etc /root/.ssh \
     --exclude /mnt/data/downloads \
-    --exclude /mnt/data/media/downloads \
-    --exclude /mnt/data/media/music/messy \
     --exclude /mnt/data/media/music/inbox/slskd/incomplete \
     --exclude /mnt/data/media/movies \
     --exclude /mnt/data/media/tv
   case "${RESTIC_PRUNE:-1}" in 1) restic forget --prune --keep-daily 7 --keep-weekly 4 --keep-monthly 6 ;; esac
 }
 
-# DELIBERATE OMISSIONS: downloads, movies, and TV are re-downloadable bulk media.
-# /mnt/data/media/downloads is a manual music review queue: kept on the mirror
-# by choice, excluded from restic so 100G+ of staging never rides the backup.
-# /mnt/data/media/music/messy is a 65G raw-intake archive: kept, never delete,
-# excluded from restic for the same reason.
+# DELIBERATE OMISSIONS: movies and TV are re-downloadable bulk media (and live
+# on /mnt/pool, not /mnt/data, so those excludes are belt-and-braces);
+# slskd/incomplete holds transient chunks; /mnt/data/downloads is empty.
+# messy (65G raw-intake archive) and media/downloads (music review queue) ARE
+# backed up since the 2026-10-16 sdc failure: hand-curated, irreplaceable,
+# and static enough that restic dedup makes them near-free after one pass.
+# (Sep 27 exclusion nearly lost both; only a retained Sep 27 cloud snapshot
+# saved them. Never exclude curated archives to save one-time upload.)
 # RESTIC_PRUNE=0 for an append-only remote: a popped host then cannot delete its own backups.
 backup_and_prune
 
