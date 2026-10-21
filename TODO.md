@@ -137,9 +137,7 @@
   tag updates are not enough.
 - Removed `stirling.malice.biz` from `vps/sites/chill.caddy` 2026-10-21;
   Stirling `:8091` kept private-only (`stirling.h.malice.biz`).
-- Stagger `Unattended-Upgrade::Automatic-Reboot-Time` between `vps-ingress`
-  (`vps/bootstrap.sh`) and `chill-01` (`bootstrap.sh`) so both ends of the
-  WireGuard tunnel do not reboot simultaneously at `03:00` (and collide with
-  `Sun 03:30` `vzdump`).
-- Review `debian-01` (VM 103: 4 vCPU, 8G RAM, 16G+64G `local-lvm` disks) role
-  and right-size or stop if idle.
+- Staggered `Automatic-Reboot-Time` 2026-10-21: `vps-ingress` `01:30`,
+  `chill-01` `04:30` (git; live on next `make vps` / `make host`).
+- `debian-01` (VM 103) 2026-10-21: user-managed personal homelab,
+  document-and-keep, no action.
