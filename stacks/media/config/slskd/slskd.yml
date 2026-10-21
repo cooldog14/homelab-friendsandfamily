@@ -44,7 +44,7 @@ web:
     disabled: true
   url_base: /
   authentication:
-    disabled: true
+    disabled: false
 
 remote_configuration: false
 remote_file_management: false

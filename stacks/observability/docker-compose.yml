@@ -1,6 +1,10 @@
 services:
   gotify:
     image: gotify/server:2.5.0
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     restart: unless-stopped
     ports:
       - "10.44.0.2:8070:80"   # private via gotify.h.malice.biz
@@ -11,6 +15,10 @@ services:
 
   beszel:
     image: henrygd/beszel:0.9
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     restart: unless-stopped
     extra_hosts:
       - host.docker.internal:host-gateway

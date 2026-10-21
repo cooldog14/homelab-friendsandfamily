@@ -42,7 +42,6 @@ services:
     ports:
       - "10.44.0.2:8701:8701"
       - "10.44.0.2:9696:9696"
-      - "10.44.0.2:8191:8191"
       - "10.44.0.2:5030:5030"
     volumes:
       - ./state/gluetun:/gluetun
@@ -64,6 +63,8 @@ services:
 
   qbittorrent:
     image: lscr.io/linuxserver/qbittorrent:5.2.2
+    mem_limit: 1536m
+    mem_reservation: 768m
     network_mode: "service:gluetun"
     depends_on:
       - gluetun
@@ -154,6 +155,10 @@ services:
 
   jellyseerr:
     image: fallenbagel/jellyseerr:2.7.3
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     environment:
       TZ: Europe/Paris
       LOG_LEVEL: info
@@ -195,7 +200,7 @@ services:
       WRTAG_WEB_LISTEN_ADDR: ":7373"
       WRTAG_WEB_DB_PATH: /data/wrtag.db
       WRTAG_WEB_NUM_WORKERS: "4"
-      WRTAG_WEB_AUTH: "disabled"
+      WRTAG_WEB_AUTH: "enabled"
       WRTAG_LOG_LEVEL: "info"
       WRTAG_ADDON: "lyrics lrclib genius musixmatch"
       WRTAG_KEEP_FILE: "origin.yaml,*.cue,*.log"
@@ -237,6 +242,10 @@ services:
 
   feishin:
     image: ghcr.io/jeffvli/feishin:1.17.0
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     ports:
       - "10.44.0.2:9180:9180"
     environment:
