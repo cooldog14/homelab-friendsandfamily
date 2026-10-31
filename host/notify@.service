@@ -5,4 +5,6 @@ Description=Alert that %i failed
 [Service]
 Type=oneshot
 EnvironmentFile=/etc/homelab.env
-ExecStart=/usr/bin/curl -fsS -X POST -F "message=%i failed on %H" -F "priority=5" ${ALERT_URL}
+# An empty/missing ALERT_URL must not fail silently: log it so it shows in
+# the journal instead of looking like a healthy, quiet system.
+ExecStart=/bin/sh -c 'curl -fsS -X POST -F "message=%i failed on %H" -F "priority=5" "${ALERT_URL:-}" >/dev/null || logger -p user.err "homelab alert delivery failed for %i"'

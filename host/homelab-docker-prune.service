@@ -6,4 +6,4 @@ OnFailure=notify@%n.service
 
 [Service]
 Type=oneshot
-ExecStart=/usr/bin/docker image prune -af --filter until=168h
+ExecStart=/usr/bin/docker image prune -f --filter until=168h

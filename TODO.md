@@ -8,9 +8,10 @@
   secrets first (stack `.env`, `host/homelab.env`, deploy/restart), then
   app-internal users/API keys, then the Screego users file. Record rotation
   dates only, never values.
-- Audit macbook/towa/hermes-01; move wanted devices to UndauntedGeiger and
-  revoke old auth keys. Use `HOST=chill-01`; `deploy@10.44.0.2` is not the
-  people/admin path.
+- Tailnet is intentional and clean (owner confirmed 2026-10-31): offline
+  phones/laptops stay registered on purpose. Do not revoke devices without
+  asking. Use `HOST=chill-01`; `deploy@10.44.0.2` is not the people/admin
+  path.
 - Filebrowser admin passwords rotated 2026-09-28 (quantum, family, upload,
   LOGIN_OK).
 - Run one `make restore-test` drill to a temp path, record the result in
@@ -58,6 +59,17 @@
   - Open: the 2 TB `/mnt/primary` disk (sdc) threw unreadable-sector errors on
     2026-10-23 at boot. Long SMART scan started 2026-10-30; action depends on
     the result.
+
+- FIXED 2026-10-31: `shellcheck` added to `bootstrap.sh` + Makefile falls back
+  to the container image, so `make check` passes everywhere; public check now
+  every 15 min; `notify@.service` logs delivery failures; prune keeps images of
+  stopped containers; backup's VPS pull is atomic; Stirling is private-only
+  (`stirling.h.malice.biz`), public vhost removed.
+- FIXED 2026-10-31: `/mnt/data` moved back to the `pve1-primary` 2 TB share
+  (was a bind into `/mnt/pool/takeover-primary/r1/mnt/data` on the 4 TB disk).
+  Old tree kept as rollback until the next verified backup.
+- Open: secrets rotation (needs your values), malice host upgrade + kernel
+  reboot, container hardening beyond what is documented.
 
 ### P2 — policy and drift control
 

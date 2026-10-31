@@ -400,3 +400,38 @@ Do not test by deleting data.
   `autotag --self-check` green.
 - Prevent: any live-only file under `/opt/stacks` needs an explicit rsync
   exclude, or it disappears on the next deploy.
+
+## maintenance 2026-10-31: audit batch (alerts, deploy safety, Stirling, storage)
+
+- Change: public check runs every 15 minutes (was daily); `notify@.service`
+  logs delivery failures to the journal instead of failing silently on an
+  empty `ALERT_URL`; weekly prune uses `prune -f` so images of stopped
+  containers survive; the backup VPS pull now downloads to a temp dir and
+  swaps only on success (a failed scp no longer wipes the old WireGuard
+  copy); `shellcheck` ships in `bootstrap.sh` and `make check` falls back to
+  the container image on a dev box without it.
+- Change: Stirling is private-only. Removed `stirling.malice.biz` from
+  `vps/sites/chill.caddy`; `stirling.h.malice.biz` answers 401 over
+  Tailscale.
+- Change: `/mnt/data` moved off the 4 TB bulk disk. It was a bind of
+  `/mnt/pool/takeover-primary/r1/mnt/data`; it is now the `pve1-primary`
+  virtiofs share (2 TB, backed up).
+  - Steps: stop all stacks; rescue primary-only files to
+    `/root/primary-only-20261031` (130 files, 156M); `rsync -aHAX
+    --numeric-ids --delete` takeover tree -> `/mnt/primary` (2,374 files,
+    104.5 GB, 177 deletions); compare `find -type f | wc -l` (32,956 both)
+    and `du -sb` (590,584,670,668 bytes both); remove the bind line from
+    guest `/etc/fstab`; umount/mount `/mnt/data`; start stacks.
+  - Verify: `findmnt` shows `pve1-primary`; write test as deploy OK;
+    public-check exit 0 (17 ok, one fewer because Stirling left the public
+    set); 37 containers up, none unhealthy; Immich 200, Paperless 302,
+    Jellyfin 302, Navidrome 302, fiesta 200, Stirling 401, slskd 200,
+    wrtag 200, Minecraft port open, gluetun egress still `194.58.47.21`.
+- Lesson: `bootstrap.sh` appended `pve1-primary /mnt/data` *in addition to*
+  the takeover bind line (its `grep -q "$tag"` matched a substring), so
+  `mount -a` stacked the primary share over the live tree and app writes
+  briefly landed on the stale Sep tree. Fixed: the ensure now matches the
+  full fstab line, and the bootstrap deletes any `/mnt/data none bind` line
+  first. Re-ran `make host`: one line, correct mount, containers untouched.
+- Rollback: the takeover tree on bulk is untouched; re-add the bind line and
+  remount to go back until the next verified restic backup.

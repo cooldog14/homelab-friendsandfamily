@@ -1,9 +1,8 @@
 [Unit]
-Description=Daily black-box check of public vhosts
+Description=Black-box check of public vhosts (every 15 min)
 
 [Timer]
-OnCalendar=daily
-RandomizedDelaySec=1h
+OnCalendar=*:0/15
 Persistent=true
 
 [Install]
