@@ -22,19 +22,33 @@ incidents in `RUNBOOK.md`.
   (persona/config saved to `/mnt/primary/users/francis/hermes`, final
   `vzdump-lxc-204-2026_09_30*` 2.4G retained).
 - VPS `debian-13` (`194.58.47.21:4522`): public edge, Caddy TLS +
-  nftables NAT. No apps.
+  nftables NAT. No apps. SSH is key-only (`PermitRootLogin
+  prohibit-password`, `PasswordAuthentication no` via
+  `/etc/ssh/sshd_config.d/00-homelab-hardening.conf`, written by
+  `vps/bootstrap.sh`); root still has a console password for the
+  provider, but SSH never accepts it.
 
 ## tailnet + links
 
 - Authority: UndauntedGeiger (`taila725ed.ts.net`). `malice .109`,
   `chill-01 .71`. Retire leftovers per `TODO.md` (shared
   `malice.taila725ed.ts.net` `.64` copy, old machines, remaining leaves).
-- WireGuard infra only: `chill0` on the VPS and `wg0` on `chill-01`
-  (`10.44.0.1` <-> `10.44.0.2`, VPS `:51824`) carries public backends.
-  The former `malice` <-> VPS `10.30` fallback is retired; people/admin
-  access is Tailscale only.
-- LAN `192.168.1.0/24` (`vmbr0`): host `.2`, chill `.28`.
-  SSH malice<->chill over LAN currently `No route`; use Tailscale.
+- WireGuard backends: `chill0` on the VPS <-> `wg0` on `chill-01`
+  (`10.44.0.1` <-> `10.44.0.2`, VPS `:51824`) carries public web backends.
+- WireGuard P2P exit: VPS `wg0` (`10.30.0.1:51820`) <-> gluetun on
+  `chill-01` (`10.30.0.4/32`, its tun0). qBittorrent/slskd/prowlarr/
+  flaresolverr egress via the VPS (verified public IP `194.58.47.21`);
+  inbound `6881`/`50300` DNAT to `10.30.0.4`. This is the only live peer
+  on VPS `wg0`; `10.30.0.5-7` are dead config. The malice peer
+  (`10.30.0.3` + `192.168.1.0/24`) was removed 2026-10-30.
+- f&f remote site terminates on `debian-01` (VM 103), which runs its own
+  hub `10.10.0.0/24` with peers at `109.0.200.185`. It is not on the VPS.
+  People/admin access is Tailscale only.
+- LAN `192.168.1.0/24` (`vmbr0`): host `.2`, chill `.28`. LAN SSH from
+  malice to `192.168.1.28` works; a guest stop/start rotates the
+  cloud-init host key, so verify the new fingerprint with
+  `qm guest exec 101 -- ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub`
+  before updating known_hosts.
 
 ## storage (Proxmox paths stable; virtiofs tags renamed 2026-09-30)
 
@@ -45,7 +59,7 @@ incidents in `RUNBOOK.md`.
 | sdf 466G SSD | `/mnt/fast` | `pve1-fast` | `/mnt/fast` | jellyfin-cache, imports, scratch, DB dumps (disposable) |
 | sdb 466G | `/mnt/vault` | `pve1-vault` (was `pve1-archive`) | `/mnt/vault` | vzdump target + pre-migration keeps (backup-only) |
 | sda 1TB | `/mnt/backup` | `pve1-backup` | `/mnt/backup` | local restic repo (backup-only) |
-| sde SSD | Proxmox + `local-lvm` | — | VM disks | Data% ~38%, VFree ~16G |
+| sde SSD | Proxmox + `local-lvm` | — | VM disks | ~36% used, ~87G free (2026-10-30) |
 
 chill-01 root disk holds Docker images and `/opt/stacks/*/state`;
 keep bulk files off it.
@@ -65,7 +79,8 @@ keep-last 8, writes `/mnt/vault/dump`.
 - `comms`: Mumble (`:64738/tcp+udp`), Neko (`:8097` + `:52000`),
   Screego (`:5050`, `network_mode: host` — documented exception).
 - `media`: Jellyfin (`:8096` WG + LAN bind for TVs),
-  qBittorrent/Prowlarr/FlareSolverr/slskd behind gluetun (VPN egress),
+  qBittorrent/Prowlarr/FlareSolverr/slskd behind gluetun (egress via
+  VPS `wg0`, inbound `6881`/`50300` DNAT to `10.30.0.4`),
   Radarr/Sonarr/Bazarr/Jellyseerr, Navidrome (`:4533` WG),
   Feishin/player (`:9180`), Octo-fiesta (`:5274`), Suwayomi (`:4567`,
   public `mg.malice.biz` + private), wrtag (`:7373`). Jellyfin
@@ -98,8 +113,14 @@ keep-last 8, writes `/mnt/vault/dump`.
   `/etc`, `/root/.ssh`. Excludes downloads, movies, TV, and raw music
   staging. Dumps fresh for immich/paperless/gotify/kavita/beszel.
 - `homelab-backup-watchdog` (48h), `homelab-public-check`, Gotify, and
-  Beszel are the alert path. Weekly Docker prune is in git; verify the
-  live timer and Beszel >85% disk alert after host deploys.
+  Beszel are the alert path. Beszel has one rule: `Disk` above 85% for
+  5 minutes (highest of all filesystems) delivered to the Gotify app
+  `beszel` via webhook `gotify://gotify:80/...`; app link is
+  `https://beszel.h.malice.biz`. The agent runs `network_mode: host` on
+  `:45876`, so UFW must allow `45876` from `172.16.0.0/12` -- a rule
+  pinned to one docker bridge silently kills monitoring when that
+  network is recreated (happened 2026-10-23, 7 days blind). Weekly
+  Docker prune is in git; verify the live timer after host deploys.
 
 ## access matrix
 

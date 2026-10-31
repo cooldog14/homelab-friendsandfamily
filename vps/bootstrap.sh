@@ -6,6 +6,17 @@ cd "$(dirname "$0")"
 
 apt-get update
 apt-get install -y caddy nftables unattended-upgrades wireguard
+# Public edge SSH is key-only: 4522 is internet-exposed, and a password there
+# is a brute-force target. The drop-in sorts before sshd_config, and OpenSSH
+# uses the first value it reads, so it wins over `PermitRootLogin yes` there.
+mkdir -p /etc/ssh/sshd_config.d
+printf '%s\n' \
+  '# Homelab: key-only. Root may log in with a key, never a password.' \
+  'PermitRootLogin prohibit-password' \
+  'PasswordAuthentication no' \
+  'KbdInteractiveAuthentication no' \
+  > /etc/ssh/sshd_config.d/00-homelab-hardening.conf
+systemctl reload ssh
 mkdir -p /var/log/caddy && chown caddy:caddy /var/log/caddy
 mkdir -p /etc/systemd/system/caddy.service.d
 cat > /etc/systemd/system/caddy.service.d/homelab.conf <<'EOF'
