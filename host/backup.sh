@@ -23,17 +23,25 @@ alert() {
 
 # VPS pull (Caddy, nftables, WireGuard identity) so restic carries it to cloud.
 # Fail-open: a dark VPS must not kill the home backup. Data never lands in git.
+# Pull into a temp dir and swap only on full success: deleting the old
+# WireGuard copy first left no rollback identity if the scp then failed.
 VPS_BAK=/opt/vps-backup
 mkdir -p "$VPS_BAK"
 VPS_SSH="ssh -i /root/.ssh/vps-backup -p 4522 -o BatchMode=yes -o ConnectTimeout=15 root@194.58.47.21"
-if $VPS_SSH "sudo cat /etc/caddy/Caddyfile" > "$VPS_BAK/Caddyfile" 2>/dev/null \
-&& $VPS_SSH "sudo cat /etc/nftables.conf" > "$VPS_BAK/nftables.conf" 2>/dev/null \
-&& rm -rf "$VPS_BAK/wireguard" \
-&& scp -i /root/.ssh/vps-backup -P 4522 -o BatchMode=yes -o ConnectTimeout=15 -r "root@194.58.47.21:/etc/wireguard" "$VPS_BAK/wireguard" 2>/dev/null; then
-  chmod 700 "$VPS_BAK"; chmod 600 "$VPS_BAK/Caddyfile" "$VPS_BAK/nftables.conf" 2>/dev/null
-  chmod 700 "$VPS_BAK/wireguard" 2>/dev/null; chmod 600 "$VPS_BAK/wireguard/"* 2>/dev/null
+VPS_TMP=$(mktemp -d "$VPS_BAK/.pull.XXXXXX")
+chmod 700 "$VPS_TMP"
+if $VPS_SSH "sudo cat /etc/caddy/Caddyfile" > "$VPS_TMP/Caddyfile" 2>/dev/null \
+&& $VPS_SSH "sudo cat /etc/nftables.conf" > "$VPS_TMP/nftables.conf" 2>/dev/null \
+&& scp -i /root/.ssh/vps-backup -P 4522 -o BatchMode=yes -o ConnectTimeout=15 -r "root@194.58.47.21:/etc/wireguard" "$VPS_TMP/wireguard" 2>/dev/null; then
+  chmod 700 "$VPS_BAK" "$VPS_TMP"; chmod 600 "$VPS_TMP/Caddyfile" "$VPS_TMP/nftables.conf" 2>/dev/null
+  chmod 700 "$VPS_TMP/wireguard" 2>/dev/null; chmod 600 "$VPS_TMP/wireguard/"* 2>/dev/null
+  rm -rf "$VPS_BAK/wireguard"
+  mv "$VPS_TMP/Caddyfile" "$VPS_TMP/nftables.conf" "$VPS_BAK"/
+  mv "$VPS_TMP/wireguard" "$VPS_BAK/wireguard"
+  rmdir "$VPS_TMP"
   log "vps pull ok"
 else
+  rm -rf "$VPS_TMP"
   log "vps pull FAILED (continuing backup without it)"
   # Fail-open for data, fail-loud for awareness: a config drift during a VPS outage
   # would otherwise vanish silently. Never fail the backup over this.

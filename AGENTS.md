@@ -31,8 +31,10 @@ incidents in `RUNBOOK.md`.
 ## tailnet + links
 
 - Authority: UndauntedGeiger (`taila725ed.ts.net`). `malice .109`,
-  `chill-01 .71`. Retire leftovers per `TODO.md` (shared
-  `malice.taila725ed.ts.net` `.64` copy, old machines, remaining leaves).
+  `chill-01 .71`, workstation `fedora .28`. The tailnet is intentional and
+  clean: every registered device is a live admin device the owner keeps
+  (offline phones/laptops stay registered on purpose, they are not
+  leftovers). Do not "audit and revoke" devices without asking.
 - WireGuard backends: `chill0` on the VPS <-> `wg0` on `chill-01`
   (`10.44.0.1` <-> `10.44.0.2`, VPS `:51824`) carries public web backends.
 - WireGuard P2P exit: VPS `wg0` (`10.30.0.1:51820`) <-> gluetun on
@@ -63,7 +65,14 @@ incidents in `RUNBOOK.md`.
 
 chill-01 root disk holds Docker images and `/opt/stacks/*/state`;
 keep bulk files off it.
-Notes: `/mnt/primary/media/music` is bind-mounted ro onto
+Notes: `/mnt/data` is the `pve1-primary` virtiofs share (2 TB, backed up).
+Before 2026-10-31 it was a bind of `/mnt/pool/takeover-primary/r1/mnt/data`
+on the 4 TB bulk disk; that old tree is kept read-only as a rollback copy
+until the next verified backup, then it can be deleted. `/mnt/primary`
+holds photos, family, app data, music and books, and is the disk that threw
+unreadable-sector errors at boot on 2026-10-23 (extended SMART test clean
+on 2026-10-30, no new errors) -- watch its reallocated/pending counters.
+`/mnt/primary/media/music` is bind-mounted ro onto
 `/mnt/bulk/media/music` (same files counted twice by `du`).
 `weekly-vault` vzdump job: all guests, snapshot, zstd, Sun 03:30,
 keep-last 8, writes `/mnt/vault/dump`.
@@ -86,6 +95,10 @@ keep-last 8, writes `/mnt/vault/dump`.
   public `mg.malice.biz` + private), wrtag (`:7373`). Jellyfin
   `/cache` -> `/mnt/fast/jellyfin-cache`;
   `/pool/movies|tv` ro. GPU `renderD128` present, QSV->VAAPI flip open.
+  slskd (`:5030`) and wrtag (`:7373`) web UIs run with authentication
+  **disabled on purpose**: they are reachable only through the private
+  `*.h.malice.biz` Caddy over Tailscale (`slskd.h` / `wrtag.h`), never
+  public and never from the VPS tunnel. The tailnet is the auth boundary.
 - `observability`: Gotify (`:8070`, private only), Beszel (`:8090`) +
   beszel-agent (`network_mode: host` — documented
   exception for host/container metrics; UFW still gates inbound).
@@ -119,8 +132,11 @@ keep-last 8, writes `/mnt/vault/dump`.
   `https://beszel.h.malice.biz`. The agent runs `network_mode: host` on
   `:45876`, so UFW must allow `45876` from `172.16.0.0/12` -- a rule
   pinned to one docker bridge silently kills monitoring when that
-  network is recreated (happened 2026-10-23, 7 days blind). Weekly
-  Docker prune is in git; verify the live timer after host deploys.
+  network is recreated (happened 2026-10-23, 7 days blind). The public
+  check runs every 15 minutes; `notify@.service` logs delivery failures
+  to the journal instead of failing silently when `ALERT_URL` is unset.
+  Weekly Docker prune keeps images of stopped containers (`prune -f`,
+  no `-a`). Verify the live timers after host deploys.
 
 ## access matrix
 

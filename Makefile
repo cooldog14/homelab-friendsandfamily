@@ -5,6 +5,9 @@ HOST ?= chill-01
 # VPS via the vps-ingress SSH alias (port 4522 + key in ~/.ssh/config); 22 is closed.
 VPS_SSH ?= ssh vps-ingress
 STACKS = apps comms docs edge games media observability photos
+# bootstrap.sh installs shellcheck on the host; a dev box without it falls back
+# to the container so `make check` works everywhere.
+SHELLCHECK ?= $(shell command -v shellcheck 2>/dev/null || printf "docker run --rm -v %s:/mnt -w /mnt koalaman/shellcheck:stable" "$(CURDIR)")
 
 # git is the source of truth.
 # Ship the local working tree (commit + push first). No git pull on the host,
@@ -39,6 +42,6 @@ check:
 	PUBLIC_CADDY_SITES_DIR=vps/sites PRIVATE_CADDYFILE=stacks/edge/Caddyfile host/public-check.sh --config-lint
 	wide_binds=$$(grep -RInE '^[[:space:]]*-[[:space:]]*"?(:|0\.0\.0\.0:)' stacks/*/docker-compose.yml || true); test -z "$$wide_binds" || { echo "Undocumented wide port bind(s):" >&2; echo "$$wide_binds" >&2; exit 1; }
 	host_net=$$(grep -RInE '^[[:space:]]*network_mode:[[:space:]]*host' stacks/*/docker-compose.yml | grep -Ev 'stacks/(comms|observability)/docker-compose.yml' || true); test -z "$$host_net" || { echo "Undocumented host network service(s):" >&2; echo "$$host_net" >&2; exit 1; }
-	shellcheck bootstrap.sh host/backup.sh host/backup-watchdog.sh host/public-check.sh vps/bootstrap.sh stacks/media/config/slskd/autotag.sh
+	$(SHELLCHECK) bootstrap.sh host/backup.sh host/backup-watchdog.sh host/public-check.sh vps/bootstrap.sh stacks/media/config/slskd/autotag.sh
 
 .PHONY: deploy host vps restore-test check

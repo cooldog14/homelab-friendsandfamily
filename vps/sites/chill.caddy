@@ -10,9 +10,6 @@ files.malice.biz {
 paperless.malice.biz {
 	import public_proxy 8092
 }
-stirling.malice.biz {
-	import public_proxy 8091
-}
 kavita.malice.biz {
 	import public_proxy 8094
 }

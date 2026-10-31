@@ -16,7 +16,7 @@ echo "deb [signed-by=/usr/share/keyrings/tailscale-archive-keyring.gpg] https://
 apt-get update
 # wireguard is permanent, not transitional: wg0 carries the VPS return path for
 # chill public vhosts. Tailscale is for roaming devices only.
-apt-get install -y cockpit docker-ce docker-compose-plugin qemu-guest-agent restic sqlite3 tailscale ufw unattended-upgrades wireguard
+apt-get install -y cockpit docker-ce docker-compose-plugin qemu-guest-agent restic shellcheck sqlite3 tailscale ufw unattended-upgrades wireguard
 
 install -d /opt/stacks
 # Restart docker only when its config actually changed: an unconditional
@@ -40,14 +40,20 @@ printf 'Unattended-Upgrade::Automatic-Reboot "true";\nUnattended-Upgrade::Automa
 ensure_virtiofs() {
   tag=$1
   target=$2
-  grep -q "$tag" /etc/fstab || echo "$tag $target virtiofs rw,relatime,nofail 0 0" >> /etc/fstab
+  # Match the full mount line, not a substring: "pve1-primary" also appears in
+  # paths like /mnt/pool/takeover-primary, and a loose match skips the append.
+  grep -qE "^${tag}[[:space:]]+${target}[[:space:]]" /etc/fstab \
+    || echo "$tag $target virtiofs rw,relatime,nofail 0 0" >> /etc/fstab
 }
+# A leftover bind mount on /mnt/data (2026-10 takeover experiment) shadows the
+# virtiofs share and silently sends app writes to the 4 TB bulk disk. Drop it
+# before ensuring the real share.
+sed -i '\|/mnt/data none bind|d' /etc/fstab
+# Renamed 2026-09-30: migrate old tags before ensuring the new ones.
+sed -i 's|pve1-mirror /mnt/data|pve1-primary /mnt/data|' /etc/fstab
+sed -i 's|pve1-archive /mnt/vault|pve1-vault /mnt/vault|' /etc/fstab
 ensure_virtiofs pve1-primary /mnt/data
 ensure_virtiofs pve1-fast /mnt/fast
-# Renamed 2026-09-30: pve1-mirror -> pve1-primary, pve1-archive -> pve1-vault.
-# Migrate live guests still on old tags before ensuring new ones.
-grep -q 'pve1-primary /mnt/data' /etc/fstab || sed -i 's|pve1-mirror /mnt/data|pve1-primary /mnt/data|' /etc/fstab
-grep -q 'pve1-vault /mnt/vault' /etc/fstab || sed -i 's|pve1-archive /mnt/vault|pve1-vault /mnt/vault|' /etc/fstab
 ensure_virtiofs pve1-vault /mnt/vault
 ensure_virtiofs pve1-pool /mnt/pool
 ensure_virtiofs pve1-backup /mnt/backup
