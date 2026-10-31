@@ -59,6 +59,49 @@ Do not test by deleting data.
 - Repair: fix the git-owned site file and run `make vps`.
 - Record: what validation caught.
 
+## lesson 2026-09-16: private Caddy needs restart, not reload
+
+- Impact: `make edge-reload` with `caddy reload` silently kept the old config;
+  edits looked like "my edit did nothing" with no error.
+- Detect: `caddy validate` passes but serving behavior is unchanged after reload.
+- Repair: `Makefile` `edge-reload` validates then
+  `docker compose -p edge restart caddy` (bind-mounted Caddyfile is only
+  re-read on restart). Validate first for a loud failure instead.
+- Prevent: never use `caddy reload` for the private edge; restart is the only
+  proven path.
+
+## lesson 2026-09-16: edge uses exact host matchers, not map
+
+- Impact: `map` silently dropped its `default` line; unset `{svcport}` made
+  `!= ""` true, so unknown hostnames proxied to `:0` (502) instead of 404.
+- Detect: unknown `*.h.malice.biz` name returns 502 to `:0` rather than the
+  `unknown private service` 404.
+- Repair: two names = two `@host` matchers + `handle` blocks; keep the 404
+  `handle` last. Verified 2026-09-16.
+- Prevent: never reintroduce `map` for routing; extend with exact matchers only.
+
+## lesson 2026-09-17: gluetun outbound subnets must cover all docker bridges
+
+- Impact: narrow `FIREWALL_OUTBOUND_SUBNETS` silently dropped arr-app to
+  qbittorrent/prowlarr traffic after compose re-creation.
+- Detect: P2P apps unreachable from arr apps only after re-creation; media got
+  `172.21.0.0/16` here, arr had `172.18` — Docker assigns bridge subnets
+  dynamically.
+- Repair: `FIREWALL_OUTBOUND_SUBNETS: "172.16.0.0/12"` covers every compose
+  bridge. Local docker networks bypass the VPN through gluetun by design.
+- Prevent: never narrow this to a single `/16`; re-creation moves subnets.
+
+## maintenance 2026-09-19: jellyfin LAN-only bind for direct TV playback
+
+- Change: `stacks/media/docker-compose.yml` adds `${LAN_IP:-192.168.1.28}:8096:8096`
+  alongside `${WG_IP:-10.44.0.2}:8096:8096`. Specific-IP binds only, never
+  `0.0.0.0`. WG/tunnel and public vhost paths unchanged.
+- Change: `bootstrap.sh` adds `ufw allow in on eth0 from 192.168.1.0/24 to any
+  port 8096`. Scoped to the home subnet; nothing internet-facing changes.
+- Verify: TV plays direct over LAN with no VPS hairpin; `make check` wide-bind
+  lint stays green.
+- Prevent: never bind `8096` to `0.0.0.0`; keep the UFW scope tight to LAN.
+
 ## incident 2026-09-20: jellyfin disk full, then green glitch
 
 - Impact: playback stalled from root-disk ENOSPC; later PGS subtitle burn-in
@@ -148,12 +191,60 @@ Do not test by deleting data.
 - Repair: add only the exact public Caddy host, run `make check`, run
   `make vps`, and verify `homelab-public-check`.
 
+## maintenance 2026-09-28: ship minecraft Paper 26.2 on games stack
+
+- Change: new `stacks/games` stack (Paper 26.2 on java25 image — java21
+  boot-looped since 26.1+ needs Java 25). World + config on
+  `/mnt/data/apps/minecraft` (mirror disk, restic-backed, no DB dumps).
+  Added to `Makefile` `STACKS` + deploy data dirs.
+- Change: raw TCP `25565`, never HTTP — Caddy never sees it. Container binds
+  `${WG_IP}` only; VPS DNATs `eth0:25565/tcp` to `10.44.0.2:25565` in
+  `vps/nftables.conf` (same pattern as Mumble `64738`). Clients use
+  `mc.malice.biz:25565`.
+- Change: `Makefile` `HOST` defaults to `chill-01` (Tailscale admin path, never
+  the WG tunnel); fixed `./.env.example` sourcing in `check` (dash searches
+  `PATH` without `./`). RCON password lives in `/opt/stacks/games/.env`
+  (never git); admin via `docker exec -i games-mc-1 rcon-cli`.
+- Verify: `make check` green, `make deploy` ships games, TCP `25565`
+  open end-to-end. Owed: Chunky pre-gen (`chunky radius 2500` + `chunky start`)
+  the night before launch day — pins CPU, not while backups run.
+- Prevent: never bind `25565` to `0.0.0.0`; keep world on restic-backed storage.
+
 ## drill 2026-09-29: restore-test ok
 
 - Proof: snapshot 6cd039f7 (2026-09-29 04:16 UTC) restored to a temp path;
   immich/paperless dumps, kavita/gotify/beszel DBs (integrity ok),
   homelab.env, wg0.conf, VPS Caddy/nftables, and /mnt/data/photos all present.
 - Repeat quarterly.
+
+## maintenance 2026-09-29: LAN password SSH stays open, key-only elsewhere
+
+- Change: `bootstrap.sh` writes `/etc/ssh/sshd_config.d/homelab.conf` with
+  `PasswordAuthentication no` + `PermitRootLogin no`, plus
+  `Match Address 192.168.1.0/24` -> `PasswordAuthentication yes`.
+- Change: UFW keeps `allow in on eth0 from 192.168.1.0/24 to any port 22`;
+  no global `allow 22/tcp`. Tailscale stays the people/admin path.
+- Verify: `systemctl reload ssh`; `sshd -T | grep -i passwordauth` shows
+  no outside the match, yes inside; LAN login works without a key, outside
+  LAN still key-only.
+- Prevent: never re-add global `allow 22/tcp` or `0.0.0.0:22`. The LAN
+  exception is the only documented exception, here and in `bootstrap.sh`.
+
+## maintenance 2026-09-30: navidrome WG-only bind, caddy check images pinned
+
+- Repair: drop `127.0.0.1:4533:4533` from `stacks/media/docker-compose.yml`;
+  Navidrome stays `10.44.0.2:4533:4533` (WG-only, served public via
+  `nvdr.malice.biz` in `vps/sites/media.caddy`). Reverts the live-imported
+  localhost bind from the day before.
+- Repair: drop spurious `FIREWALL_VPN_INPUT_PORTS` from
+  `stacks/media/.env.example`; the gluetun value stays hardcoded in compose
+  (`6881,50300`), not env-driven.
+- Repair: `Makefile` `check` inlines `caddy:2` and
+  `ghcr.io/caddybuilds/caddy-cloudflare:2.11.4-alpine`; removes
+  `CADDY_IMAGE` / `CADDY_CF_IMAGE` overrides so lint always validates
+  against the shipped images.
+- Verify: `make check` green, `make deploy` recreates navidrome only,
+  `homelab-public-check` green for `nvdr.malice.biz`.
 
 ## maintenance 2026-09-30: destroy stale guests, big-only mem limits, virtiofs rename
 
@@ -203,3 +294,109 @@ Do not test by deleting data.
 - Note: fiesta is API-only with no login page; web login lives on player.
   Legacy auth sends the password as a p query param that VPS access.log
   records, so rotate a Navidrome password after pasting such a URL anywhere.
+
+## maintenance 2026-10-30: VPS wg0 peer cleanup, P2P DNAT ownership, UFW scope
+
+- Confirm: VPS `wg0` (`10.30.0.0/24`, `:51820`) is load-bearing, not retired.
+  It is the gluetun P2P exit for chill-01: 283 GB moved, egress IP
+  `194.58.47.21`, 1030 live conntrack flows on `6881`/`50300`.
+- Change: removed the retired malice peer (`10.30.0.3` + `192.168.1.0/24`)
+  and the dead duplicate `109.0.200.185` peer (allowed `10.10.10.0/24`,
+  `10.10.20.0/24`; the live f&f hub is debian-01's own `10.10.0.0/24`).
+  Applied with `wg set wg0 peer <key> remove` plus a config edit, so
+  gluetun's tunnel never dropped. Backup `/etc/wireguard/wg0.conf.bak-20261030`.
+- Change: DNAT ownership moved into git `vps/nftables.conf` (`ip homelab_nat`).
+  Deleted the dead `25565 -> 10.30.0.3` rule and the duplicate `6881` pair from
+  the live `inet firewall` table by handle, and added `6881` + `50300`
+  tcp+udp -> `10.30.0.4`. Public Minecraft only worked before because
+  `homelab_nat` happened to win the duplicate.
+- Change: chill-01 UFW `Anywhere on wg0 ALLOW` (v4+v6) -> `from 10.44.0.1`.
+- Verify: 25565/6881/50300/64738 connect from off-site, public jellyfin 302,
+  files 200, immich/fiesta 200 through the tunnel, gluetun egress still
+  `194.58.47.21`, `wg show wg0` one live peer with a fresh handshake.
+- Lesson: `/etc/nftables.conf` on the VPS is a boot dump (crowdsec runtime sets
+  with timeouts, stale inline tables), not a reappliable config. Change live
+  rules by handle (`nft delete rule ... handle N`), keep the file text in sync
+  for the next boot, and validate with `nft -c -f` before shipping.
+- Change (same day): removed the three dead `10.30.0.5/6/7` `wg0` peers, so the
+  only peer left is gluetun `10.30.0.4`. Also dropped the five duplicate
+  `iifname "eth0"` DNATs (`52000`, `3478`, `52100-52200`) from `inet firewall`:
+  `homelab_nat` already owns them, and duplicate DNAT is what made the `25565`
+  outage order-dependent. The five `iifname "wg0" ... 194.58.47.21` hairpin
+  rules stay -- they are a different path, not duplicates.
+- Verify (same day): `wg show wg0` one peer with a live handshake,
+  `wg-quick strip wg0` parses, 25565/64738/52000/3478/6881/50300 all connect,
+  `homelab-public-check` all green, `nft -c -f /etc/nftables.conf` exits 0.
+- Change (same day): disabled malice's now-orphaned `wg-quick@wg0`
+  (`systemctl disable --now`); its peer was removed from the VPS, nothing
+  listened on `10.30.0.3`, and it was retrying a tunnel nobody answers.
+- Verify (same day): real protocol checks, not just open ports -- Minecraft
+  status handshake returns Paper 26.2 (players 0/20), qBittorrent logs
+  "Detected external IP 194.58.47.21" and listens TCP+UTP/6881 on
+  `10.30.0.4`, slskd serves folder listings over the tunnel, Mumble answers
+  the 12-byte UDP ping, TURN answers a STUN binding request on UDP 3478, and
+  Neko's UDP 52000 shows DNAT'd conntrack entries from the f&f site.
+- Note: Neko does not answer unsolicited STUN on 52000 (WebRTC listener only
+  replies inside an ICE session), so a no-reply probe there is not a failure.
+
+## incident 2026-10-30: Beszel blind for 7 days, and no alert rules at all
+
+- Impact: `homelab` system showed `down` since the 2026-10-23 20:52 reboot;
+  last metric was 10-23 18:50. AGENTS claimed a "Beszel >85% disk alert"
+  that did not exist -- the `alerts` table was empty and `user_settings`
+  had email only (no MTA on the box), so disk-full would have alerted
+  nobody.
+- Detect: `systems.status=down`, `max(created)` in `system_stats` stale by
+  7 days, `alerts` empty, hub log only startup lines.
+- Cause: the agent listens on host `:45876` and the hub reaches it over
+  its compose bridge. UFW only carried an **IPv6** allow for `45876` on
+  `br-8d449473ddc0`; after the reboot the IPv4 path was default-denied,
+  so the hub's connection was dropped. `HUB_TO_AGENT_FAIL` from
+  `nsenter -t <hub pid> -n` proved it.
+- Repair: `ufw allow proto tcp from 172.16.0.0/12 to any port 45876`
+  (live + `bootstrap.sh`); source is the whole docker /12 because Docker
+  assigns bridge subnets dynamically.
+- Repair: created Gotify app `beszel`, set the user webhook to
+  `gotify://gotify:80/<token>?disabletls=yes&priority=5`, set
+  `meta.appURL` to `https://beszel.h.malice.biz`, and added the alert
+  rule. Beszel 0.9 semantics: `value` = threshold, `min` = minutes above
+  it before firing.
+- Verify: system `up`, fresh `1m` stats, a threshold-1 test rule fired
+  `homelab disk usage above threshold` into Gotify (message id 3), then
+  the real rule was set to `Disk` / `value 85` / `min 5`, `triggered 0`.
+- Prevent: after any chill-01 reboot, confirm `systems.status=up` and a
+  metric younger than 5 minutes. Keep agent UFW scoped to `172.16.0.0/12`,
+  never a single `br-*` interface.
+
+## maintenance 2026-10-31: VPS SSH is key-only
+
+- Change: `/etc/ssh/sshd_config.d/00-homelab-hardening.conf` sets
+  `PermitRootLogin prohibit-password`, `PasswordAuthentication no`,
+  `KbdInteractiveAuthentication no`. The drop-in is included at the top of
+  `sshd_config`, and OpenSSH takes the first value it reads, so it overrides
+  `PermitRootLogin yes` / `PasswordAuthentication yes` further down.
+  Backup: `/etc/ssh/sshd_config.bak-20261031`.
+- Change: `vps/bootstrap.sh` writes the same drop-in, so `make vps` keeps it.
+- Verify: `sshd -t` before reload; `sshd -T | grep -Ei "permitroot|passwordauth"`
+  shows `without-password` / `no`; a fresh key login works; a forced password
+  login fails with `Permission denied (publickey)`.
+- Note: root keeps a local console password for the provider's recovery
+  console -- that is the fallback, not an SSH path.
+
+## maintenance 2026-10-31: deploy keeps the Suwayomi secret, live configs adopted
+
+- Change: `Makefile` deploy adds `--exclude media/suwayomi-auth-password`.
+  `rsync --delete` was deleting the live-only secret file on every deploy
+  (dry-run: `*deleting media/suwayomi-auth-password`), which would have
+  broken Suwayomi login by removing the password file it mounts.
+- Change: three live-only edits adopted into git, so a deploy stops
+  reverting them: screego `1.12.6` + `SCREEGO_TURN_DENY_PEERS` (blocks TURN
+  relaying into private/LAN/tunnel nets), the private
+  `jellyfin.h.malice.biz` vhost in `stacks/edge/Caddyfile`, and suwayomi
+  `v2.4.2422-preview`.
+- Verify: `make deploy` re-ran with zero container re-creations; secret still
+  0600 after deploy; running containers report `screego/server:1.12.6`,
+  `TURN_DENY` env present, suwayomi `v2.4.2422-preview`; public check and
+  `autotag --self-check` green.
+- Prevent: any live-only file under `/opt/stacks` needs an explicit rsync
+  exclude, or it disappears on the next deploy.

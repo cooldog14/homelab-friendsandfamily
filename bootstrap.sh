@@ -71,6 +71,12 @@ ufw delete allow 53/udp 2>/dev/null || true
 ufw delete deny in on wg0 to any port 9090 2>/dev/null || true
 ufw insert 1 deny in on wg0 to any port 9090
 ufw allow from 172.16.0.0/12 to any port 9090 proto tcp
+# Beszel agent runs with network_mode: host; the hub reaches it over its
+# compose bridge. Docker assigns bridge subnets dynamically, so scope the
+# source to the whole /12 -- pinning one bridge interface silently kills
+# monitoring whenever that network is recreated (found 2026-10-30: hub
+# unable to connect since the 2026-10-23 reboot).
+ufw allow from 172.16.0.0/12 to any port 45876 proto tcp
 ufw allow in on wg0 && ufw allow in on tailscale0 && ufw --force enable
 # LAN-only media playback (e.g. Jellyfin 8096 bound to the LAN IP in compose,
 # never 0.0.0.0). Scoped to the home subnet; nothing internet-facing changes.
