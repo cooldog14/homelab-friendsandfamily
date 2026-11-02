@@ -3,8 +3,14 @@ services:
     image: mumblevoip/mumble-server:v1.5.634
     security_opt:
       - no-new-privileges:true
+    # Mumble entrypoint writes /data config as dropped user: needs CHOWN+
+    # DAC_OVERRIDE. cap_drop ALL restart-loops (proven 2026-11-03).
     cap_drop:
       - ALL
+    cap_add:
+      - CHOWN
+      - SETUID
+      - SETGID
     restart: unless-stopped
     ports:
       - "10.44.0.2:64738:64738"       # DNAT'd from the VPS
@@ -20,8 +26,14 @@ services:
     image: ghcr.io/m1k1o/neko/firefox:3.1.5
     security_opt:
       - no-new-privileges:true
+    # Neko supervisord chowns its socket to (0,1000): needs CHOWN+SETUID.
+    # cap_drop ALL restart-loops (proven 2026-11-03).
     cap_drop:
       - ALL
+    cap_add:
+      - CHOWN
+      - SETUID
+      - SETGID
     restart: unless-stopped
     mem_limit: 3g
     mem_reservation: 1g
