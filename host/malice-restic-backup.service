@@ -1,0 +1,12 @@
+[Unit]
+Description=malice host restic backup to Hetzner S3
+Wants=network-online.target
+After=network-online.target
+OnFailure=notify@%n.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/malice-restic-backup
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7

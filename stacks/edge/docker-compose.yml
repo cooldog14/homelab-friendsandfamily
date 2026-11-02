@@ -24,3 +24,12 @@ services:
       # Holds the wildcard cert + ACME account key. Losing it re-issues on next
       # boot (rate limits permitting); it is not a peer database, so it is not sacred.
       - ./state/caddy:/data
+
+# Pinned so bootstrap.sh can narrow the 172.16/12→9090 Cockpit rule to this
+# subnet only (edge Caddy is the sole legitimate 9090 client). Do not change
+# without updating bootstrap.sh DOCKER-USER + UFW rules.
+networks:
+  default:
+    ipam:
+      config:
+        - subnet: 172.18.0.0/16
