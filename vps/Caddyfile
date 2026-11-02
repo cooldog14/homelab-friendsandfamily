@@ -9,14 +9,34 @@
 	}
 }
 
-(public_proxy) {
+# Credential redaction (audit VPS-3/11): Jellyfin api_key=, Navidrome p=,
+# X-Emby-Authorization tokens were persisted in access.log (1318+59/24h).
+# Filter BEFORE output so neither logs nor the goaccess HTML carry them.
+(log_redacted) {
 	log {
 		output file /var/log/caddy/access.log {
 			roll_size 50mb
 			roll_keep 5
 		}
-		format json
+		format filter {
+			request>uri query {
+				replace p REDACTED
+				replace t REDACTED
+				replace s REDACTED
+				replace api_key REDACTED
+				replace ApiKey REDACTED
+				replace token REDACTED
+			}
+			request>headers>X-Emby-Authorization delete
+			request>headers>X-Emby-Token delete
+			request>headers>X-Password delete
+			request>headers>X-Api-Key delete
+		}
 	}
+}
+
+(public_proxy) {
+	import log_redacted
 	reverse_proxy 10.44.0.2:{args[0]}
 }
 
