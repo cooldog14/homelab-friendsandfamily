@@ -157,8 +157,13 @@ services:
     image: fallenbagel/jellyseerr:2.7.3
     security_opt:
       - no-new-privileges:true
+    # Root-in-container over a 1000-owned bind needs DAC_OVERRIDE for
+    # writes (proven 2026-11-03: cap_drop ALL = EACCES restart loop).
     cap_drop:
       - ALL
+    cap_add:
+      - DAC_OVERRIDE
+      - CHOWN
     environment:
       TZ: Europe/Paris
       LOG_LEVEL: info
