@@ -17,7 +17,8 @@ services:
       - "10.44.0.2:8096:8096"
       # LAN-only bind for direct TV playback (no internet hairpin via the VPS).
       # Specific-IP bind, never 0.0.0.0; host UFW scopes 8096 to 192.168.1.0/24.
-      - "192.168.1.28:8096:8096"
+      # 192.168.1.200 is outside the Livebox DHCP pool (.10-.150).
+      - "192.168.1.200:8096:8096"
     volumes:
       - ./state/jellyfin-config:/config
       # Disposable HLS/transcode cache lives on the fast SSD, not the VM root.

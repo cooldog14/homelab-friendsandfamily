@@ -68,6 +68,13 @@
 - FIXED 2026-10-31: `/mnt/data` moved back to the `pve1-primary` 2 TB share
   (was a bind into `/mnt/pool/takeover-primary/r1/mnt/data` on the 4 TB disk).
   Old tree kept as rollback until the next verified backup.
+- Open: the Livebox still maps `192.168.1.28` to a dead phone MAC
+  (`da:f6:59:14:fb:40`) even after deleting that device record and rebooting;
+  `.28` sits inside the DHCP pool (`.10-.150`), so do not put a lab host back
+  there. One more router reboot may clear it. chill-01 moved to
+  `192.168.1.200` (outside the pool, so no DHCP reservation needed), the relay
+  was removed, and Jellyfin rebinds to `192.168.1.200:8096` (update TV
+  bookmarks). See RUNBOOK incident 2026-11-02.
 - Open: secrets rotation (needs your values), malice host upgrade + kernel
   reboot, container hardening beyond what is documented.
 

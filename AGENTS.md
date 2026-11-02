@@ -13,7 +13,7 @@ incidents in `RUNBOOK.md`.
   hypervisor. PVE firewall disabled. No ZFS pools.
 - VM 101 `chill-01` (running): 4 vCPU, 16G RAM, 80G `local-lvm` disk,
   `hostpci0 00:02.0` Intel iGPU passthrough (UHD 630, vfio-pci).
-  Runs all Docker Compose apps (~37 containers). IP LAN `192.168.1.28`,
+  Runs all Docker Compose apps (~37 containers). IP LAN `192.168.1.200`,
   WG `10.44.0.2`, Tailscale `100.92.173.71`.
 - VM 103 `debian-01` (running, 8G/16G+64G disks). VM 102 `alpine-01` +
   LXC 200 `friend` destroyed 2026-09-30 (final vzdumps
@@ -46,8 +46,11 @@ incidents in `RUNBOOK.md`.
 - f&f remote site terminates on `debian-01` (VM 103), which runs its own
   hub `10.10.0.0/24` with peers at `109.0.200.185`. It is not on the VPS.
   People/admin access is Tailscale only.
-- LAN `192.168.1.0/24` (`vmbr0`): host `.2`, chill `.28`. LAN SSH from
-  malice to `192.168.1.28` works; a guest stop/start rotates the
+- LAN `192.168.1.0/24` (`vmbr0`): host `.2`, chill `.200` (outside the
+  Livebox DHCP pool `.10-.150`). Chill SSH works from the workstation over the
+  LAN (`ssh -i ~/.ssh/homelab-ansible-bootstrap deploy@192.168.1.200`) or via
+  Tailscale; from malice only `qm guest exec` works (the deploy key is not in
+  `/root/.ssh` there). A guest stop/start rotates the
   cloud-init host key, so verify the new fingerprint with
   `qm guest exec 101 -- ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub`
   before updating known_hosts.

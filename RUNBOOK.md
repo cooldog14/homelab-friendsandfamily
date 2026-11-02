@@ -435,3 +435,71 @@ Do not test by deleting data.
   first. Re-ran `make host`: one line, correct mount, containers untouched.
 - Rollback: the takeover tree on bulk is untouched; re-add the bind line and
   remount to go back until the next verified restic backup.
+
+## incident 2026-11-02: power cut, then chill egress dead from stale router ARP
+
+- Symptom: every public vhost returned 502; malice, chill-01 and the LAN were
+  unreachable. Cause: house power cut, malice down since ~2026-11-01 18:22Z
+  (VPS up, Caddy answering, WireGuard and Tailscale peers gone).
+- Recovery after power: malice booted 10:12Z, VM 101 and all 37 containers
+  came up, VM 103 running. Checked: no failed units, all six host disks
+  0 reallocated / 0 pending sectors, no ext4 errors, restic backup ran at
+  10:15Z (prune finished clean), backup watchdog 48h window fine,
+  Immich/Paperless postgres accepting, Sunday vzdump from 11-01 03:30
+  present on vault, public-check exit 0 after the fix below.
+- Second fault: chill-01 had DNS and a live `wg0` handshake but no internet
+  and no WG data path (`public-check` FAIL 000 on every host). The router
+  still mapped `192.168.1.28` to a dead MAC (`da:f6:59:14:fb:40` instead of
+  `bc:24:11:f3:94:93`) and dropped replies addressed to it; tcpdump on malice
+  `vmbr0` showed `1.1.1.1 > 192.168.1.28` replies with dst MAC `da:f6:...`.
+  GARP from chill (request and reply form, broadcast and unicast to the
+  router) did not refresh it -- treat the router entry as static/pinned.
+- Workaround (live): chill egress relays via malice, which masquerades on
+  `vmbr0`, so replies come back to malice's MAC and are forwarded.
+  `qm set 101 --ipconfig0 ip=192.168.1.28/24,gw=192.168.1.2`.
+  `/etc/netplan/99-homelab-relay.yaml` was deleted: it never won (metric 50
+  lost to cloud-init's metric-0 default via `.1`), and a policy-route version
+  hijacked the WG/LAN paths, so the relay has to be the VM's only default.
+- Undo once the router ARP entry is cleared on-site (reboot router or delete
+  the static entry): `qm set 101 --ipconfig0 ip=192.168.1.28/24,gw=192.168.1.1`,
+  then `netplan apply` in the guest. Verify `ping 1.1.1.1` and
+  `curl https://files.malice.biz` from chill, and public-check exit 0.
+- Note: chill is a VM on malice, so relaying through malice adds no failure
+  mode beyond malice itself; the lab was already down when malice was.
+- Follow-up 2026-11-02 (Livebox rebooted): the mapping survived the reboot.
+  A raw ARP probe from malice (`who-has 192.168.1.28`) is answered only by
+  chill (`bc:24:11:f3:94:93`), yet the router still sends `.28` traffic to
+  `da:f6:59:14:fb:40` -- so it is a persistent device record (a former
+  randomized-MAC phone/laptop), not cached ARP. The router also refuses a
+  static lease on `.28` as "already in use" and refuses `.2` because it is
+  outside the DHCP pool. Relay stays until that record is deleted in the
+  Livebox device list, or chill is renumbered.
+- Resolution 2026-11-02: the record was a phone, `A35-de-Dimitri`
+  (`DA:F6:59:14:FB:40`, randomized Wi-Fi MAC) that grabbed `.28` from DHCP
+  during the power cut; it was deleted from the Livebox history page
+  ("Supprimer ..."). The router still answered `.28` to that MAC afterwards,
+  so chill-01 was renumbered out of the DHCP pool: `ipconfig0
+  ip=192.168.1.200/24,gw=192.168.1.1`, guest netplan regenerated, Jellyfin LAN
+  bind -> `192.168.1.200:8096` in `stacks/media/docker-compose.yml`, relay
+  route removed. Verified: direct egress, WG handshake + data (VPS backend
+  307), 37 containers, Jellyfin LAN 302, public check exit 0.
+  The Livebox DHCP pool is `.10-.150`; `.28` is still poisoned inside it, so a
+  further router reboot is worth doing and `.28` must not be reused.
+  Router API notes: SoftAtHome WS4 at `POST /ws`
+  (`application/x-sah-ws-4-call+json`), login via
+  `sah.Device.Information.createContext` with `Authorization: X-Sah-Login`,
+  then `Authorization: X-Sah <ctx>` + `X-Context: <ctx>`; `Devices`,
+  `DHCPv4.Server` and `TopologyDiagnostics` are ACL-denied to that context,
+  so the GUI (or `NeMo.Intf.lan.getMIBs`) is the only way to read/modify them.
+  Device records can be removed from
+  `/internal/devicesHistory/index.html` ("Supprimer ...").
+- Open follow-ups from this incident:
+  - Point the TVs' Jellyfin bookmarks at `http://192.168.1.200:8096`; the
+    `192.168.1.28:8096` bind no longer exists.
+  - Reboot the Livebox once more when convenient to try to flush the `.28`
+    mapping, and never assign a lab host `.28` again. `.28` is inside the
+    DHCP pool (`.10-.150`), so any device the router hands it to will lose
+    inbound replies (outbound works, return traffic goes to the dead MAC).
+  - The live DHCP lease list should only carry `Device-22 -> .53`; the dead
+    guest leases (`.48 .118 .36 .37 .27`) and the mis-typed `.50`/`.88`
+    reservations were removed on 2026-11-02.
