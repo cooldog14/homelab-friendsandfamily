@@ -200,7 +200,7 @@ services:
       WRTAG_WEB_LISTEN_ADDR: ":7373"
       WRTAG_WEB_DB_PATH: /data/wrtag.db
       WRTAG_WEB_NUM_WORKERS: "4"
-      WRTAG_WEB_AUTH: "enabled"
+      WRTAG_WEB_AUTH: "basic-auth-from-api-key"
       WRTAG_LOG_LEVEL: "info"
       WRTAG_ADDON: "lyrics lrclib genius musixmatch"
       WRTAG_KEEP_FILE: "origin.yaml,*.cue,*.log"
@@ -293,7 +293,9 @@ services:
       SLSKD_SLSK_USERNAME: ${SLSKD_SLSK_USERNAME}
       SLSKD_SLSK_PASSWORD: ${SLSKD_SLSK_PASSWORD}
       SLSKD_API_KEY: ${SLSKD_API_KEY}
-      SLSKD_WRTAG_API_KEY: ${WRTAG_WEB_API_KEY}
+      SLSKD_USERNAME: ${SLSKD_USERNAME:?set SLSKD_USERNAME in media .env}
+      SLSKD_PASSWORD: ${SLSKD_PASSWORD:?set SLSKD_PASSWORD in media .env}
+      SLSKD_JWT_KEY: ${SLSKD_JWT_KEY:?set SLSKD_JWT_KEY in media .env}
     volumes:
       - ./state/slskd:/app
       - ./config/slskd/slskd.yml:/app/slskd.yml:ro

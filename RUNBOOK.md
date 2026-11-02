@@ -422,8 +422,9 @@ Do not test by deleting data.
   `c8ae4cbd` confirmed to contain `messy/` paths — the Sep 27
   `8513e3b4` source is no longer the sole copy. Safe to prune per
   normal retention once a post-Oct-19 full snapshot lands.
-- On-site follow-up: sdc confirmed DEAD 2026-10-19 (INQUIRY failed,
-  875+ cumulative errors, still erroring; keep untouched in slot).
+- On-site follow-up (SUPERSEDED 2026-11-02, kept for history — sdc revived
+  rw; see status note below): sdc confirmed DEAD 2026-10-19 (INQUIRY
+  failed, 875+ cumulative errors, still erroring; keep untouched in slot).
   Options: (a) leave takeover as the layout and re-point backups/docs
   to pool (pool has headroom: 2.0T free), retiring the primary slot;
   (b) new 2TB disk, reverse-restore pool->primary, remove fstab bind
@@ -437,6 +438,13 @@ Do not test by deleting data.
   re-included; `57fe39d9`/`3d7c79e3` Oct 18/19 = `/mnt/data` EMPTY
   (bind dropped, dead sdc unreadable) — prune candidates once fresh
   full snapshots land.
+- Status 2026-11-02 (revived-untrusted): Oct 23 power cycle brought sdc
+  back `rw` at `/mnt/primary`, NFS-exported rw to debian-01,
+  `virtiofs0: pve1-primary` still on VM 101. Last errors Oct 23 (`ICRC
+  ABRT` + `critical medium error`, 53 journal hits); silent on all 6
+  newer boots, SMART PASSED (0 realloc/pending/uncorrect). Quiet is not
+  trustworthy: repoint debian-01 NFS to the takeover tree first, then
+  pull per the TODO disk-swap plan.
 
 ## incident 2026-10-19: auto-reboot dropped takeover bind; router ARP blackhole killed IPv4
 
@@ -503,6 +511,62 @@ Do not test by deleting data.
   source check) that fails loudly if `/mnt/data` isn't the bind.
   Consider `Automatic-Reboot-Time` jitter so VPS + guest don't reboot
   the same minute.
+
+## lesson 2026-10-22: suwayomi reader blank pages were 5-minute JWT expiry, not downloads
+
+- Impact: reader showed blank/missing pages on downloaded manga; ~11% of
+  image loads 401'd (311/2828 over Oct 21-22) for one Firefox client.
+  Downloads on disk were intact (valid JPEGs, zero 0-byte files).
+- Cause: `server.jwtTokenExpiry = "5m"` (default) with `AUTH_MODE:
+  ui_login`. Access tokens expire mid-chapter; the WebUI image path
+  retries with the stale token, so the same page URL flips 200 -> 401 ->
+  200 seconds apart while GraphQL calls keep succeeding. Feels like
+  "downloaded but won't render".
+- Detect: VPS `access.log` filtered to `mg.`: bursts of 401 on
+  `/api/v1/manga/*/chapter/*/page/*` + `/thumbnail` interleaved with 200s
+  on the same URLs; app `application.log` `UnauthorizedException` in
+  `MangaController` (`handler$11` = page images, `thumbnail`).
+- Repair: stop suwayomi, set `server.jwtTokenExpiry = "7d"` in
+  `/mnt/data/apps/suwayomi/server.conf` (state-only, never in git;
+  server rewrites the file on shutdown so stop-first is required),
+  restart. Users re-login once to mint a 7d token. Refresh expiry stays
+  60d; security tradeoff is a longer-lived bearer on a single-user box.
+- Prevent: never leave `jwtTokenExpiry` at 5m on a ui_login reader box;
+  `server.conf` TTLs are invisible to `make deploy` — audit them after
+  any Suwayomi rebuild.
+
+## incident 2026-10-22: bursty transit loss to VPS hangs large downloads (mg blank images)
+
+- Impact: public `mg` (and jellyfin, proven by interleaved test) large
+  responses randomly stall mid-stream (150-300KB then hang, 20-245s for
+  400KB-1.3MB). Suwayomi reader shows blank pages with no spinner: its
+  images are `Transfer-Encoding: chunked` with no `Content-Length` and no
+  `accept-ranges`, so a stalled stream never errors, never resumes, and
+  the reader waits silently. Small responses (GraphQL, 304s) unaffected.
+- Cause: bursty sustained-TCP loss on the client<->VPS transit path, NOT
+  the homelab. Proven: raw `scp` 1MB VPS->workstation 1.7s/1.5s/218s (no
+  Caddy/tunnel/app); VPS->Hetzner 100MB in 4.4s (VPS uplink fine);
+  VPS->backend 1.3MB in 0.25s 5/5; backend 2ms; ICMP 0% loss idle, under
+  load, and MTR end-to-end. ICMP-clean + TCP-bulk-shredded = policer or
+  shaper biting sustained flows, invisible to ping. Two client networks
+  (Magenta cable `83.64.155.206`, Lebara FR 4G `141.98.208.x`) affected;
+  phone pages that completed were 200 in 0.1-0.3s, blanks were hung rest.
+- Detect: `curl` same 1.3MB asset on `mg` alternates 0.3s / 20s+ timeout;
+  interleaved mg-vs-jellyfin large downloads stall on BOTH (vhost
+  independent); VPS `ss -ti :443` shows mass `bytes_retrans` +
+  `delivery_rate` kbps during stall; `access.log` shows 200s with huge
+  durations, no 4xx/5xx.
+- Mitigation: tailnet bypass. Private `suwayomi.h.malice.biz` over
+  Tailscale: 10/10 large files 0.4s (1x 3s, delivered). Phone `pixel-8`
+  already in tailnet (reconnect after 31d offline). Public path left as
+  is — fault is upstream transit, nothing to fix in git.
+- Prevent: when "slow" hits all vhosts at once with clean ICMP, test raw
+  `scp` VPS->client before touching apps; if scp stalls, it's transit.
+  Suwayomi chunked-no-length responses amplify any loss into blank
+  pages — consider Caddy `reverse_proxy ... flush_interval -1`
+  (buffering) for mg if transit stays lossy, trading TTFB for resumeable
+  Content-Length responses.
+
 ## maintenance 2026-10-30: VPS wg0 peer cleanup, P2P DNAT ownership, UFW scope
 
 - Confirm: VPS `wg0` (`10.30.0.0/24`, `:51820`) is load-bearing, not retired.
@@ -711,3 +775,59 @@ Do not test by deleting data.
   - The live DHCP lease list should only carry `Device-22 -> .53`; the dead
     guest leases (`.48 .118 .36 .37 .27`) and the mis-typed `.50`/`.88`
     reservations were removed on 2026-11-02.
+
+## maintenance 2026-11-02: sdc retired, takeover made live, host upgraded
+
+- Impact: brief `/mnt/data` I/O outage on chill-01 (~10 min) during the
+  sdc offlining — guest 101 was still on `pve1-primary`, not the
+  takeover bind as docs assumed. Full recovery, zero data loss.
+  Post-reboot `homelab-public-check` green (13 vhosts + 4 TCP) after
+  ~2 min container warmup (mg/paperless/photos 502 + MC TCP fail
+  immediately post-boot, same as the Sep 30 pattern).
+- Cause (docs vs live): TODO/RUNBOOK said `/mnt/data` was the takeover
+  bind since Oct 19. Live guest fstab still had
+  `pve1-primary /mnt/data virtiofs` — the Oct 19 "reboot-proofed" edit
+  never landed in the guest (backup `/tmp/fstab.bak-20261019-rebind`
+  gone with tmpfs). The 2026-10-26 "takeover newer on every path"
+  verification compared trees without noticing the guest wasn't ON the
+  takeover. Offlining sdc broke the live virtiofs an hour later.
+- Repair: SCSI rescan re-attached sdc as `sdg`, mounted ro, rsync
+  `--update` salvaged newest files to the takeover tree (minecraft
+  world/config + logs; 0 remaining after pass 2), then guest cutover:
+  `umount -l /mnt/data` + `mount --rbind` takeover, fstab rewritten to
+  the bind (generator verified `What=takeover`), all 37 containers
+  restarted, sdc re-offlined. Host music bind re-pointed:
+  takeover `media/music` (301G) ro over `/mnt/pool/media/music`
+  (fstab-persisted); `/mnt/bulk/media/music` follows via the pool bind.
+- Host work (same window): sdc retired (NFS dropped, debian-01
+  automount stopped + mountpoint removed, fstab commented, `virtiofs0`
+  deleted, device offlined — reappears as `sdc` each boot until
+  physically pulled, re-offline or ignore); nft `ip nat` flushed;
+  stale `.48/.79/.118` + `10.30` iptables + tailnet DNAT deleted;
+  `arr-routing` emptied; `iptables-restore.service` disabled;
+  nfs-server/rpcbind(+socket) disabled; HA lrm/crm disabled;
+  `PermitRootLogin prohibit-password`; 6.17.2 kernel purged;
+  orphan `pre-trim-20260916` snapshot config removed; both failing
+  backup crons deleted; `hermes` user/token/ACL/system-user/`hermesctl`
+  removed; `firewall=1` dropped from both NICs; OpenTofu tokens given
+  +90d expiry (unused 90d — delete if still idle); `swappiness=10`;
+  sdd long self-test + smartd schedule; `newaliases`;
+  `malice-restic-backup` git-owned + `OnFailure=notify@` live;
+  `/etc/homelab.env` copied from guest (0600, host switched to
+  `gotify.h` tailnet URL — public `gotify.malice.biz` has no VPS route
+  and TLS-errors); non-final dumps + ISO + skeletons removed (~4.2G).
+- Upgrade: both guests sata→scsi (`virtio-scsi-single`, `iothread=1`,
+  `ssd=1`, `boot order=scsi0`; PARTUUID fstab so no guest edits) —
+  103 boot-tested on `virtio-scsi-pci` first, then both switched to
+  `-single` for working iothreads. `apt full-upgrade` → pve-manager
+  9.2.25, kernel 7.0.14-26, qemu-server 9.2.14; reboot clean
+  (75s, both guests `onboot`, scsi boots fine).
+- Prevent: never trust "bind is live" from docs — `mount | grep
+  /mnt/data` on the GUEST is the proof before touching the old disk.
+  Takeover/bind claims must be re-verified live, not carried forward.
+  `/tmp` backups don't survive reboot — keep fstab/config backups in
+  git or `/root`, not `/tmp`.
+- Physical TODO: pull sdc + sda on-site per the disk-swap plan (sdc
+  still in slot, kernel-offlined). TOTP for root@pam still open
+  (needs interactive QR enrollment via the PVE web UI).
+

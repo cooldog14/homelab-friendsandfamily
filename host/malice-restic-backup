@@ -1,0 +1,54 @@
+#!/bin/sh
+# malice hypervisor host backup: /etc, PVE config, /root, /usr/local/sbin.
+# Runs ON malice (not the guest). Secrets live in /etc/restic/malice.env
+# (0600, never in git). Install: copy to /usr/local/sbin/malice-restic-backup.
+set -eu
+
+ENV_FILE=${RESTIC_ENV_FILE:-/etc/restic/malice.env}
+TAG=${RESTIC_TAG:-malice-host}
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+HOME=${HOME:-/root}
+RESTIC_CACHE_DIR=${RESTIC_CACHE_DIR:-/var/cache/restic}
+export PATH HOME RESTIC_CACHE_DIR
+
+log() {
+    printf '[%s] %s\n' "$(date -Is)" "$*"
+}
+
+[ -r "$ENV_FILE" ] || { echo "missing $ENV_FILE" >&2; exit 1; }
+set -a
+# shellcheck disable=SC1090
+. "$ENV_FILE"
+set +a
+
+: "${RESTIC_REPOSITORY:?missing RESTIC_REPOSITORY}"
+: "${RESTIC_PASSWORD:?missing RESTIC_PASSWORD}"
+: "${AWS_ACCESS_KEY_ID:?missing AWS_ACCESS_KEY_ID}"
+: "${AWS_SECRET_ACCESS_KEY:?missing AWS_SECRET_ACCESS_KEY}"
+AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION:-hel1}
+export RESTIC_REPOSITORY RESTIC_PASSWORD AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_DEFAULT_REGION
+
+umask 077
+mkdir -p "$RESTIC_CACHE_DIR"
+chmod 700 "$RESTIC_CACHE_DIR"
+
+if ! restic snapshots >/dev/null 2>&1; then
+    log "initializing restic repo"
+    restic init
+fi
+
+set --
+for path in /etc /etc/pve /root /usr/local/sbin /var/lib/pve-cluster/config.db; do
+    [ -e "$path" ] && set -- "$@" "$path"
+done
+
+log "running restic backup"
+restic backup "$@" --tag "$TAG" --exclude=/root/.cache
+
+log "applying retention"
+restic forget --tag "$TAG" --keep-daily 7 --keep-weekly 4 --keep-monthly 6 --prune
+
+log "checking repo metadata"
+restic check
+
+log "done"

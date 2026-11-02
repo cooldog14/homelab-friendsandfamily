@@ -9,13 +9,14 @@ incidents in `RUNBOOK.md`.
 
 ## topology
 
-- `malice`: Proxmox VE 9.2.20 (kernel 7.0.14-17) bare metal, the only
+- `malice`: Proxmox VE 9.2.25 (kernel 7.0.14-26) bare metal, the only
   hypervisor. PVE firewall disabled. No ZFS pools.
-- VM 101 `chill-01` (running): 4 vCPU, 16G RAM, 80G `local-lvm` disk,
+- VM 101 `chill-01` (running): 4 vCPU, 16G RAM, 80G `local-lvm` disk
+  (`scsi0`, `virtio-scsi-single`, `iothread=1`),
   `hostpci0 00:02.0` Intel iGPU passthrough (UHD 630, vfio-pci).
   Runs all Docker Compose apps (~37 containers). IP LAN `192.168.1.200`,
   WG `10.44.0.2`, Tailscale `100.92.173.71`.
-- VM 103 `debian-01` (running, 8G/16G+64G disks). VM 102 `alpine-01` +
+- VM 103 `debian-01` (running, 16G+64G `scsi` disks). VM 102 `alpine-01` +
   LXC 200 `friend` destroyed 2026-09-30 (final vzdumps
   `vzdump-qemu-102-2026_09_30*`, `vzdump-lxc-200-2026_09_30*` on
   `/mnt/vault/dump`, keep-last 8). LXC 204 `hermes-01` destroyed 2026-09-30
@@ -55,30 +56,23 @@ incidents in `RUNBOOK.md`.
   `qm guest exec 101 -- ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub`
   before updating known_hosts.
 ## storage (Proxmox paths stable; virtiofs tags renamed 2026-09-30)
-
 | Host disk | Mount | Shared as | Guest sees | Holds |
 |---|---|---|---|---|
-| sdd 4TB | `/mnt/bulk` -> `/mnt/pool` (bind) | `pve1-pool` | `/mnt/pool` | movies, tv, downloads (re-downloadable, no backup) |
-| sdc 2TB | `/mnt/primary` | `pve1-primary` (was `pve1-mirror`) | `/mnt/data` | photos, family, app data, music, books (backed up) |
+| sdd 4TB | `/mnt/bulk` -> `/mnt/pool` (bind) | `pve1-pool` | `/mnt/pool` | movies, tv, downloads + `takeover-primary` (sole primary-data copy, backed up) |
+| sdc 2TB | RETIRED (in slot, kernel-offlined) | — | — | former `/mnt/primary`; pull pending disk-swap |
 | sdf 466G SSD | `/mnt/fast` | `pve1-fast` | `/mnt/fast` | jellyfin-cache, imports, scratch, DB dumps (disposable) |
 | sdb 466G | `/mnt/vault` | `pve1-vault` (was `pve1-archive`) | `/mnt/vault` | vzdump target + pre-migration keeps (backup-only) |
 | sda 1TB | `/mnt/backup` | `pve1-backup` | `/mnt/backup` | local restic repo (backup-only) |
-| sde SSD | Proxmox + `local-lvm` | — | VM disks | ~36% used, ~87G free (2026-10-30) |
+| sde SSD | Proxmox + `local-lvm` | — | VM disks | Data% ~36%, VFree ~16G |
 
 chill-01 root disk holds Docker images and `/opt/stacks/*/state`;
 keep bulk files off it.
-Notes: `/mnt/data` is the `pve1-primary` virtiofs share (2 TB, backed up).
-Before 2026-10-31 it was a bind of `/mnt/pool/takeover-primary/r1/mnt/data`
-on the 4 TB bulk disk; that old tree is kept read-only as a rollback copy
-until the next verified backup, then it can be deleted. `/mnt/primary`
-holds photos, family, app data, music and books, and is the disk that threw
-unreadable-sector errors at boot on 2026-10-23 (extended SMART test clean
-on 2026-10-30, no new errors) -- watch its reallocated/pending counters.
-`/mnt/primary/media/music` is bind-mounted ro onto
-`/mnt/bulk/media/music` (same files counted twice by `du`).
-`weekly-vault` vzdump job: all guests, snapshot, zstd, Sun 03:30,
-keep-last 8, writes `/mnt/vault/dump`.
-
+Notes: sdc unmounted 2026-11-02 (NFS export dropped, debian-01
+automount stopped, fstab commented, `virtiofs0` deleted from 101,
+device offlined); takeover `media/music` (301G) ro-bound over
+`/mnt/pool/media/music` (fstab-persisted; `/mnt/bulk/media/music` follows). `weekly-vault` vzdump job: all
+guests, snapshot, zstd, Sun 03:30, keep-last 8, writes
+`/mnt/vault/dump`.
 ## app stacks (all on chill-01, `/opt/stacks`, `make deploy` ships git)
 
 - `apps`: Filebrowser Quantum (`:8085`), family (`:8086`,
@@ -140,8 +134,14 @@ keep-last 8, writes `/mnt/vault/dump`.
   Weekly Docker prune keeps images of stopped containers (`prune -f`,
   no `-a`). Verify the live timers after host deploys.
 
-## access matrix
+- `malice-restic-backup` (git-owned `host/malice-restic-backup*`,
+  nightly 04:45 → Hetzner S3, retention + `restic check`) covers the
+  hypervisor (`/etc`, `/etc/pve`, `/root`, `/usr/local/sbin`).
+  `OnFailure=notify@` live and tested (tailnet Gotify POST 200);
+  `/etc/homelab.env` on malice uses the `gotify.h` URL (public
+  `gotify.malice.biz` has no VPS route). No PVE notification target yet.
 
+## access matrix
 | Target | Primary (Tailscale) | Fallback |
 |---|---|---|
 | malice | `ssh malice` | local/Proxmox console |
