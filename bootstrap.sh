@@ -110,8 +110,20 @@ if command -v docker >/dev/null 2>&1 && command -v iptables >/dev/null 2>&1; the
   # shellcheck disable=SC2010
   for br in $(ls /sys/class/net/ | grep '^br-'); do
     [ "$br" = "$edge_br" ] && continue
+    # Pre-DNAT host IPs: blocks direct host services (Cockpit :9090
+    # via 172.17.0.1, beszel-agent, LAN, tailnet).
     for dst in 10.44.0.2 172.17.0.1 192.168.1.0/24 100.64.0.0/10; do
       iptables -I DOCKER-USER -i "$br" -d "$dst" -m comment --comment homelab-neko-block -j DROP 2>/dev/null || true
+    done
+    # Post-DNAT cross-bridge: DNAT rewrites dst before filter, so the
+    # rule above misses published-port traffic. Block container→other-
+    # bridge instead. Safe: all cross-service refs are same-stack DNS
+    # (gotenberg/tika/navidrome/redis) or edge→published-port, and edge
+    # is exempt. (Proven 2026-11-03: pre-DNAT-only left :5030 open.)
+    for ob in $(ls /sys/class/net/ | grep '^br-'); do
+      [ "$ob" = "$br" ] && continue
+      [ "$ob" = "$edge_br" ] && continue
+      iptables -I DOCKER-USER -i "$br" -o "$ob" -m comment --comment homelab-neko-block -j DROP 2>/dev/null || true
     done
   done
   fi
