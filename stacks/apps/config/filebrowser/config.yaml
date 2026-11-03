@@ -1,10 +1,12 @@
-# An admin user is created on first start and its password is printed to the
-# container log once — read it with docker logs and change it immediately.
-server:
+# Filebrowser Quantum 2.x config (migrated 2026-11-03: port/baseURL moved
+# server.* -> http.*, logging apiFilter added). Behind VPS/edge Caddy.
+http:
   port: 80
   baseURL: "/"
+server:
   logging:
     - levels: "info|warning|error"
+      apiFilter: "disabled"
   sources:
     - path: "/srv"
 auth:
