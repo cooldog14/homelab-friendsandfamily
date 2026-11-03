@@ -1,6 +1,6 @@
 services:
   jellyfin:
-    image: jellyfin/jellyfin:10.11
+    image: jellyfin/jellyfin:12.3.0
     user: "1000:1000"
     mem_limit: 3g
     mem_reservation: 1536m
@@ -138,7 +138,7 @@ services:
       - /mnt/pool/downloads:/pool/downloads
 
   bazarr:
-    image: lscr.io/linuxserver/bazarr:1.5.6
+    image: lscr.io/linuxserver/bazarr:1.6.2
     restart: unless-stopped
     ports:
       - "10.44.0.2:6767:6767"
@@ -154,7 +154,8 @@ services:
       - /mnt/pool/media/tv:/pool/tv
 
   jellyseerr:
-    image: fallenbagel/jellyseerr:2.7.3
+    image: ghcr.io/seerr-team/seerr:v3.5.1
+    init: true
     security_opt:
       - no-new-privileges:true
     # Root-in-container over a 1000-owned bind needs DAC_OVERRIDE for
@@ -171,7 +172,6 @@ services:
       - "10.44.0.2:5055:5055"
     volumes:
       - ./state/jellyseerr:/app/config
-    restart: unless-stopped
     depends_on:
       - jellyfin
       - radarr
