@@ -172,28 +172,14 @@ if needed. (`REPO-4`, `CHILL-4`)
 
 ### P0 — fix now
 
-- Public Neko browser reaches Cockpit + every admin port. Any Neko user can
-  open `https://10.44.0.2:9090` (200, Cockpit + web terminal) and
-  `:5030/:7373/:8191` (200, no auth). Worse: qBittorrent is auth-free to ALL
-  `172.16/12`, so Neko users get full qbit control (run-program-on-complete =
-  RCE in a container with rw `/mnt/data`) — and so does every tailnet device
-  via `qbittorrent.h`. `DOCKER-USER` is empty, so UFW cannot stop it.
-  (`CHILL-2`, `REPO-2`, `EXT-6`)
-  - Drop qbit `AuthSubnetWhitelist`, give Sonarr/Radarr real creds (stop qbit
-    first — it rewrites the conf).
-  - Pin `edge_default` subnet in compose; narrow `bootstrap.sh` 9090 rule to
-    it (the 172.16/12→9090 rule is load-bearing for cockpit.h — do not just
-    delete it).
-  - `DOCKER-USER` drop: comms bridge → 10.44/172.17/RFC1918, managed by
-    `bootstrap.sh`. Verify by re-running the nsenter curl matrix → timeouts.
-- Fallen disk `sdc` REVIVED-UNTRUSTED (Oct 23 power cycle; re-verified
-  2026-11-02): mounted **rw** at `/mnt/primary`, NFS-exported rw to
-  debian-01, `virtiofs0` still on VM 101. Last errors Oct 23 (`critical
-  medium error` + `ICRC ABRT`); silent since, SMART PASSED — quiet is not
-  trustworthy, still pull per the disk-swap plan. (`PVE-1`)
-  - Copy what debian-01 needs from the takeover tree, repoint its NFS there,
-    drop the export. Then the existing fstab/virtiofs0/device-delete cleanup.
-    TODO/RUNBOOK wording rewritten 2026-11-02.
+- DONE 2026-11-03: Neko lateral blocked. `DOCKER-USER` drops (pre-DNAT
+  host IPs + post-DNAT cross-bridge, 70 rules, edge exempt) via
+  `bootstrap.sh`; 9090 narrowed to pinned `172.18.0.0/16`; qbit whitelist
+  emptied + password rotated + arr creds updated (auth logs `succeeded`).
+  Verified: Neko→:9090/:5030/:7373/:8191/:8096 all timeout (000/7s);
+  cockpit.h + 5 edge routes + 3 public vhosts 200/302. (`CHILL-2`)
+- sdc: SUPERSEDED 2026-11-02 — retired (kernel-offlined, pull pending);
+  guest 101 on takeover bind. See RUNBOOK maintenance 2026-11-02. (`PVE-1`)
 - "Retired" `wg0` 10.30 tunnel is FULLY LIVE both ends (fresh handshakes):
   VPS routes `192.168.1.0/24` → malice, malice FORWARD ACCEPT + blanket
   `oifname vmbr0 masquerade`, malice admin ports (`8006/22/2049/111/3128`) on
@@ -202,22 +188,16 @@ if needed. (`REPO-4`, `CHILL-4`)
   - `disable --now wg-quick@wg0` on malice; delete nft `nat` table + stale
     iptables rules; on VPS remove peers `.2,.3,.5,.6,.7` + LAN routes.
   - KEEP `.4`/6881 — gluetun P2P egress is live (219 GiB transferred).
-- slskd/wrtag/FlareSolverr still OPEN live (`:5030/:7373/:8191` → 200
-  unauthenticated from host AND VPS). Fix is in unpushed `65da8a6` but
-  undeployed — with a footgun: it enables slskd auth without
-  `SLSKD_USERNAME/PASSWORD`, so deploying = well-known `slskd`/`slskd` login.
-  (`CHILL-1`, `REPO-1`)
-  - Set `SLSKD_USERNAME/PASSWORD` (+`SLSKD_JWT_KEY`) and the wrtag web
-    password in live `.env` FIRST, then push + `make deploy`.
-  - Verify `:5030/api/v0/application` → 401, `:8191` gone, Prowlarr still
-    solves via `localhost:8191`.
+- DONE 2026-11-03: slskd→401 (auth + `SLSKD_USERNAME/PASSWORD/JWT_KEY`
+  in live `.env`), wrtag→401 (`basic-auth-from-api-key` — `enabled` is
+  not a valid value, README-corrected), `:8191` unpublished, Prowlarr→
+  `localhost:8191` still 200. (`CHILL-1`, `REPO-1`)
 
 ### P1 — important
 
-- `make vps` never ran after the Oct 21 commit: `stirling.malice.biz` STILL
-  PUBLIC (104 req/24h, 91×401, version + 900 KB OpenAPI doc exposed) and VPS
-  reboot still 03:00, not 01:30. TODO P2 claims both done — wrong.
-  (`VPS-2`, `EXT-1`) Run `make vps`; verify stirling TLS fails + reboot 01:30.
+- DONE 2026-11-03: `make vps` ran (stirling already private live via
+  Oct-31 deploy; reboot now `01:30` verified; log redaction shipped).
+  (`VPS-2`, `EXT-1`)
 - VPS sshd on public `:4522`: password + root login allowed, root has a
   password. Only rate-limit + obscurity protect it. Unexplained user `cool`
   with key `elon@cachyos-x8664` (added May, never used — owner to confirm).
@@ -225,21 +205,16 @@ if needed. (`REPO-4`, `CHILL-4`)
   - `sshd_config.d`: `PasswordAuthentication no`, `PermitRootLogin
     prohibit-password`, `AllowUsers`; codify in `vps/bootstrap.sh`; `passwd -l
     root` after verifying key + provider console. Remove/confirm `cool` key.
-- Credentials persisted in VPS `access.log`: Jellyfin `api_key=` 1318/24h,
-  Navidrome `p=` 59/24h, `X-Emby-Authorization` token header 191k retained. A
-  LIVE-ONLY goaccess job renders them into world-readable HTML (unserved).
+- DONE 2026-11-03: `format filter` redaction live (`p/t/s/api_key/
+  ApiKey/token` → REDACTED + 4 header deletes; probe `api_key=PROBE`
+  logged as `api_key=REDACTED`); old `access-*.log.gz` deleted;
+  goaccess timer/service disabled + `traffic.html` removed. OPEN:
+  rotate Navidrome/Jellyfin creds (leaked into deleted logs).
   (`VPS-3/11`, `REPO-7`)
-  - Caddy `format filter` redaction (uri query `p/t/s/api_key/ApiKey/token`
-    + `X-Emby-*`/`X-Password`/`X-Api-Key` headers) in all 3 log blocks +
-    `make vps`; retire/gate traffic report (`--no-query-string`); rotate
-    Navidrome/Jellyfin creds; delete old `access-*.log.gz` + `traffic.html`.
-- Arr auth is decoration: Radarr/Sonarr/Prowlarr `DisabledForLocalAddresses`
-  serve `apiKey` to any 10.x/172.x source (VPS, containers); Bazarr auth
-  `null`; Bazarr 1.5.6 has 2 CRITICAL auth-bypass CVEs (a 3rd critical waits
-  for 1.6.3 stable). (`CHILL-3`, `UPG-6`)
-  - `AuthenticationRequired=Enabled` in all three (state-only, record in
-    RUNBOOK) + Bazarr forms auth; upgrade Bazarr → 1.6.2 now; then move
-    6767/7878/8989/9696/8701 off 10.44.0.2.
+- DONE 2026-11-03: `AuthenticationRequired=Enabled` all three (stop-edit-
+  start, API keys still 200 via `X-Api-Key`, no-auth 401); Bazarr forms
+  auth (`admin` + random, `type: form`) + `1.5.6→1.6.2`. OPEN: move
+  6767/7878/8989/9696/8701 off 10.44.0.2 (shared edge network). (`CHILL-3`)
 - Beszel monitoring DARK since Oct 23: hub→agent `:45876` blocked by UFW
   (6539 BLOCKs; v4 rule likely deleted positionally Oct 19, never in git).
   Host metrics + >85% disk alert dead. NB: TODO's `LISTEN=127.0.0.1` fix
@@ -312,21 +287,16 @@ if needed. (`REPO-4`, `CHILL-4`)
 
 ### Upgrades with security content (P1, by exposure)
 
-- Immich server+ML `v3.2.0 → v3.3.5`: high authenticated SVG→ImageMagick RCE
-  + unauth ML path-injection. No DB image change (same digest). (`UPG-1`)
-- Filebrowser ×3 `1.5.6 → 2.0.2-stable`: MFA-takeover, upload-share bypass
-  (hits `upload.`), read-only-overwrite. BREAKING: DB + config migration;
-  behind Caddy set `trustProxyHeaders`; old `/share/` links break. Interim:
-  `1.5.8` fixes only 2/4. (`UPG-2`)
-- Jellyfin `10.11 → 12.3` (pin full version): 6 advisories incl. CRITICAL
-  path-traversal, fixed only in 12.0; floating tag stuck since June. No
-  rollback, full rescan required, no 3rd-party plugins installed, legacy-auth
-  removal may break old TV clients. Back up the 4.3G config first. (`UPG-3`)
-- Jellyseerr `2.7.3 → Seerr v3.5.1`: project renamed; high
-  path-traversal→RCE on public `requests`. Image
-  `ghcr.io/seerr-team/seerr`, needs `init: true` + `chown -R 1000:1000
-  state/jellyseerr`. Do with Jellyfin. (`UPG-4`)
-- Neko `3.1.5 → 3.2.0`: high cross-user XSS. (`UPG-5`)
+- DONE 2026-11-03: Immich server+ML `v3.2.0→v3.3.5` (healthy). (`UPG-1`)
+- DONE 2026-11-03: Filebrowser ×3 `1.5.6→2.0.2-stable` (config migrated
+  `server.port/baseURL`→`http.*`, DBs backed to `/root/*.bak-nov3`,
+  all healthy; old `/share/` links may break — unverified). (`UPG-2`)
+- DONE 2026-11-03: Jellyfin `10.11→12.3` (healthy; config backed to
+  `/root/jellyfin-config-nov3.tar.gz` 3.6G; full rescan pending user
+  check; no patch tags exist — `12.3`, not `12.3.0`). (`UPG-3`)
+- DONE 2026-11-03: Jellyseerr→Seerr `v3.5.1` (`init: true`,
+  `chown 1000:1000`, state preserved, 307 healthy). (`UPG-4`)
+- DONE 2026-11-03: Neko `3.1.5→3.2.0` (healthy). (`UPG-5`)
 - Immich Postgres 14 → 17/18, plan before EOL **2026-11-12**: dump+restore
   window. Verify no `vectors` extension (`\dx`) before picking an image;
   prefer waiting for Immich's official bump if it lands. Not breakage on EOL

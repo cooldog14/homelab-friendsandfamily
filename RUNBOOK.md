@@ -831,3 +831,45 @@ Do not test by deleting data.
   still in slot, kernel-offlined). TOTP for root@pam still open
   (needs interactive QR enrollment via the PVE web UI).
 
+## maintenance 2026-11-03: audit backlog deployed (Neko block, auth, VPS, upgrades)
+
+- Rebase: remote had 3 new commits (Oct 31 VPS/SSH/atomic-backup batch,
+  Nov 2 `.28→.200` renumber + `/mnt/data`→pve1-primary revert). Kept
+  local as live truth (sdc retired, takeover live), cherry-picked
+  remote's fixes (VPS key-only SSH, atomic VPS pull, `.200` renumber,
+  15-min check, `/12` Beszel UFW). Critical: remote's
+  `sed -i '\|/mnt/data none bind|d'` would have destroyed the live
+  takeover on next `make host` — removed, guard kept + full-line match.
+- Neko lateral: `DOCKER-USER` 70 rules (pre-DNAT host IPs + post-DNAT
+  cross-bridge `-o br-*`, edge exempt), 9090→`172.18.0.0/16` (edge
+  pinned). Lesson: pre-DNAT-only misses published ports (DNAT rewrites
+  dst first) — `:5030` stayed 200 until the `-o` rules. Verified all
+  5 probes timeout, edge+public intact.
+- cap_drop fallout (audit predicted): neko needed CHOWN/SETUID/SETGID
+  (supervisord socket), mumble +CHOWN/DAC_OVERRIDE/SETUID/SETGID
+  (entrypoint chown + write as 10000), jellyseerr +DAC_OVERRIDE/CHOWN
+  (root over 1000-owned bind). Gotify/Beszel/Screego/Feishin fine.
+- Auth: slskd→401 (random creds in live `.env`, never printed),
+  wrtag→401 (`basic-auth-from-api-key`; `enabled` invalid per README),
+  `:8191` unpublished (Prowlarr `localhost:8191` 200), qbit whitelist
+  emptied + password rotated + arr DBs updated (`authentication
+  succeeded` in logs; localhost bypass is qbit-design, non-exploitable
+  post-DOCKER-USER), arr `Enabled` + API keys verified via same-stack
+  DNS, Bazarr forms auth + `1.6.2`.
+- VPS: `make vps` (reboot `01:30`, stirling already private),
+  `format filter` redaction (query `p/t/s/api_key/ApiKey/token`,
+  4 headers; multi-`delete` per field rejected — one `delete` line per
+  header path required); probe `api_key=PROBE`→`api_key=REDACTED`.
+  Old `access-*.gz` deleted, goaccess timer retired + HTML removed.
+- Upgrades: Immich `v3.3.5`, Filebrowser `2.0.2` (config
+  `server.port`→`http.*` migrated, DBs in `/root`), Jellyfin `12.3`
+  (config tarball `/root`, no `12.3.0` tag exists), Seerr `v3.5.1`
+  (`init`, chown), Neko `3.2.0`. All 37 Up, public-check 17/17 green.
+- State-only changes (never in git, record here): qbit password
+  (random, in sonarr/radarr DBs), Bazarr `admin` forms password
+  (random), arr `AuthenticationRequired=Enabled`, slskd web creds
+  (live `.env`). Temp secrets shredded; DB/config backups in `/root`.
+- OPEN: rotate Navidrome/Jellyfin creds (were in deleted logs);
+  `trustProxyHeaders` for Filebrowser 2.x behind Caddy (unverified);
+  Jellyfin full rescan check; move admin ports off 10.44.0.2; Immich
+  PG 14 EOL 2026-11-12 (plan dump+restore).
