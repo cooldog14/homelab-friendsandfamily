@@ -1,6 +1,6 @@
 services:
   jellyfin:
-    image: jellyfin/jellyfin:12.3.0
+    image: jellyfin/jellyfin:12.3
     user: "1000:1000"
     mem_limit: 3g
     mem_reservation: 1536m
