@@ -24,7 +24,7 @@ services:
   # Watch together. Profile copied from prod 2026-09-10 (prod untouched).
   # WebRTC: VPS DNATs 52000/tcp+udp (eth0 + wg0) to 10.44.0.2; ufw passes wg0.
   neko:
-    image: ghcr.io/m1k1o/neko/firefox:3.1.5
+    image: ghcr.io/m1k1o/neko/firefox:3.2.0
     security_opt:
       - no-new-privileges:true
     # Neko supervisord chowns its socket to (0,1000): needs CHOWN+SETUID.

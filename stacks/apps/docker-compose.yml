@@ -1,6 +1,6 @@
 services:
   filebrowser:
-    image: ghcr.io/gtsteffaniak/filebrowser:1.5.6-stable
+    image: ghcr.io/gtsteffaniak/filebrowser:2.0.2-stable
     security_opt:
       - no-new-privileges:true
     cap_drop:
@@ -15,7 +15,7 @@ services:
       - ./config/filebrowser/config.yaml:/home/filebrowser/data/config.yaml:ro
 
   filebrowser-upload:
-    image: ghcr.io/gtsteffaniak/filebrowser:1.5.6-stable
+    image: ghcr.io/gtsteffaniak/filebrowser:2.0.2-stable
     security_opt:
       - no-new-privileges:true
     cap_drop:
@@ -29,7 +29,7 @@ services:
       - ./config/filebrowser/config.yaml:/home/filebrowser/data/config.yaml:ro
 
   filebrowser-family:
-    image: ghcr.io/gtsteffaniak/filebrowser:1.5.6-stable
+    image: ghcr.io/gtsteffaniak/filebrowser:2.0.2-stable
     security_opt:
       - no-new-privileges:true
     cap_drop:

@@ -1,6 +1,6 @@
 services:
   immich-server:
-    image: ghcr.io/immich-app/immich-server:v3.2.0
+    image: ghcr.io/immich-app/immich-server:v3.3.5
     restart: unless-stopped
     mem_limit: 2g
     mem_reservation: 1g
@@ -28,7 +28,7 @@ services:
         condition: service_healthy
 
   immich-machine-learning:
-    image: ghcr.io/immich-app/immich-machine-learning:v3.2.0
+    image: ghcr.io/immich-app/immich-machine-learning:v3.3.5
     restart: unless-stopped
     mem_limit: 3g
     mem_reservation: 1g
