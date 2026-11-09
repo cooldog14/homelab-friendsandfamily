@@ -264,13 +264,13 @@
         {
           "refId": "A",
           "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "expr": "rate(node_network_receive_bytes_total{device=~\"eth0|wg0|tailscale0\"}[5m])",
+          "expr": "rate(node_network_receive_bytes_total{device=\"eth0\"}[5m])",
           "legendFormat": "rx {{device}}"
         },
         {
           "refId": "B",
           "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "expr": "rate(node_network_transmit_bytes_total{device=~\"eth0|wg0|tailscale0\"}[5m])",
+          "expr": "rate(node_network_transmit_bytes_total{device=\"eth0\"}[5m])",
           "legendFormat": "tx {{device}}"
         }
       ],
