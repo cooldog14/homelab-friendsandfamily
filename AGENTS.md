@@ -103,14 +103,12 @@ guests, snapshot, zstd, Sun 03:30, keep-last 8, writes
   **disabled on purpose**: they are reachable only through the private
   `*.h.malice.biz` Caddy over Tailscale (`slskd.h` / `wrtag.h`), never
   public and never from the VPS tunnel. The tailnet is the auth boundary.
-- `observability`: Gotify (`:8070`, private only), Beszel (`:8090`) +
-  beszel-agent (`network_mode: host` — documented
-  exception for host/container metrics; UFW still gates inbound),
+- `observability`: Gotify (`:8070`, private only),
   prometheus (published only on `127.0.0.1:9091` — Cockpit owns
   `*:9090`), alertmanager, alertmanager-gotify-bridge, node-exporter,
   cadvisor (privileged — documented exception), blackbox-exporter,
   grafana. Grafana is private-only via `grafana.h.malice.biz` ->
-  `10.44.0.2:3000`. Roughly 45 containers in total on the host.
+  `10.44.0.2:3000`. Roughly 43 containers in total on the host.
 - Host admin: Cockpit (`cockpit.h.malice.biz` / `:9090`, includes web
   terminal) is Tailscale/private Caddy only; no public route and blocked
   from the VPS WireGuard tunnel.
@@ -135,17 +133,16 @@ guests, snapshot, zstd, Sun 03:30, keep-last 8, writes
 - Nightly `homelab-backup` (restic offsite + local
   `/mnt/backup/restic`): `/opt`, `/mnt/fast/dumps`, `/mnt/data`,
   `/etc`, `/root/.ssh`. Excludes downloads, movies, TV, and raw music
-  staging. Dumps fresh for immich/paperless/gotify/kavita/beszel.
+  staging. Dumps fresh for immich/paperless/gotify/kavita.
 - `homelab-backup-watchdog` (48h), `homelab-public-check`, Gotify, and
-  Beszel are the alert path. Beszel has one rule: `Disk` above 85% for
-  5 minutes (highest of all filesystems) delivered to the Gotify app
-  `beszel` via webhook `gotify://gotify:80/...`; app link is
-  `https://beszel.h.malice.biz`. The agent runs `network_mode: host` on
-  `:45876`, so UFW must allow `45876` from `172.16.0.0/12` -- a rule
-  pinned to one docker bridge silently kills monitoring when that
-  network is recreated (happened 2026-10-23, 7 days blind). The public
-  check runs every 15 minutes; `notify@.service` logs delivery failures
-  to the journal instead of failing silently when `ALERT_URL` is unset.
+  Prometheus are the alert path. Prometheus rules (host down, target
+  down, public endpoint down, TLS expiring, disk above 85% for 5
+  minutes, stale/missing backup metric, stale WireGuard handshake,
+  container restart loop) route through Alertmanager and the
+  `alertmanager-gotify-bridge` into Gotify. Prometheus keeps 15 days
+  of metrics. The public check runs every 15 minutes;
+  `notify@.service` logs delivery failures to the journal instead of
+  failing silently when `ALERT_URL` is unset.
   Weekly Docker prune keeps images of stopped containers (`prune -f`,
   no `-a`). Verify the live timers after host deploys.
 
