@@ -57,6 +57,8 @@ check:
 	docker run --rm --entrypoint promtool -v "$(CURDIR)/stacks/observability/prometheus/rules:/rules:ro" prom/prometheus:v3.16.0 check rules /rules/homelab.yml
 	docker run --rm --entrypoint amtool -v "$(CURDIR)/stacks/observability/alertmanager:/etc/alertmanager:ro" prom/alertmanager:v0.34.2 check-config /etc/alertmanager/alertmanager.yml
 	docker run --rm -v "$(CURDIR)/stacks/observability/blackbox/blackbox.yml:/etc/blackbox_exporter/config.yml:ro" prom/blackbox-exporter:v0.29.1 --config.file=/etc/blackbox_exporter/config.yml --config.check
+	# Grafana provisions these files verbatim: invalid JSON must fail here.
+	set -e; for f in stacks/observability/grafana/dashboards/*.json; do python3 -m json.tool "$$f" >/dev/null; done
 
 # Caddy reads its Caddyfile once at start: `up -d` on an unchanged compose file
 # is a no-op, so route edits need an explicit restart.
