@@ -1,0 +1,64 @@
+groups:
+  - name: homelab
+    rules:
+      - alert: HostDown
+        expr: up{job="node"} == 0
+        for: 2m
+        labels: {severity: critical}
+        annotations:
+          summary: "chill-01 ne répond plus"
+          description: "node_exporter est down depuis 2 minutes."
+      - alert: TargetDown
+        expr: up{job=~"prometheus|alertmanager|grafana|cadvisor|blackbox|gotify-bridge"} == 0
+        for: 5m
+        labels: {severity: warning}
+        annotations:
+          summary: "Cible Prometheus down: {{ $labels.job }}"
+          description: "{{ $labels.instance }} ne répond plus."
+      - alert: PublicEndpointDown
+        expr: probe_success{job="blackbox-http"} == 0
+        for: 2m
+        labels: {severity: critical}
+        annotations:
+          summary: "Endpoint public down: {{ $labels.instance }}"
+          description: "Le probe HTTP échoue depuis 2 minutes."
+      - alert: TLSCertExpiringSoon
+        expr: probe_ssl_earliest_cert_expiry{job="blackbox-http"} > 0 and probe_ssl_earliest_cert_expiry{job="blackbox-http"} - time() < 14 * 24 * 3600
+        for: 1h
+        labels: {severity: warning}
+        annotations:
+          summary: "Certificat bientôt expiré: {{ $labels.instance }}"
+          description: "Expire dans {{ $value | humanizeDuration }}."
+      - alert: DiskUsageHigh
+        expr: |
+          max by (instance, mountpoint) (
+            100 * (1 - node_filesystem_avail_bytes{fstype!~"tmpfs|overlay|squashfs|ramfs|autofs"} / node_filesystem_size_bytes{fstype!~"tmpfs|overlay|squashfs|ramfs|autofs"})
+          ) > 85
+        for: 10m
+        labels: {severity: warning}
+        annotations:
+          summary: "Disque > 85%: {{ $labels.mountpoint }}"
+      - alert: BackupStale
+        expr: time() - max(homelab_backup_last_success_timestamp_seconds) > 48 * 3600
+        for: 10m
+        labels: {severity: critical}
+        annotations:
+          summary: "Sauvegarde restic > 48h"
+      - alert: BackupMetricMissing
+        expr: absent(homelab_backup_last_success_timestamp_seconds)
+        for: 1h
+        labels: {severity: warning}
+        annotations:
+          summary: "Métrique de sauvegarde absente"
+      - alert: WireGuardHandshakeStale
+        expr: time() - max(homelab_wireguard_latest_handshake_seconds) > 600
+        for: 10m
+        labels: {severity: warning}
+        annotations:
+          summary: "Handshake WireGuard > 10 minutes"
+      - alert: ContainerRestartLoop
+        expr: changes(container_start_time_seconds{name!=""}[15m]) > 2
+        for: 5m
+        labels: {severity: warning}
+        annotations:
+          summary: "Conteneur redémarré plusieurs fois: {{ $labels.name }}"

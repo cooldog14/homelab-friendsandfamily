@@ -89,7 +89,8 @@ backup_and_prune() {
     --exclude /mnt/data/downloads \
     --exclude /mnt/data/media/music/inbox/slskd/incomplete \
     --exclude /mnt/data/media/movies \
-    --exclude /mnt/data/media/tv
+    --exclude /mnt/data/media/tv \
+    --exclude /opt/stacks/observability/state/prometheus
   case "${RESTIC_PRUNE:-1}" in 1) restic forget --prune --keep-daily 7 --keep-weekly 4 --keep-monthly 6 ;; esac
 }
 
