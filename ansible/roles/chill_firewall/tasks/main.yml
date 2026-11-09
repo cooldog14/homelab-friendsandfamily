@@ -49,15 +49,6 @@
     to_port: "9090"
     proto: tcp
 
-# Docker assigns bridge subnets dynamically: pinning one killed monitoring on
-# 2026-10-30, so keep the /12 source.
-- name: Allow the beszel agent from Docker bridges
-  community.general.ufw:
-    rule: allow
-    from_ip: 172.16.0.0/12
-    to_port: "45876"
-    proto: tcp
-
 - name: Allow all traffic on the overlay interfaces
   community.general.ufw:
     rule: allow
@@ -74,6 +65,17 @@
     to_port: "8096"
     proto: tcp
 
+# Beszel was retired 2026-11-09 (Prometheus + cAdvisor replace it); these
+# deletions stay until the live 45876 rules are gone.
+- name: Remove the retired beszel agent allowance from Docker bridges
+  community.general.ufw:
+    rule: allow
+    from_ip: 172.16.0.0/12
+    to_port: "45876"
+    proto: tcp
+    delete: true
+  ignore_errors: true
+
 - name: Remove the wide beszel agent rule
   community.general.ufw:
     rule: allow
@@ -82,13 +84,15 @@
     delete: true
   ignore_errors: true
 
-- name: Allow the beszel hub to reach the agent on its listen address
+- name: Remove the retired beszel hub-to-agent allowance
   community.general.ufw:
     rule: allow
     from_ip: 172.20.0.0/16
     to_ip: 172.17.0.1
     to_port: "45876"
     proto: tcp
+    delete: true
+  ignore_errors: true
 
 - name: Enable UFW
   community.general.ufw:

@@ -13,36 +13,9 @@ services:
     volumes:
       - ./state/gotify:/app/data
 
-  beszel:
-    image: henrygd/beszel:0.9
-    security_opt:
-      - no-new-privileges:true
-    cap_drop:
-      - ALL
-    restart: unless-stopped
-    extra_hosts:
-      - host.docker.internal:host-gateway
-    ports:
-      - "10.44.0.2:8090:8090"
-    volumes:
-      - ./state/beszel:/beszel_data
-
-  beszel-agent:
-    image: henrygd/beszel-agent:0.9
-    restart: unless-stopped
-    # Exception to the WG_IP-bind rule: the agent needs host network visibility
-    # for host/container metrics. It exposes only PORT below; UFW still gates
-    # inbound access.
-    network_mode: host
-    environment:
-      PORT: 45876
-      KEY: ${BESZEL_KEY}
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-
-  # Prometheus + Alertmanager + Grafana replace nothing: Gotify stays the
-  # delivery path and Beszel keeps its history. Prometheus scrapes, Alertmanager
-  # routes, and the bridge below turns alert payloads into Gotify messages.
+  # Prometheus + Alertmanager + Grafana own host and per-container metrics.
+  # Gotify stays the delivery path: Prometheus scrapes, Alertmanager routes,
+  # and the bridge below turns alert payloads into Gotify messages.
   prometheus:
     image: prom/prometheus:v3.16.0
     restart: unless-stopped

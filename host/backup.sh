@@ -78,7 +78,6 @@ sql_backup() {
 # copy of /opt covers it; do not add it here.
 sql_backup /opt/stacks/docs/state/kavita/kavita.db "$DUMP_DIR/kavita.db"
 sql_backup /opt/stacks/observability/state/gotify/gotify.db "$DUMP_DIR/gotify.db"
-sql_backup /opt/stacks/observability/state/beszel/data.db "$DUMP_DIR/beszel.db"
 if [ -n "$SQLITE_FAILED" ]; then
   alert "sqlite backup FAILED on $(hostname): $SQLITE_FAILED (backup continuing)"
 fi
