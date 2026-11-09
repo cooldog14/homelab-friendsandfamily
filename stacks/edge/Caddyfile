@@ -36,6 +36,7 @@
 	@slskd host slskd.h.malice.biz
 	@wrtag host wrtag.h.malice.biz
 	@suwayomi host suwayomi.h.malice.biz
+	@grafana host grafana.h.malice.biz
 	# Private Jellyfin: tailnet clients stream direct instead of hairpinning
 	# LAN -> internet -> VPS -> WG (jellyfin.malice.biz resolves to the VPS
 	# everywhere; see media compose for the LAN .28:8096 direct path).
@@ -59,6 +60,7 @@
 		reverse_proxy @slskd 10.44.0.2:5030
 		reverse_proxy @wrtag 10.44.0.2:7373
 		reverse_proxy @suwayomi 10.44.0.2:4567
+		reverse_proxy @grafana 10.44.0.2:3000
 		# No websocket config needed: Jellyfin WS is same-origin /socket on 8096,
 		# Caddy proxies Upgrade transparently.
 		reverse_proxy @jellyfin 10.44.0.2:8096

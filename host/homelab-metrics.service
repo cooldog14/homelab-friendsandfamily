@@ -1,0 +1,8 @@
+[Unit]
+Description=Collect homelab textfile metrics
+OnFailure=notify@%n.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/homelab-metrics
+Nice=10

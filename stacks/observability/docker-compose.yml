@@ -39,3 +39,147 @@ services:
       KEY: ${BESZEL_KEY}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
+
+  # Prometheus + Alertmanager + Grafana replace nothing: Gotify stays the
+  # delivery path and Beszel keeps its history. Prometheus scrapes, Alertmanager
+  # routes, and the bridge below turns alert payloads into Gotify messages.
+  prometheus:
+    image: prom/prometheus:v3.16.0
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    user: "65534:65534"
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=15d
+      - --web.enable-lifecycle
+    # Loopback only: the query API stays on the box. Grafana talks to it over
+    # the compose network, never over a published port. Port 9091, not 9090:
+    # Cockpit's socket owns *:9090 on the host.
+    ports:
+      - "127.0.0.1:9091:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus/rules:/etc/prometheus/rules:ro
+      - ./state/prometheus:/prometheus
+    mem_limit: 1g
+
+  alertmanager:
+    image: prom/alertmanager:v0.34.2
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    user: "65534:65534"
+    command:
+      - --config.file=/etc/alertmanager/alertmanager.yml
+      - --storage.path=/alertmanager
+    ports:
+      - "127.0.0.1:9093:9093"
+    volumes:
+      - ./alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - ./state/alertmanager:/alertmanager
+    mem_limit: 128m
+
+  # Translates the Alertmanager webhook payload into Gotify's API. Internal
+  # only: no published port, reached by service name from Alertmanager.
+  alertmanager-gotify-bridge:
+    image: ghcr.io/druggeri/alertmanager_gotify_bridge:2.3.2
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    user: "65534:65534"
+    environment:
+      GOTIFY_ENDPOINT: http://gotify:80/message
+      GOTIFY_TOKEN: ${GOTIFY_ALERTMANAGER_TOKEN:?set GOTIFY_ALERTMANAGER_TOKEN in .env}
+      BIND_ADDRESS: 0.0.0.0
+      PORT: 8080
+      WEBHOOK_PATH: /gotify_webhook
+      DEFAULT_PRIORITY: 5
+      EXTENDED_DETAILS: "true"
+    mem_limit: 64m
+
+  node-exporter:
+    image: prom/node-exporter:v1.12.1
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    user: "65534:65534"
+    command:
+      - --path.procfs=/host/proc
+      - --path.sysfs=/host/sys
+      - --path.rootfs=/rootfs
+      - --collector.textfile.directory=/textfile
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+      - /var/lib/node_exporter/textfile:/textfile:ro
+    mem_limit: 128m
+
+  # cAdvisor is the ONE privileged container in this stack: it reads cgroup
+  # accounting and /dev/kmsg, which no unprivileged process can do. It publishes
+  # nothing (Prometheus scrapes it inside the compose network).
+  cadvisor:
+    # cAdvisor publishes v0.60.x to ghcr.io; gcr.io stops at v0.55.1.
+    image: ghcr.io/google/cadvisor:v0.60.6
+    restart: unless-stopped
+    privileged: true
+    devices:
+      - /dev/kmsg
+    command:
+      - --housekeeping_interval=30s
+      - --docker_only=true
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    mem_limit: 256m
+
+  blackbox-exporter:
+    image: prom/blackbox-exporter:v0.29.1
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    user: "65534:65534"
+    command:
+      - --config.file=/etc/blackbox_exporter/config.yml
+    volumes:
+      - ./blackbox/blackbox.yml:/etc/blackbox_exporter/config.yml:ro
+    mem_limit: 128m
+
+  grafana:
+    image: grafana/grafana:13.3.0
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    user: "472:472"
+    # Published on the WG address so the private edge Caddy can proxy
+    # grafana.h.malice.biz over the tailnet; never public.
+    ports:
+      - "10.44.0.2:3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?set GRAFANA_ADMIN_PASSWORD in .env}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_SERVER_ROOT_URL: https://grafana.h.malice.biz
+      GF_SERVER_DOMAIN: grafana.h.malice.biz
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - ./state/grafana:/var/lib/grafana
+    mem_limit: 512m

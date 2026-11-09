@@ -1,0 +1,65 @@
+global:
+  scrape_interval: 30s
+  evaluation_interval: 30s
+rule_files:
+  - /etc/prometheus/rules/homelab.yml
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ["alertmanager:9093"]
+scrape_configs:
+  - job_name: prometheus
+    static_configs: [{targets: ["localhost:9090"]}]
+  - job_name: alertmanager
+    static_configs: [{targets: ["alertmanager:9093"]}]
+  - job_name: grafana
+    static_configs: [{targets: ["grafana:3000"]}]
+  - job_name: node
+    static_configs: [{targets: ["node-exporter:9100"]}]
+  - job_name: cadvisor
+    static_configs: [{targets: ["cadvisor:8080"]}]
+  - job_name: blackbox
+    static_configs: [{targets: ["blackbox-exporter:9115"]}]
+  - job_name: gotify-bridge
+    static_configs: [{targets: ["alertmanager-gotify-bridge:8080"]}]
+  - job_name: blackbox-http
+    metrics_path: /probe
+    params: {module: [http_2xx]}
+    static_configs:
+      - targets:
+          - https://fiesta.malice.biz
+          - https://files.malice.biz
+          - https://jellyfin.malice.biz
+          - https://kavita.malice.biz
+          - https://mg.malice.biz
+          - https://neko.malice.biz
+          - https://nvdr.malice.biz
+          - https://paperless.malice.biz
+          - https://photos.malice.biz
+          - https://player.malice.biz
+          - https://requests.malice.biz
+          - https://screego.malice.biz
+          - https://upload.malice.biz
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox-exporter:9115
+  - job_name: blackbox-tcp
+    metrics_path: /probe
+    params: {module: [tcp_connect]}
+    static_configs:
+      - targets:
+          - jellyfin.malice.biz:64738
+          - jellyfin.malice.biz:52000
+          - jellyfin.malice.biz:3478
+          - jellyfin.malice.biz:25565
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox-exporter:9115
