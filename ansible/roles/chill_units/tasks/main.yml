@@ -1,0 +1,93 @@
+---
+# Host executables and systemd units. Every file ships from git (host/), so the
+# VM only ever runs code that is committed and reviewed.
+- name: Install host helper scripts
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../host/{{ item.src }}"
+    dest: "/usr/local/bin/{{ item.dest }}"
+    mode: "0755"
+  loop:
+    - {src: backup.sh, dest: homelab-backup}
+    - {src: backup-watchdog.sh, dest: homelab-backup-watchdog}
+    - {src: public-check.sh, dest: homelab-public-check}
+    - {src: metrics.sh, dest: homelab-metrics}
+    - {src: firewall-neko.sh, dest: homelab-firewall-neko}
+
+- name: Install systemd units
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../host/{{ item }}"
+    dest: "/etc/systemd/system/{{ item }}"
+    mode: "0644"
+  loop:
+    - homelab-backup.service
+    - homelab-backup.timer
+    - homelab-backup-watchdog.service
+    - homelab-backup-watchdog.timer
+    - homelab-public-check.service
+    - homelab-public-check.timer
+    - homelab-docker-prune.service
+    - homelab-docker-prune.timer
+    - homelab-metrics.service
+    - homelab-metrics.timer
+    - notify@.service
+  notify: Reload systemd
+
+- name: Reload systemd before touching the timers
+  ansible.builtin.meta: flush_handlers
+
+- name: Create the public Caddy site directory
+  ansible.builtin.file:
+    path: /usr/local/share/homelab-public-sites
+    state: directory
+    mode: "0755"
+
+- name: Collect the public Caddy site names declared in git
+  ansible.builtin.set_fact:
+    chill_units_public_sites_wanted: >-
+      {{ query('fileglob', playbook_dir + '/../vps/sites/*.caddy') | map('basename') | list }}
+
+# Public vhosts are git-owned: ship the current set, then drop what git no
+# longer declares so homelab-public-check never probes a deleted host.
+- name: Install public Caddy site files
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../vps/sites/{{ item }}"
+    dest: "/usr/local/share/homelab-public-sites/{{ item }}"
+    mode: "0644"
+  loop: "{{ chill_units_public_sites_wanted }}"
+  loop_control:
+    label: "{{ item }}"
+
+- name: List installed public Caddy site files
+  ansible.builtin.find:
+    paths: /usr/local/share/homelab-public-sites
+    patterns: "*.caddy"
+  register: chill_units_public_sites
+
+- name: Remove public Caddy site files no longer in git
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: absent
+  loop: "{{ chill_units_public_sites.files }}"
+  loop_control:
+    label: "{{ item.path | basename }}"
+  when: (item.path | basename) not in chill_units_public_sites_wanted
+
+- name: Create the node_exporter textfile directory
+  ansible.builtin.file:
+    path: /var/lib/node_exporter/textfile
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Ensure homelab timers are enabled and running
+  ansible.builtin.systemd_service:
+    name: "{{ item }}"
+    enabled: true
+    state: started
+  loop:
+    - homelab-backup.timer
+    - homelab-backup-watchdog.timer
+    - homelab-public-check.timer
+    - homelab-docker-prune.timer
+    - homelab-metrics.timer

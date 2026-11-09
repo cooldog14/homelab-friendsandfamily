@@ -1,0 +1,6 @@
+---
+- name: VPS public edge
+  hosts: vps
+  become: true
+  roles:
+    - vps_edge

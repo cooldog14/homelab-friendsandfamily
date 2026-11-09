@@ -3,3 +3,12 @@
 state/
 # one-off live snapshots, never track
 vps/live-backup-*/
+# ansible
+.ansible/
+*.retry
+# opentofu (state and vars stay local; .terraform.lock.hcl is committed)
+tofu/.terraform/
+tofu/*.tfstate
+tofu/*.tfstate.*
+tofu/*.tfvars
+tofu/.terraform.tfstate.lock.info

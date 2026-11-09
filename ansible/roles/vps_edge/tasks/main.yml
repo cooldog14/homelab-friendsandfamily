@@ -1,0 +1,201 @@
+---
+# VPS public edge: Caddy + nftables + the static WireGuard tunnel into the app VM.
+- name: Update apt cache
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Install edge packages
+  ansible.builtin.apt:
+    name:
+      - caddy
+      - ca-certificates
+      - curl
+      - nftables
+      - unattended-upgrades
+      - wireguard
+    state: present
+
+# 4522 is internet-exposed: a password there is a brute-force target. The
+# drop-in sorts before sshd_config and OpenSSH uses the first value it reads.
+- name: Harden the public SSH daemon
+  ansible.builtin.copy:
+    dest: /etc/ssh/sshd_config.d/00-homelab-hardening.conf
+    mode: "0644"
+    content: |
+      # Homelab: key-only. Root may log in with a key, never a password.
+      PermitRootLogin prohibit-password
+      PasswordAuthentication no
+      KbdInteractiveAuthentication no
+  notify: Validate and reload ssh
+
+- name: Create the Caddy log directory
+  ansible.builtin.file:
+    path: /var/log/caddy
+    state: directory
+    owner: caddy
+    group: caddy
+    mode: "0755"
+
+# The log files must exist caddy-owned BEFORE validate/reload: `caddy validate`
+# runs as root and would create them root-owned, which then breaks the reload
+# running as caddy.
+- name: Create the Caddy log files
+  ansible.builtin.file:
+    path: "/var/log/caddy/{{ item }}"
+    state: touch
+    owner: caddy
+    group: caddy
+    mode: "0600"
+    modification_time: preserve
+    access_time: preserve
+  loop:
+    - caddy.log
+    - access.log
+
+- name: Install the Caddy entrypoint
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../vps/Caddyfile"
+    dest: /etc/caddy/Caddyfile
+    mode: "0644"
+  notify: caddy config changed
+
+- name: Create the Caddy sites directory
+  ansible.builtin.file:
+    path: /etc/caddy/sites
+    state: directory
+    mode: "0755"
+
+- name: Collect the public site names declared in git
+  ansible.builtin.set_fact:
+    vps_edge_sites_wanted: >-
+      {{ query('fileglob', playbook_dir + '/../vps/sites/*.caddy') | map('basename') | list }}
+
+- name: Install the public site files
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../vps/sites/{{ item }}"
+    dest: "/etc/caddy/sites/{{ item }}"
+    mode: "0644"
+  loop: "{{ vps_edge_sites_wanted }}"
+  loop_control:
+    label: "{{ item }}"
+  notify: caddy config changed
+
+- name: List installed site files
+  ansible.builtin.find:
+    paths: /etc/caddy/sites
+    patterns: "*.caddy"
+  register: vps_edge_sites_installed
+
+- name: Remove site files no longer in git
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: absent
+  loop: "{{ vps_edge_sites_installed.files }}"
+  loop_control:
+    label: "{{ item.path | basename }}"
+  when: (item.path | basename) not in vps_edge_sites_wanted
+  notify: caddy config changed
+
+# Caddy must not start before the tunnel it proxies into.
+- name: Ensure the systemd drop-in directory exists
+  ansible.builtin.file:
+    path: /etc/systemd/system/caddy.service.d
+    state: directory
+    mode: "0755"
+
+- name: Order Caddy after the WireGuard tunnel
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/caddy.service.d/homelab.conf
+    mode: "0644"
+    content: |
+      [Unit]
+      Wants=wg-quick@chill0.service
+      After=wg-quick@chill0.service
+  notify: caddy restart
+
+- name: Create the nftables include directory
+  ansible.builtin.file:
+    path: /etc/nftables.d
+    state: directory
+    mode: "0755"
+
+# homelab_nat is its own table: apply without touching /etc/nftables.conf, which
+# carries provider and local rules.
+- name: Install the homelab NAT table
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../vps/nftables.conf"
+    dest: /etc/nftables.d/homelab_nat.conf
+    mode: "0644"
+  notify: Apply nftables rules
+
+# The include lives outside nftables.d, so it cannot be shipped as a whole file.
+- name: Ensure the homelab NAT table is included
+  ansible.builtin.lineinfile:
+    path: /etc/nftables.conf
+    line: 'include "/etc/nftables.d/homelab_nat.conf"'
+    insertafter: EOF
+    state: present
+  notify: Apply nftables rules
+
+# BBR survives policer/shaper loss far better than cubic; fq is its pair.
+- name: Set edge sysctls
+  ansible.posix.sysctl:
+    name: "{{ item.name }}"
+    value: "{{ item.value }}"
+    sysctl_file: /etc/sysctl.d/99-homelab.conf
+    sysctl_set: true
+    state: present
+    reload: true
+  loop:
+    - {name: net.ipv4.ip_forward, value: "1"}
+    - {name: net.core.default_qdisc, value: fq}
+    - {name: net.ipv4.tcp_congestion_control, value: bbr}
+
+- name: Load tcp_bbr at boot
+  ansible.builtin.copy:
+    dest: /etc/modules-load.d/homelab-bbr.conf
+    mode: "0644"
+    content: |
+      tcp_bbr
+
+- name: Load tcp_bbr now
+  community.general.modprobe:
+    name: tcp_bbr
+    state: present
+
+- name: Schedule unattended-upgrade reboots
+  ansible.builtin.copy:
+    dest: /etc/apt/apt.conf.d/51homelab
+    mode: "0644"
+    content: |
+      Unattended-Upgrade::Automatic-Reboot "true";
+      Unattended-Upgrade::Automatic-Reboot-Time "01:30";
+
+- name: Check the WireGuard config exists
+  ansible.builtin.stat:
+    path: /etc/wireguard/chill0.conf
+  register: vps_edge_wg_conf
+
+- name: Fail when the WireGuard config is missing
+  ansible.builtin.fail:
+    msg: "écrire /etc/wireguard/chill0.conf avant Ansible"
+  when: not vps_edge_wg_conf.stat.exists
+
+- name: Ensure wg-quick@chill0 is enabled and running
+  ansible.builtin.systemd_service:
+    name: wg-quick@chill0
+    enabled: true
+    state: started
+
+- name: Ensure nftables is enabled and running
+  ansible.builtin.systemd_service:
+    name: nftables
+    enabled: true
+    state: started
+
+- name: Ensure caddy is enabled and running
+  ansible.builtin.systemd_service:
+    name: caddy
+    enabled: true
+    state: started

@@ -1,0 +1,82 @@
+---
+# Storage layout. /mnt/data is a pool bind (takeover), not virtiofs: the guard
+# below skips a target that is already in fstab so a live bind is never shadowed.
+- name: Define virtiofs mounts
+  ansible.builtin.set_fact:
+    chill_storage_virtiofs_mounts:
+      - {tag: pve1-primary, target: /mnt/data}
+      - {tag: pve1-fast, target: /mnt/fast}
+      - {tag: pve1-vault, target: /mnt/vault}
+      - {tag: pve1-pool, target: /mnt/pool}
+      - {tag: pve1-backup, target: /mnt/backup}
+
+- name: Migrate retired virtiofs tags in fstab
+  ansible.builtin.replace:
+    path: /etc/fstab
+    regexp: "{{ item.regexp }}"
+    replace: "{{ item.replace }}"
+  loop:
+    - regexp: pve1-mirror /mnt/data
+      replace: pve1-primary /mnt/data
+    - regexp: pve1-archive /mnt/vault
+      replace: pve1-vault /mnt/vault
+
+- name: Check whether each mount target is already in fstab
+  ansible.builtin.command:
+    cmd: grep -Eq "[[:space:]]{{ item.target }}[[:space:]]" /etc/fstab
+  loop: "{{ chill_storage_virtiofs_mounts }}"
+  register: chill_storage_fstab_present
+  failed_when: false
+  changed_when: false
+
+- name: Add the missing virtiofs mounts
+  ansible.builtin.lineinfile:
+    path: /etc/fstab
+    line: "{{ item.item.tag }} {{ item.item.target }} virtiofs rw,relatime,nofail 0 0"
+    state: present
+  loop: "{{ chill_storage_fstab_present.results }}"
+  loop_control:
+    label: "{{ item.item.target }}"
+  when: item.rc != 0
+
+# `mount -a`, not ansible.posix.mount: the module would claim /mnt/data and
+# shadow the takeover bind. This only applies what fstab already declares.
+- name: Mount everything fstab declares  # noqa: command-instead-of-module
+  ansible.builtin.command:
+    cmd: mount -a
+  changed_when: false
+
+- name: Verify every expected mount is live
+  ansible.builtin.command:
+    cmd: mountpoint -q {{ item.target }}
+  loop: "{{ chill_storage_virtiofs_mounts }}"
+  loop_control:
+    label: "{{ item.target }}"
+  changed_when: false
+
+- name: Remove the retired archive mountpoint
+  ansible.builtin.command:
+    cmd: rmdir /mnt/archive
+  register: chill_storage_archive_rmdir
+  failed_when: false
+  changed_when: chill_storage_archive_rmdir.rc == 0
+
+- name: Create shared media and scratch directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "1000"
+    group: "1000"
+    mode: "0755"
+  loop:
+    - /mnt/fast/jellyfin-cache
+    - /mnt/fast/scratch
+    - /mnt/fast/imports
+
+- name: Create the database dump directory
+  ansible.builtin.file:
+    path: /mnt/fast/dumps
+    state: directory
+    owner: root
+    group: root
+    mode: "0700"

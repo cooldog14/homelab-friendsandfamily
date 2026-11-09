@@ -1,0 +1,113 @@
+---
+# Debian 13 base for the application VM: packages, repos, SSH posture, sysctls.
+- name: Update apt cache
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Install Docker and Tailscale signing keys
+  ansible.builtin.get_url:
+    url: "{{ item.url }}"
+    dest: "{{ item.dest }}"
+    mode: "0644"
+  loop:
+    - url: https://download.docker.com/linux/debian/gpg
+      dest: /usr/share/keyrings/docker.asc
+    - url: "https://pkgs.tailscale.com/stable/debian/{{ ansible_distribution_release }}.noarmor.gpg"
+      dest: /usr/share/keyrings/tailscale-archive-keyring.gpg
+
+- name: Add Docker and Tailscale apt repositories
+  ansible.builtin.apt_repository:
+    repo: "{{ item.repo }}"
+    filename: "{{ item.filename }}"
+    state: present
+  loop:
+    - filename: docker
+      repo: >-
+        deb [signed-by=/usr/share/keyrings/docker.asc]
+        https://download.docker.com/linux/debian {{ ansible_distribution_release }} stable
+    - filename: tailscale
+      repo: >-
+        deb [signed-by=/usr/share/keyrings/tailscale-archive-keyring.gpg]
+        https://pkgs.tailscale.com/stable/debian {{ ansible_distribution_release }} main
+
+- name: Install base packages
+  ansible.builtin.apt:
+    name:
+      - ca-certificates
+      - curl
+      - cockpit
+      - docker-ce
+      - docker-compose-plugin
+      - qemu-guest-agent
+      - restic
+      - rsync
+      - shellcheck
+      - sqlite3
+      - tailscale
+      - ufw
+      - unattended-upgrades
+      - wireguard
+    state: present
+
+- name: Schedule unattended-upgrade reboots
+  ansible.builtin.copy:
+    dest: /etc/apt/apt.conf.d/51homelab
+    mode: "0644"
+    content: |
+      Unattended-Upgrade::Automatic-Reboot "true";
+      Unattended-Upgrade::Automatic-Reboot-Time "04:30";
+
+- name: Set SSH posture (LAN keeps passwords, everything else is key-only)
+  ansible.builtin.copy:
+    dest: /etc/ssh/sshd_config.d/homelab.conf
+    mode: "0644"
+    content: |
+      PasswordAuthentication no
+      PermitRootLogin no
+      Match Address 192.168.1.0/24
+          PasswordAuthentication yes
+  notify: Validate and reload ssh
+
+- name: Enable IPv4 forwarding
+  ansible.posix.sysctl:
+    name: net.ipv4.ip_forward
+    value: "1"
+    sysctl_file: /etc/sysctl.d/99-homelab.conf
+    state: present
+    reload: true
+
+- name: Create the stacks root
+  ansible.builtin.file:
+    path: /opt/stacks
+    state: directory
+    mode: "0755"
+
+- name: Ensure base services are enabled and running
+  ansible.builtin.systemd_service:
+    name: "{{ item }}"
+    enabled: true
+    state: started
+  loop:
+    - qemu-guest-agent
+    - tailscaled
+    - cockpit.socket
+
+# The private key never lives in git: the role only asserts the file exists,
+# then lets wg-quick own the interface. tailscale up stays a manual step (it
+# needs an interactive auth key).
+- name: Check the WireGuard config exists
+  ansible.builtin.stat:
+    path: /etc/wireguard/wg0.conf
+  register: chill_base_wg0_conf
+
+- name: Fail when the WireGuard config is missing
+  ansible.builtin.fail:
+    msg: "écrire /etc/wireguard/wg0.conf avant Ansible"
+  when: not chill_base_wg0_conf.stat.exists
+
+- name: Ensure wg-quick@wg0 is enabled and running
+  ansible.builtin.systemd_service:
+    name: wg-quick@wg0
+    enabled: true
+    state: started
