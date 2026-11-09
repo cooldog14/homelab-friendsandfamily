@@ -48,7 +48,7 @@ check:
 	docker run --rm -v "$(CURDIR)/vps/Caddyfile:/etc/caddy/Caddyfile:ro" -v "$(CURDIR)/vps/sites:/etc/caddy/sites:ro" caddy:2 caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
 	PUBLIC_CADDY_SITES_DIR=vps/sites PRIVATE_CADDYFILE=stacks/edge/Caddyfile host/public-check.sh --config-lint
 	wide_binds=$$(grep -RInE '^[[:space:]]*-[[:space:]]*"?(:|0\.0\.0\.0:)' stacks/*/docker-compose.yml || true); test -z "$$wide_binds" || { echo "Undocumented wide port bind(s):" >&2; echo "$$wide_binds" >&2; exit 1; }
-	host_net=$$(grep -RInE '^[[:space:]]*network_mode:[[:space:]]*host' stacks/*/docker-compose.yml | grep -Ev 'stacks/(comms|observability)/docker-compose.yml' || true); test -z "$$host_net" || { echo "Undocumented host network service(s):" >&2; echo "$$host_net" >&2; exit 1; }
+	host_net=$$(grep -RInE '^[[:space:]]*network_mode:[[:space:]]*host' stacks/*/docker-compose.yml | grep -Ev 'stacks/comms/docker-compose.yml' || true); test -z "$$host_net" || { echo "Undocumented host network service(s):" >&2; echo "$$host_net" >&2; exit 1; }
 	$(SHELLCHECK) host/backup.sh host/backup-watchdog.sh host/public-check.sh host/metrics.sh host/firewall-neko.sh stacks/media/config/slskd/autotag.sh
 	# Observability: promtool/amtool/blackbox validate the exact files the
 	# containers load, so a broken rule fails here instead of silently.

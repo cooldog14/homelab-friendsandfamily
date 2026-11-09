@@ -22,7 +22,6 @@
 	@files host files.h.malice.biz
 	@stirling host stirling.h.malice.biz
 	@gotify host gotify.h.malice.biz
-	@beszel host beszel.h.malice.biz
 	@cockpit host cockpit.h.malice.biz
 	@home host home.h.malice.biz
 	# Private Immich: uploads from own devices avoid hairpinning through
@@ -45,7 +44,6 @@
 		reverse_proxy @files 10.44.0.2:8085
 		reverse_proxy @stirling 10.44.0.2:8091
 		reverse_proxy @gotify 10.44.0.2:8070
-		reverse_proxy @beszel 10.44.0.2:8090
 		reverse_proxy @cockpit https://host.docker.internal:9090 {
 			transport http {
 				tls_insecure_skip_verify

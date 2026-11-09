@@ -42,7 +42,7 @@ for path in /sys/class/net/br-*; do
   br=${path##*/}
   [ "$br" = "$edge_br" ] && continue
   # Pre-DNAT host IPs: blocks direct host services (Cockpit :9090 via
-  # 172.17.0.1, beszel-agent, LAN, tailnet).
+  # 172.17.0.1, LAN, tailnet).
   for dst in 10.44.0.2 172.17.0.1 192.168.1.0/24 100.64.0.0/10; do
     iptables -I DOCKER-USER -i "$br" -d "$dst" -m comment --comment "$MARKER" -j DROP 2>/dev/null || true
   done

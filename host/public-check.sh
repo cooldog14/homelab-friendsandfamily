@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Black-box public check: Beszel sees green containers, not 502s from Caddy.
+# Black-box public check: a green container is not proof the URL serves.
 # Curl each public vhost over the internet (hairpin); any non-2xx/3xx fails
 # the unit (=> notify@). No Uptime Kuma container by design.
 set -euo pipefail
