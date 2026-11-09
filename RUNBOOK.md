@@ -963,3 +963,16 @@ Do not test by deleting data.
   move `state/beszel.removed-20261109` back to `state/beszel`, revert
   the Caddyfile/backup role change, then `make deploy && make
   edge-reload && make host`.
+- Grafana admin password: `GF_SECURITY_ADMIN_PASSWORD` (from
+  `GRAFANA_ADMIN_PASSWORD` in the stack `.env`) only **seeds** the
+  `admin` user on first init. Grafana hashes it into
+  `state/grafana/grafana.db` and never re-reads the env var, so editing
+  `.env` alone does not change the login. The `.env` value is the
+  documented login; to reset it to that value use
+  `sudo sh -c '. /opt/stacks/observability/.env; docker exec
+  observability-grafana-1 grafana cli --homepath /usr/share/grafana
+  admin reset-admin-password "$GRAFANA_ADMIN_PASSWORD"'` (never echo
+  the value). Verified 2026-11-09: after the CLI reset, `POST /login`
+  with `admin` + the `.env` password returns `200`, `/api/user` with
+  the returned cookie returns `200`, and
+  `/api/dashboards/uid/homelab-overview` returns `200`.
