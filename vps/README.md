@@ -3,11 +3,29 @@
 The VPS is the public edge only: Caddy terminates HTTP(S), nftables forwards
 non-HTTP ports to `chill-01` over WireGuard, and no apps run here.
 
+## Deploy
+
+Host state is Ansible-managed. From the repo root:
+
+```sh
+make vps
+# or: ansible-playbook ansible/vps.yml
+```
+
+The playbook installs the packages, SSH hardening, Caddy files, nftables
+include, sysctls and the static WireGuard tunnel. `/etc/wireguard/chill0.conf`
+is never in git; write it on the box before the first run. A second run
+reports `changed=0`.
+
 ## Git-owned files
 
 - `/etc/caddy/Caddyfile` from `vps/Caddyfile`
 - `/etc/caddy/sites/*.caddy` from `vps/sites/*.caddy`
 - `/etc/nftables.d/homelab_nat.conf` from `vps/nftables.conf`
+
+Public vhosts are git-owned in `vps/sites/*.caddy`: the playbook copies them,
+runs `caddy validate`, reloads only when validation passes, and removes site
+files deleted from git.
 
 `vps/nftables.conf` owns only the `ip homelab_nat` NAT table. It must not flush
 or replace the provider/local firewall ruleset.

@@ -14,7 +14,7 @@ incidents in `RUNBOOK.md`.
 - VM 101 `chill-01` (running): 4 vCPU, 16G RAM, 80G `local-lvm` disk
   (`scsi0`, `virtio-scsi-single`, `iothread=1`),
   `hostpci0 00:02.0` Intel iGPU passthrough (UHD 630, vfio-pci).
-  Runs all Docker Compose apps (~37 containers). IP LAN `192.168.1.200`,
+  Runs all Docker Compose apps (~45 containers). IP LAN `192.168.1.200`,
   WG `10.44.0.2`, Tailscale `100.92.173.71`.
 - VM 103 `debian-01` (running, 16G+64G `scsi` disks). VM 102 `alpine-01` +
   LXC 200 `friend` destroyed 2026-09-30 (final vzdumps
@@ -25,9 +25,17 @@ incidents in `RUNBOOK.md`.
 - VPS `debian-13` (`194.58.47.21:4522`): public edge, Caddy TLS +
   nftables NAT. No apps. SSH is key-only (`PermitRootLogin
   prohibit-password`, `PasswordAuthentication no` via
-  `/etc/ssh/sshd_config.d/00-homelab-hardening.conf`, written by
-  `vps/bootstrap.sh`); root still has a console password for the
+  `/etc/ssh/sshd_config.d/00-homelab-hardening.conf`, written by the
+  `vps_edge` Ansible role); root still has a console password for the
   provider, but SSH never accepts it.
+- Host state is Ansible-managed: `ansible/chill.yml` and
+  `ansible/vps.yml` with roles under `ansible/roles/`. `bootstrap.sh`
+  and `vps/bootstrap.sh` were deleted; `make host` / `make vps` are the
+  only host entry points, and a second run reports `changed=0`.
+- OpenTofu (`tofu/`) codifies VM 101 import-only: `prevent_destroy`,
+  plan-only policy, never apply. Credentials live outside the repo at
+  `~/.config/homelab/tofu.env` (a least-privilege Proxmox API token).
+  `make tofu-check` is offline (CI); `make tofu-plan` needs the token.
 
 ## tailnet + links
 
@@ -97,12 +105,19 @@ guests, snapshot, zstd, Sun 03:30, keep-last 8, writes
   public and never from the VPS tunnel. The tailnet is the auth boundary.
 - `observability`: Gotify (`:8070`, private only), Beszel (`:8090`) +
   beszel-agent (`network_mode: host` — documented
-  exception for host/container metrics; UFW still gates inbound).
+  exception for host/container metrics; UFW still gates inbound),
+  prometheus (published only on `127.0.0.1:9091` — Cockpit owns
+  `*:9090`), alertmanager, alertmanager-gotify-bridge, node-exporter,
+  cadvisor (privileged — documented exception), blackbox-exporter,
+  grafana. Grafana is private-only via `grafana.h.malice.biz` ->
+  `10.44.0.2:3000`. Roughly 45 containers in total on the host.
 - Host admin: Cockpit (`cockpit.h.malice.biz` / `:9090`, includes web
   terminal) is Tailscale/private Caddy only; no public route and blocked
   from the VPS WireGuard tunnel.
 - `edge`: private Caddy (`*.h.malice.biz`, DNS-01 wildcard, Tailscale
-  bind). Exact-host matchers; never duplicate a public name.
+  bind). Exact-host matchers; never duplicate a public name. Caddy reads
+  its config at start, so a route edit needs `make edge-reload` — a
+  deploy of an unchanged compose file is a no-op.
 
 ## public edge (VPS, git-owned `vps/sites/*.caddy`)
 
