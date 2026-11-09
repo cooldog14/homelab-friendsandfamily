@@ -946,7 +946,10 @@ Do not test by deleting data.
   (`000`/connection failure); `https://beszel.h.malice.biz` returns
   `404`; Prometheus `/api/v1/targets?state=any` = 24 targets, 0 down,
   `probe_success{job="blackbox-http"}` 13/13; Grafana
-  `/api/dashboards/uid/homelab-overview` still serves 14 panels;
+  `/api/dashboards/uid/homelab-overview` served the dashboard (10
+  panels after the same-day container-table refactor: host stats,
+  probes and a single `Conteneurs` table with per-container memory,
+  CPU, uptime and restarts);
   `homelab-public-check` green (13 HTTP + 4 TCP); `make host` second
   run `changed=0 failed=0`, `make vps` `changed=0`; `make check` steps
   (compose config, Caddy adapt/validate, promtool/amtool/blackbox,
