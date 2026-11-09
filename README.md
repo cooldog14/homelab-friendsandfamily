@@ -5,7 +5,7 @@ A friends & family platform: one hypervisor, one application VM, one edge VPS, a
 [![ci](https://github.com/cooldog14/homelab-friendsandfamily/actions/workflows/ci.yml/badge.svg)](https://github.com/cooldog14/homelab-friendsandfamily/actions/workflows/ci.yml)
 
 The platform serves photos, documents, media, chat and games to a small group of
-people. A single Proxmox hypervisor runs one Debian VM that hosts ~45 Docker
+people. A single Proxmox hypervisor runs one Debian VM that hosts ~43 Docker
 Compose services across 8 stacks; a small Debian VPS is the only
 internet-facing host and reaches the VM over WireGuard. Everything that can be
 codified — playbooks, compose files, Caddy routes, firewall rules, VM
@@ -25,7 +25,7 @@ flowchart LR
 
 | Metric | Value |
 |---|---|
-| Compose services | 45 |
+| Compose services | 43 |
 | Compose stacks | 8 |
 | Public HTTPS vhosts | 13 |
 | Private (tailnet) vhosts | 17 |

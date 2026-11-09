@@ -908,3 +908,58 @@ Do not test by deleting data.
   provider-only flags are in `lifecycle.ignore_changes` because the
   provider cannot read them back on an imported VM; they are
   documentation-only and drift there is invisible to `plan`.
+
+## maintenance 2026-11-09: retire Beszel (Prometheus + cAdvisor replace it)
+
+- What changed: Beszel (`beszel` hub + `beszel-agent`) is gone from
+  `stacks/observability/docker-compose.yml`. Prometheus + cAdvisor +
+  Grafana already cover host and per-container metrics with real alert
+  rules, so the hub, its agent, the `:8090` private vhost and the
+  host-network agent on `:45876` were redundant attack surface and a
+  second place for monitoring to go stale (it went blind for 7 days on
+  2026-10-30). Gotify stays: it is the sink for Alertmanager,
+  `notify@.service` and the backup units.
+- Code removed: both compose services (including the `beszel-agent`
+  host-network exception comment, `extra_hosts` and the
+  `docker.sock` mount), `BESZEL_KEY` from `.env.example`, the
+  `beszel.db` dump line in `host/backup.sh`, the `@beszel` matcher +
+  `reverse_proxy` in `stacks/edge/Caddyfile`, the Beszel link on
+  `home.h`, the two Beszel UFW allows in `chill_firewall` (replaced by
+  two idempotent `delete: true` cleanups), and the
+  `stacks/(comms|observability)` host-network exception in
+  `make check` (now `stacks/comms` only).
+- Live cleanup on chill-01: `make deploy` removed
+  `observability-beszel-1` and `observability-beszel-agent-1`
+  (`--remove-orphans`), `make edge-reload` restarted Caddy so the vhost
+  now falls through to the "unknown private service" 404. The
+  `BESZEL_KEY` line was deleted in place from the host `.env`
+  (mode kept `600`), `state/beszel` was renamed to
+  `state/beszel.removed-20261109` (delete it once the short history is
+  not needed), and the leftover UFW `45876` rules were deleted by the
+  first `make host` (`172.16.0.0/12 -> 45876` and
+  `172.20.0.0/16 -> 172.17.0.1:45876` both reported `changed`). The
+  Gotify app `beszel` was left in place: it costs nothing and its
+  token is not referenced by any config now.
+- Verification actually performed: `docker compose -p observability ps`
+  shows the 8 remaining services Up and no beszel container; `ss -lntp`
+  has no `45876` listener; `http://10.44.0.2:8090` refuses
+  (`000`/connection failure); `https://beszel.h.malice.biz` returns
+  `404`; Prometheus `/api/v1/targets?state=any` = 24 targets, 0 down,
+  `probe_success{job="blackbox-http"}` 13/13; Grafana
+  `/api/dashboards/uid/homelab-overview` still serves 14 panels;
+  `homelab-public-check` green (13 HTTP + 4 TCP); `make host` second
+  run `changed=0 failed=0`, `make vps` `changed=0`; `make check` steps
+  (compose config, Caddy adapt/validate, promtool/amtool/blackbox,
+  shellcheck, dashboard JSON) pass, `make ansible-check`,
+  `ansible-lint ansible` and `make tofu-check` pass.
+- Tradeoff: Prometheus keeps `--storage.tsdb.retention.time=15d` (1 GB
+  `mem_limit`); Beszel kept per-container history indefinitely. If long
+  history matters, raise the retention flag (disk under
+  `state/prometheus` is the only cost) instead of reintroducing a
+  second metrics store.
+- Rollback: re-add the services from git history, e.g.
+  `git show 1a8913c492d2058d2123b73e4951de9640f37c11:stacks/observability/docker-compose.yml`
+  for the pre-removal compose file, restore `BESZEL_KEY` in `.env`,
+  move `state/beszel.removed-20261109` back to `state/beszel`, revert
+  the Caddyfile/backup role change, then `make deploy && make
+  edge-reload && make host`.
