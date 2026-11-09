@@ -873,3 +873,38 @@ Do not test by deleting data.
   `trustProxyHeaders` for Filebrowser 2.x behind Caddy (unverified);
   Jellyfin full rescan check; move admin ports off 10.44.0.2; Immich
   PG 14 EOL 2026-11-12 (plan dump+restore).
+
+## maintenance 2026-11-09: IaC cutover (Ansible + OpenTofu) and Prometheus/Grafana observability
+
+- What changed: `bootstrap.sh` and `vps/bootstrap.sh` deleted — host state
+  is Ansible-only (`ansible/chill.yml`, `ansible/vps.yml`, roles under
+  `ansible/roles/`: `chill_base`, `chill_docker`, `chill_storage`,
+  `chill_units`, `chill_firewall`, `vps_edge`). OpenTofu (`tofu/`)
+  codifies VM 101 import-only: `prevent_destroy`, plan-only policy,
+  never apply; token in `~/.config/homelab/tofu.env` (outside the repo).
+- New observability services in the `observability` stack: gotify,
+  beszel, beszel-agent, prometheus, alertmanager,
+  alertmanager-gotify-bridge, node-exporter, cadvisor (privileged,
+  documented exception), blackbox-exporter, grafana (~45 containers
+  total). Prometheus is published only on `127.0.0.1:9091` because
+  Cockpit owns `*:9090`; Grafana is private-only via
+  `grafana.h.malice.biz` -> `10.44.0.2:3000`.
+- `host/metrics.sh` + `homelab-metrics.timer` export backup age and
+  WireGuard handshake age as node_exporter textfile metrics, so a
+  stalled collector shows up as a missing series. `host/firewall-neko.sh`
+  was extracted from the deleted bootstrap script. New `make
+  edge-reload` target: Caddy does not reload on route edits, and
+  `compose up -d` on an unchanged file is a no-op.
+- Verification actually performed: double playbook runs on both hosts
+  report `changed=0`; all services active; public-check 13 HTTP + 4 TCP
+  green; `promtool` config/rules, `amtool check-config` and blackbox
+  config checks pass; alert test `HostDown` delivered to Gotify then
+  resolved; `make restore-test` 15 s; `tofu plan -detailed-exitcode` = 0.
+- Rollback: re-run the playbooks from a known-good commit. Caddy and
+  VPS configs are still on disk at `/etc/caddy` and `/etc/nftables.d`.
+  The VM itself is never applied by tofu — `tofu state` can be
+  discarded with `tofu state rm` if needed.
+- OpenTofu caveat: `smbios`, `vga`, cloud-init `user_account` and
+  provider-only flags are in `lifecycle.ignore_changes` because the
+  provider cannot read them back on an imported VM; they are
+  documentation-only and drift there is invisible to `plan`.
