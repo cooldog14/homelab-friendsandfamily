@@ -1,0 +1,104 @@
+---
+# UFW parity with the old bootstrap script. Deliberately NOT a hardening pass:
+# the live rule set has extra allowances (wg0 broad, narrow 172.20/16) that stay.
+- name: Allow LAN SSH
+  community.general.ufw:
+    rule: allow
+    direction: in
+    interface: eth0
+    from_ip: 192.168.1.0/24
+    to_port: "22"
+    proto: tcp
+
+# No DNS service on this host any more.
+- name: Remove legacy DNS rules
+  community.general.ufw:
+    rule: allow
+    port: "53"
+    proto: "{{ item }}"
+    delete: true
+  loop: [tcp, udp]
+  loop_control:
+    label: "53/{{ item }}"
+  ignore_errors: true
+
+# Cockpit is host admin + web terminal: tailscale0 covers direct tailnet clients,
+# 172.18.0.0/16 covers ONLY the pinned edge_default subnet, and the wg0 deny
+# keeps it off the VPS path. Never widen back to 172.16/12 (audit CHILL-2).
+- name: Deny Cockpit on the WireGuard interface
+  community.general.ufw:
+    rule: deny
+    direction: in
+    interface: wg0
+    to_port: "9090"
+    insert: 1
+
+- name: Remove the wide Cockpit allowance
+  community.general.ufw:
+    rule: allow
+    from_ip: 172.16.0.0/12
+    to_port: "9090"
+    proto: tcp
+    delete: true
+  ignore_errors: true
+
+- name: Allow Cockpit from the edge bridge only
+  community.general.ufw:
+    rule: allow
+    from_ip: 172.18.0.0/16
+    to_port: "9090"
+    proto: tcp
+
+# Docker assigns bridge subnets dynamically: pinning one killed monitoring on
+# 2026-10-30, so keep the /12 source.
+- name: Allow the beszel agent from Docker bridges
+  community.general.ufw:
+    rule: allow
+    from_ip: 172.16.0.0/12
+    to_port: "45876"
+    proto: tcp
+
+- name: Allow all traffic on the overlay interfaces
+  community.general.ufw:
+    rule: allow
+    direction: in
+    interface: "{{ item }}"
+  loop: [wg0, tailscale0]
+
+- name: Allow LAN media playback
+  community.general.ufw:
+    rule: allow
+    direction: in
+    interface: eth0
+    from_ip: 192.168.1.0/24
+    to_port: "8096"
+    proto: tcp
+
+- name: Remove the wide beszel agent rule
+  community.general.ufw:
+    rule: allow
+    to_port: "45876"
+    proto: tcp
+    delete: true
+  ignore_errors: true
+
+- name: Allow the beszel hub to reach the agent on its listen address
+  community.general.ufw:
+    rule: allow
+    from_ip: 172.20.0.0/16
+    to_ip: 172.17.0.1
+    to_port: "45876"
+    proto: tcp
+
+- name: Enable UFW
+  community.general.ufw:
+    state: enabled
+
+# UFW never sees Docker-published ports (the DOCKER chain jumps before
+# ufw-user-input), so the Neko browser needs a DOCKER-USER guard.
+- name: Enforce the DOCKER-USER isolation rules
+  ansible.builtin.command:
+    cmd: /usr/local/bin/homelab-firewall-neko
+  register: chill_firewall_neko_block
+  changed_when: chill_firewall_neko_block.stdout | trim == 'changed'
+  failed_when: chill_firewall_neko_block.rc != 0

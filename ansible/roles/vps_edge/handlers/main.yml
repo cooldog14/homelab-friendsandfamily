@@ -1,0 +1,41 @@
+---
+- name: Apply nftables rules
+  ansible.builtin.command:
+    cmd: nft -f /etc/nftables.d/homelab_nat.conf
+  listen: Apply nftables rules
+
+- name: Validate the Caddy configuration
+  ansible.builtin.command:
+    cmd: caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+  changed_when: false
+  listen: caddy config changed
+
+- name: Reload caddy
+  ansible.builtin.systemd_service:
+    name: caddy
+    state: reloaded
+  listen: caddy config changed
+
+- name: Validate the Caddy configuration before restart
+  ansible.builtin.command:
+    cmd: caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+  changed_when: false
+  listen: caddy restart
+
+- name: Restart caddy
+  ansible.builtin.systemd_service:
+    name: caddy
+    state: restarted
+  listen: caddy restart
+
+- name: Validate the SSH configuration
+  ansible.builtin.command:
+    cmd: sshd -t
+  changed_when: false
+  listen: Validate and reload ssh
+
+- name: Reload ssh
+  ansible.builtin.systemd_service:
+    name: ssh
+    state: reloaded
+  listen: Validate and reload ssh

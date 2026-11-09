@@ -1,0 +1,10 @@
+---
+- name: chill-01 (application VM)
+  hosts: chill
+  become: true
+  roles:
+    - chill_base
+    - chill_docker
+    - chill_storage
+    - chill_units
+    - chill_firewall
