@@ -67,17 +67,19 @@ def _net_query(direction: str) -> str:
 
 _FS_FILTER = 'fstype!~"tmpfs|overlay|squashfs|ramfs|autofs"'
 DISK_USED_Q = (
-    "max by (mountpoint) (100 * (1 - "
+    "max by (mountpoint, device) (100 * (1 - "
     f'node_filesystem_avail_bytes{{job="node",{_FS_FILTER}}}'
     " / "
     f'node_filesystem_size_bytes{{job="node",{_FS_FILTER}}}'
     "))"
 )
 DISK_SIZE_Q = (
-    f'max by (mountpoint) (node_filesystem_size_bytes{{job="node",{_FS_FILTER}}})'
+    f'max by (mountpoint, device) '
+    f'(node_filesystem_size_bytes{{job="node",{_FS_FILTER}}})'
 )
 DISK_AVAIL_Q = (
-    f'max by (mountpoint) (node_filesystem_avail_bytes{{job="node",{_FS_FILTER}}})'
+    f'max by (mountpoint, device) '
+    f'(node_filesystem_avail_bytes{{job="node",{_FS_FILTER}}})'
 )
 
 # cAdvisor: what each container actually uses.
@@ -258,33 +260,39 @@ class Collectors:
 
     def _fetch_telemetry(self) -> dict:
         prom = self.prometheus
-        nodes = []
-        for name, job in (("chill-01", "node"), ("malice", "malice")):
-            nodes.append(
-                {
-                    "name": name,
-                    "up": (prom.value(f'up{{job="{job}"}}') or 0.0) == 1.0,
-                    "cpu_pct": prom.value(_cpu_query(job)),
-                    "mem_pct": prom.value(_mem_query(job)),
-                }
-            )
+        # This dashboard describes chill-01. The hypervisor and the VPS keep
+        # their own Prometheus/Gotify alerting; they are not shown here.
+        nodes = [
+            {
+                "name": "chill-01",
+                "up": (prom.value('up{job="node"}') or 0.0) == 1.0,
+                "cpu_pct": prom.value(_cpu_query("node")),
+                "mem_pct": prom.value(_mem_query("node")),
+            }
+        ]
 
-        used = {row["metric"].get("mountpoint"): row["value"] for row in prom.query(DISK_USED_Q)}
-        size = {row["metric"].get("mountpoint"): row["value"] for row in prom.query(DISK_SIZE_Q)}
-        avail = {row["metric"].get("mountpoint"): row["value"] for row in prom.query(DISK_AVAIL_Q)}
-        disks = []
-        for mount in DISK_MOUNTS:
-            if mount not in used:
-                continue
-            free = int(avail.get(mount) or 0)
-            disks.append(
-                {
-                    "mountpoint": mount,
-                    "used_pct": used.get(mount),
-                    "size_bytes": int(size.get(mount) or 0),
-                    "avail_bytes": free,
-                }
-            )
+        def by_mount_and_device(expression: str) -> dict[tuple, float]:
+            table: dict[tuple, float] = {}
+            for row in prom.query(expression):
+                metric = row["metric"]
+                table[(metric.get("mountpoint"), metric.get("device"))] = row["value"]
+            return table
+
+        used = by_mount_and_device(DISK_USED_Q)
+        size = by_mount_and_device(DISK_SIZE_Q)
+        avail = by_mount_and_device(DISK_AVAIL_Q)
+        rows = [
+            {
+                "mountpoint": key[0],
+                "device": key[1],
+                "used_pct": value,
+                "size_bytes": int(size.get(key) or 0),
+                "avail_bytes": int(avail.get(key) or 0),
+            }
+            for key, value in used.items()
+            if key[0] in DISK_MOUNTS
+        ]
+        disks = parsers.dedupe_disks(rows, DISK_MOUNTS)
 
         series: dict[str, dict] = {}
         for key, (expression, unit) in SERIES.items():
@@ -399,7 +407,7 @@ class Collectors:
 
         hosts_up = {
             row["metric"].get("job"): row["value"] == 1.0
-            for row in prom.query('up{job=~"node|malice"}')
+            for row in prom.query('up{job="node"}')
         }
 
         cpu = index(CONTAINER_CPU_Q, ("name",))

@@ -525,6 +525,40 @@ class TriageTests(unittest.TestCase):
         )
 
 
+class DiskAndBackupScopeTests(unittest.TestCase):
+    def test_bind_mounts_collapse_to_one_row(self) -> None:
+        rows = [
+            {"mountpoint": "/mnt/data", "device": "pve1-pool", "used_pct": 50.7},
+            {"mountpoint": "/mnt/pool", "device": "pve1-pool", "used_pct": 50.7},
+            {"mountpoint": "/mnt/fast", "device": "pve1-fast", "used_pct": 11.2},
+            {"mountpoint": "/", "device": "/dev/sda1", "used_pct": 62.6},
+        ]
+        kept = parsers.dedupe_disks(rows, ("/", "/mnt/data", "/mnt/pool", "/mnt/fast"))
+        self.assertEqual([row["mountpoint"] for row in kept], ["/", "/mnt/data", "/mnt/fast"])
+        self.assertEqual(kept[1]["aliases"], ["/mnt/pool"])
+        self.assertEqual(kept[2]["aliases"], [])
+
+    def test_backups_only_show_this_host(self) -> None:
+        infra = {
+            "jobs": [
+                {"host": "chill-01", "task": "backup", "timer_active": True},
+                {"host": "malice", "task": "malice-backup", "timer_active": True},
+            ],
+            "backup_markers": [
+                {"host": "chill-01", "source": "homelab", "last_success": NOW - 60},
+                {"host": "malice", "source": "malice", "last_success": NOW - 60},
+            ],
+            "repos": [
+                {"host": "chill-01", "repository": "cloud", "snapshot_count": 3},
+                {"host": "malice", "repository": "cloud", "snapshot_count": 3},
+            ],
+        }
+        section = snapshot._backups_section(infra, NOW)
+        self.assertEqual([row["host"] for row in section["jobs"]], ["chill-01"])
+        self.assertEqual([row["host"] for row in section["markers"]], ["chill-01"])
+        self.assertEqual([row["host"] for row in section["repos"]], ["chill-01"])
+
+
 class PayloadTests(unittest.TestCase):
     def test_jellyfin_sessions(self) -> None:
         result = parsers.normalize_jellyfin_sessions(JELLYFIN_SESSIONS)
@@ -772,11 +806,17 @@ class AlertTests(unittest.TestCase):
     def test_job_metrics_missing_is_hard(self) -> None:
         identifiers = by_id(derive(jobs=[]))
         self.assertEqual(identifiers["job-metrics-missing:chill-01"]["severity"], "alert")
-        self.assertIn("job-metrics-missing:malice", identifiers)
+
+    def test_other_hosts_are_not_reported(self) -> None:
+        """This dashboard is the chill-01 view; malice keeps its own alerting."""
+        alerts = by_id(derive(up={"node": True, "malice": False}, jobs=[]))
+        self.assertNotIn("host-down:malice", alerts)
+        self.assertNotIn("job-metrics-missing:malice", alerts)
 
     def test_backup_marker_missing_and_stale(self) -> None:
         missing = derive(markers=[])
-        self.assertIn("backup-missing:malice", {a["id"] for a in missing})
+        self.assertIn("backup-missing:chill-01", {a["id"] for a in missing})
+        self.assertNotIn("backup-missing:malice", {a["id"] for a in missing})
         stale = derive(
             markers=[
                 {"host": "chill-01", "source": "homelab", "last_success": NOW - 3 * 86400, "age": 3 * 86400},

@@ -63,13 +63,10 @@ services:
   observability/dashboard: {label: Home, private_host: home}
   edge/caddy: {internal: true, logs: true}
 extra_services:
-  - {id: host/malice, label: "malice · Proxmox", category: infra,
-     link: "https://cockpit.h.malice.biz", up_job: malice}
+  # Only this VM is described here. malice, the VPS and debian-01 keep their
+  # own monitoring (Prometheus rules + Gotify) and are not part of this view.
   - {id: host/chill-01, label: "chill-01 · application VM", category: infra,
      up_job: node}
-  - {id: host/vps, label: "debian-13 · edge VPS", category: infra,
-     health: "public-probes"}
-  - {id: host/debian-01, label: "debian-01 · remote site", category: infra}
 dnat:
   - {port: 64738, label: Mumble, proto: "tcp+udp"}
   - {port: 52000, label: "Neko WebRTC", proto: "tcp+udp"}

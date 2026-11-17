@@ -22,7 +22,10 @@ TLS_ALERT_DAYS = 7.0
 WIREGUARD_WARN_SECONDS = 600.0
 BACKUP_ALERT_SECONDS = 48 * HOUR
 BACKUP_WARN_SECONDS = 12 * HOUR
-EXPECTED_HOSTS = (("chill-01", "node"), ("malice", "malice"))
+# One host: this dashboard is the chill-01 view. Everything else keeps its own
+# Prometheus rules and Gotify alerts.
+DASHBOARD_HOST = "chill-01"
+EXPECTED_HOSTS = ((DASHBOARD_HOST, "node"),)
 # Every rule below is already derived locally, so surfacing it twice would only
 # add noise. Anything not listed (OOM kills, restart loops, memory pressure)
 # reaches the page solely through Prometheus.
@@ -43,7 +46,7 @@ MIRRORED_RULES = frozenset(
         "WireGuardHandshakeStale",
     }
 )
-EXPECTED_BACKUP_MARKERS = (("chill-01", "homelab"), ("malice", "malice"))
+EXPECTED_BACKUP_MARKERS = ((DASHBOARD_HOST, "homelab"),)
 
 
 def _data(store_snapshot: dict) -> Any:
@@ -414,6 +417,8 @@ def _pipeline_section(integrations: dict) -> dict:
 def _backups_section(infra: dict, now: float) -> dict:
     jobs = []
     for job in (infra or {}).get("jobs") or []:
+        if job.get("host") != DASHBOARD_HOST:
+            continue
         jobs.append(
             {
                 "host": job.get("host"),
@@ -432,6 +437,8 @@ def _backups_section(infra: dict, now: float) -> dict:
         )
     markers = []
     for marker in (infra or {}).get("backup_markers") or []:
+        if marker.get("host") != DASHBOARD_HOST:
+            continue
         markers.append(
             {
                 "host": marker.get("host"),
@@ -442,6 +449,8 @@ def _backups_section(infra: dict, now: float) -> dict:
         )
     repos = []
     for repo in (infra or {}).get("repos") or []:
+        if repo.get("host") != DASHBOARD_HOST:
+            continue
         repos.append(
             {
                 "host": repo.get("host"),
