@@ -14,33 +14,13 @@ decision.
   restic and VM dumps before any physical pull, then pull `sdc` + `sda` and keep
   `sdb` (`/mnt/vault`). **Verify:** `/mnt/pool/.diskmove` byte-verified, mounts
   rebuilt, dumps and local restic readable, public checks green after reboot.
-- [ ] **Deploy the WAN prober (blocked: Cloudflare Workers token).** The
-  GitHub schedule still produces no runs, and the VPS heartbeat only proves the
-  VPS can reach the backends, not that the WAN path works. `workers/wan-heartbeat`
-  is written and both paths are verified locally (`GET /` on success,
-  `GET /fail` on any failure), but it cannot be deployed: there is no
-  Workers-enabled token in `~/.config/homelab/cloudflare-workers.env`. The
-  existing DNS token returns 403 for Workers and must not be reused.
-  **Next, in order:**
-  1. Create a token with Account → Workers Scripts → Edit and write
-     `~/.config/homelab/cloudflare-workers.env` (0600) with
-     `CLOUDFLARE_API_TOKEN` and
-     `CLOUDFLARE_ACCOUNT_ID=e7a4dead1f068a3b82523e4b3e787ec2`.
-  2. `set -a; . ~/.config/homelab/cloudflare-workers.env; set +a` then
-     `cd workers/wan-heartbeat && npx --yes wrangler@4.164.0 deploy`.
-  3. Pipe the existing URL without printing it:
-     `ssh vps-ingress 'sudo cat /etc/homelab-heartbeat.env' | grep -o 'https[^"]*' |
-     npx --yes wrangler@4.164.0 secret put HEARTBEAT_URL`.
-  4. `npx --yes wrangler@4.164.0 tail homelab-wan-heartbeat --format pretty` for
-     one five-minute window and require a scheduled success.
-  5. Only then delete `host/edge-heartbeat.sh`,
-     `host/homelab-edge-heartbeat.{service,timer}`, the two install/restart tasks
-     in `ansible/roles/vps_edge/tasks/main.yml`, the shellcheck entry in the
-     `Makefile`, and `.github/workflows/external-public-check.yml`; add a
-     role cleanup for the old unit, timer, binary and
-     `/etc/homelab-heartbeat.env`, then run `make vps --forks 1` and confirm
-     the timer and env file are gone.
-  Until then both heartbeat paths stay in place.
+- [x] **Deploy the WAN prober.** Cloudflare Worker `homelab-wan-heartbeat`
+  deployed with a five-minute cron and the existing Healthchecks URL stored as
+  a write-only Worker secret. Three consecutive scheduled runs logged
+  `all 13 public targets healthy` / `heartbeat 200 ok`. The old VPS
+  `homelab-edge-heartbeat` timer/env and the GitHub
+  `external-public-check` workflow were removed; the Worker has no public route.
+  Raw TCP DNAT remains covered by `homelab-public-check.timer` on `chill-01`.
 - [x] **Restore CrowdSec HTTP enforcement.** Caddy 2.11.9 and CrowdSec 1.8.2
   now come from their own repositories, the bouncer is 0.0.38 in nftables mode
   with input+forward hooks, and `/var/log/caddy/access.log` is acquired with the

@@ -167,13 +167,12 @@ guests, snapshot, zstd, Sun 03:30, keep-last 8, writes
   weekly `malice-restic-check.timer` reads 5% of pack data.
   `prometheus-node-exporter` listens only on the malice Tailscale address
   and is scraped by Prometheus on `chill-01`.
-- `homelab-edge-heartbeat.timer` on the VPS checks public Caddy routes and
-  TCP backends every five minutes. It sends a heartbeat only when all pass.
-  `/etc/homelab-heartbeat.env` (0600, root-only) holds `HEARTBEAT_URL` and is
-  outside git. Configure the external check for a 5m period / 15m grace.
-- `.github/workflows/external-public-check.yml` probes the public edge from
-  GitHub every 10 minutes. It opens an assigned issue on failure and closes it
-  on recovery. `workflow_dispatch` with `force_failure=true` tests alerting.
+- `workers/wan-heartbeat` is a Cloudflare Worker on a five-minute cron. It
+  probes every public vhost from the internet and pings the Healthchecks check
+  only when all answer; the check is configured for a 5m period / 15m grace.
+  The Worker has no public route (`workers_dev = false`) and stores the ping URL
+  as a write-only Worker secret. Raw TCP DNAT is checked by
+  `homelab-public-check.timer` on `chill-01`.
 
 ## access matrix
 | Target | Primary (Tailscale) | Fallback |

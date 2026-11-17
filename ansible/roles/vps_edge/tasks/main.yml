@@ -494,27 +494,27 @@
     - crowdsec
     - crowdsec-firewall-bouncer
 
-- name: Install the external heartbeat client
-  ansible.builtin.copy:
-    src: "{{ playbook_dir }}/../host/edge-heartbeat.sh"
-    dest: /usr/local/bin/homelab-edge-heartbeat
-    mode: "0755"
-
-- name: Install the external heartbeat units
-  ansible.builtin.copy:
-    src: "{{ playbook_dir }}/../host/{{ item }}"
-    dest: "/etc/systemd/system/{{ item }}"
-    mode: "0644"
-  loop:
-    - homelab-edge-heartbeat.service
-    - homelab-edge-heartbeat.timer
-  notify: Reload systemd
-
-- name: Reload systemd before enabling the heartbeat timer
-  ansible.builtin.meta: flush_handlers
-
-- name: Enable the external heartbeat timer
+- name: Stop and disable the retired VPS heartbeat
   ansible.builtin.systemd_service:
-    name: homelab-edge-heartbeat.timer
-    enabled: true
-    state: started
+    name: "{{ item }}"
+    enabled: false
+    state: stopped
+  loop:
+    - homelab-edge-heartbeat.timer
+    - homelab-edge-heartbeat.service
+  failed_when: false
+
+- name: Remove the retired VPS heartbeat files
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /etc/systemd/system/homelab-edge-heartbeat.service
+    - /etc/systemd/system/homelab-edge-heartbeat.timer
+    - /usr/local/bin/homelab-edge-heartbeat
+    - /etc/homelab-heartbeat.env
+
+- name: Reload systemd after removing the retired heartbeat units
+  ansible.builtin.command:
+    cmd: systemctl daemon-reload  # noqa: command-instead-of-module
+  changed_when: false

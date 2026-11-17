@@ -50,11 +50,10 @@ RTO for rebuilding the platform.
   runbook entry that records the symptom, the diagnosis, the repair and the
   prevention.
 - **Observable, reproducible core services.** Prometheus and Alertmanager cover
-  the application VM, the hypervisor and the public edge. The VPS sends a
-  five-minute external heartbeat only while public checks pass, and a
-  GitHub-hosted probe checks the same public edge from outside the network every
-  ten minutes. Ansible manages host state; OpenTofu plans the imported
-  application VM without applying changes.
+  the application VM, the hypervisor and the public edge. A Cloudflare Worker
+  probes every public vhost from the internet every five minutes and pings an
+  external heartbeat only when all pass. Ansible manages host state; OpenTofu
+  plans the imported application VM without applying changes.
 
 ## Deep dives
 
