@@ -1083,8 +1083,14 @@ Do not test by deleting data.
   "Done (14.6s)"), slskd 0.26.2.
 - Hypervisor: fresh vzdump of all guests (6.1G, 37G, 2.7G), PVE matcher set to
   `gotify` only, mail queue drained, then a full upgrade (pve-manager 9.2.28,
-  qemu-server 9.2.15, 0 pending) and a reboot into 7.0.14-29-pve. Prometheus now
-  alert on hypervisor memory below 10% and on any swap-in rate.
+  qemu-server 9.2.15, 0 pending) and a reboot. All three guests came back and
+  node exporter is up. Kernel `7.0.14-29-pve` is installed and GRUB's
+  `/boot/grub/grub.cfg` lists it first, but the host still boots
+  `7.0.14-26-pve`: the EFI system partition (`sde2`) is not mounted at
+  `/boot/efi`, so `update-grub` cannot refresh the ESP menu and the firmware
+  boots the previous entry. Left alone deliberately — a bootloader change with
+  no console access is a worse risk than one point release behind. Prometheus
+  now alerts on hypervisor memory below 10% and on any swap-in rate.
 - Deploy: `make host`, `make vps` and `make hypervisor` second runs report
   `changed=0`.
 - Rollback: previous image tags are in the commit before this one. The Immich
