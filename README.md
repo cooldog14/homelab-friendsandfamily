@@ -10,9 +10,9 @@ people. `chill-01` hosts 42 Docker Compose services across 8 stacks; a small
 Debian VPS is the only host with a public IP and reaches the application VM over
 WireGuard.
 
-Playbooks, Compose files, Caddy routes, NAT rules and an import-only definition
-of `chill-01` live here. Secrets and application data do not. The VPS input
-firewall, CrowdSec setup and Caddy package source are not yet fully codified.
+Playbooks, Compose files, Caddy routes, firewall/NAT rules and an import-only
+definition of `chill-01` live here. Secrets and application data do not.
+CrowdSec setup and the Caddy package source are not yet fully codified.
 
 ![Homelab diagram: internet to the VPS edge, WireGuard into the Proxmox host, and the 42 Compose services on chill-01](docs/diagram/out/homelab.png)
 
@@ -31,26 +31,28 @@ render instructions are in [`docs/diagram`](docs/diagram).
 | Full-platform recovery time | Not measured |
 | Managed machines | 1 application VM, 1 edge VPS |
 
-The 2026-11-09 `make restore-test` drill took 15 seconds to restore and validate
-18 objects / 56.5 MiB from the offsite restic repository. That is a sampled
-artifact-restore time, **not** an RTO for rebuilding the platform.
+The 2026-11-17 `make restore-test` drill restored and validated 40 paths
+(1.63 GiB), including 21 SQLite dumps, three Bolt snapshots, the Suwayomi
+archive and the configuration set. A cold run took 6m45s from the offsite
+repository; a warm run took 1m22s. This is sampled artifact recovery, **not** an
+RTO for rebuilding the platform.
 
 ## What this demonstrates
 
 - **A public edge for a host that has no public IP.** TLS terminates on the VPS;
   the home address never appears in public DNS. Internet-originated connections
   reach the application VM only through VPS proxying or explicit port forwarding.
-- **Different tunnels for backend and admin access.** WireGuard carries edge
-  traffic and the P2P exit; Tailscale is the primary human admin path. The
-  exceptions and remaining exposure are listed under **Current gaps**.
-- **Sampled restores, not just backups.** A drill pulls real objects out of the
-  offsite repository, validates the two PostgreSQL and two SQLite dumps, and
-  fails on sampled corruption. It does not rebuild or restore the full platform.
+- **Different tunnels for backend and admin access.** WireGuard carries public
+  edge traffic and the P2P exit; Tailscale is the primary human admin path.
+  Private admin services are no longer published on the WireGuard address.
+- **Sampled restores, not just backups.** A drill restores every database dump
+  and the Suwayomi archive, validates dump integrity, and fails on corruption.
+  It does not rebuild or restore the full platform.
 - **Incident handling with written post-mortems.** Outages end with a dated
   runbook entry that records the symptom, the diagnosis, the repair and the
   prevention.
-- **Observable, reproducible core services.** Prometheus, Alertmanager and
-  blackbox probes cover the application VM and public edge. Ansible manages host
+- **Observable, reproducible core services.** Prometheus and Alertmanager cover
+  the application VM, the hypervisor and the public edge. Ansible manages host
   state; OpenTofu plans the imported application VM without applying changes.
 
 ## Deep dives
@@ -82,48 +84,39 @@ ansible-galaxy collection install -r ansible/requirements.yml
 |---|---|
 | `make check` | Validates compose files, both Caddy configs, the public/private host list, shell scripts, and the observability rules. This is what CI runs. |
 | `make host` | Applies `ansible/chill.yml` to the application VM (idempotent; a second run reports `changed=0`). |
-| `make vps` | Applies `ansible/vps.yml` to the edge VPS: Caddy sites, nftables forwarding, WireGuard. |
-| `make deploy` | Ships the `stacks/` tree to the VM and restarts affected containers. |
+| `make vps` | Applies `ansible/vps.yml` to the edge VPS: Caddy sites, firewall policy, NAT and WireGuard. |
+| `make hypervisor` | Applies `ansible/malice.yml`: tailnet node exporter and host backup/check timers. |
+| `make deploy` | Validates, archives the committed `stacks/` tree, deploys it, re-applies container isolation, and records `.deployed-commit`. |
 | `make edge-reload` | Restarts the private Caddy after a route edit; `docker compose up -d` is a no-op when the compose file did not change. |
-| `make restore-test` | Restores a curated set from the offsite restic repository and asserts dump/config integrity. |
+| `make restore-test` | Restores every database dump plus configuration and asserts integrity. |
 | `make tofu-check` | Offline OpenTofu format and validation checks (no credentials needed). |
 | `make tofu-plan` | Read-only plan of the application VM against the hypervisor. |
-| `make ansible-check` | Syntax-checks both playbooks. |
+| `make ansible-check` | Syntax-checks all playbooks. |
 
-## Current gaps
+## Remaining limitation
 
-A live review on 2026-11-09 found these differences between the intended design
-and the enforced state. Their remediation is the immediate list in [TODO.md](TODO.md).
-
-- The `DOCKER-USER` isolation rules are not restored at boot. A broad `wg0` UFW
-  allow and broad VPS forwarding rules expose more of the application subnet
-  than the published-backend model implies; several admin UIs are reachable
-  from the VPS.
-- A PostgreSQL dump failure aborts the whole backup; only Kavita and Gotify
-  SQLite databases are dumped consistently. Other application databases and
-  Minecraft state are copied while running.
-- Monitoring runs in the failure domain it watches: there is no external
-  dead-man alert, hypervisor exporter or PVE notification target. The 2026-11-09
-  review also observed cAdvisor OOM kills and Grafana nearing its memory limit.
-- `make deploy` ships the working tree without requiring a clean commit or
-  recording the deployed revision; it is not yet a provenance guarantee.
+The external heartbeat client is installed on the VPS and passes its local
+health checks, but no external push URL is configured. Until
+`/etc/homelab-heartbeat.env` contains `HEARTBEAT_URL`, the five-minute
+dead-man timer skips the service. Prometheus, Alertmanager and Gotify also
+remain on the application VM they monitor.
 
 ## Security model
 
 - The public edge accepts **key-only SSH**; password authentication and root
   password login are disabled.
 - **Tailscale is the primary admin path.** VPS public-key SSH and `chill-01` LAN
-  SSH are separate admin paths. WireGuard is not a human admin path by policy,
-  although admin-port exposure from the VPS remains a current gap.
+  SSH are separate admin paths. WireGuard is not a human admin path.
 - **Secrets are excluded from git.** Environment files and keys live on hosts
   with restrictive permissions; CI runs Gitleaks over full history.
 - **OpenTofu is plan-only by workflow.** Credentials are stored outside the
   repository.
 - **WireGuard has separate backend and P2P uses.** `chill0` links the VPS to the
-  application VM; `wg0` provides P2P egress through the VPS. Their intended
-  port-level restrictions are not yet fully enforced.
-- **Isolation uses UFW, nftables and `DOCKER-USER`.** The container rules are
-  effective only after `host/firewall-neko.sh` runs; boot persistence is open.
+  application VM; `wg0` provides P2P egress through the VPS. VPS forwarding is
+  restricted to explicit DNAT flows and the P2P return path.
+- **Isolation is boot-persistent.** UFW, nftables and `DOCKER-USER` rules are
+  restored after Docker starts and re-applied after every deploy. Private admin
+  services communicate with Caddy over a dedicated internal Docker network.
 
 ## Stack
 

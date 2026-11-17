@@ -50,16 +50,18 @@ but fails integrity checks — or worse, opens and is quietly inconsistent.
 So the job dumps before it snapshots:
 
 - `pg_dump` inside the container for the two PostgreSQL applications (photos and
-  documents), using the container's own credentials. Each dump is written to a
-  `.new` path and moved into place only on success.
-- `sqlite3 .backup` for the Kavita and Gotify databases. `.backup` uses SQLite's
-  online backup API, which takes a consistent copy while the application keeps
-  running.
+  documents), using the container's own credentials.
+- `sqlite3 .backup` for active SQLite state: Filebrowser, Kavita, Mumble,
+  Navidrome, Prowlarr, Radarr, Sonarr, Bazarr, Jellyseerr, slskd, wrtag,
+  Jellyfin, Gotify and Grafana.
+- Paused copies for Filebrowser's bbolt files, and a short Suwayomi pause while
+  its H2 store is archived. Minecraft saves are disabled and flushed for the
+  snapshot, then re-enabled.
 
-Current limits: the SQLite dumps are not yet atomic. A SQLite failure alerts and
-continues, but either unguarded PostgreSQL dump failure aborts the entire script
-under `set -e`. Other application databases are copied raw while running rather
-than dumped. Closing these gaps is in the immediate backup work in `TODO.md`.
+Every database dump is written to a `.new` path, validated, and moved into
+place only on success. A failed dump alerts and the rest of the backup still
+runs, but the job exits non-zero after both snapshots so `OnFailure` fires and
+the success marker is not advanced.
 
 ### The drill
 
@@ -69,6 +71,8 @@ set to a temporary directory — never over live data — and then asserts:
 
 - Both PostgreSQL dumps are non-empty and contain a real `pg_dump` header.
 - Every SQLite dump is non-empty and `PRAGMA integrity_check` returns `ok`.
+- All three Filebrowser bbolt copies have valid Bolt headers.
+- The Suwayomi archive is non-empty and readable as a tar stream.
 - The host environment file and the WireGuard interface file are present and
   structurally valid.
 - The VPS configuration pull is present: the public Caddyfile still imports the
@@ -82,26 +86,27 @@ The target prints `restore-test ok` and exits 0 only when every assertion holds.
 
 ## Verification
 
-Measured on 2026-11-09 against the offsite repository:
+Measured on 2026-11-17 against the offsite repository:
 
 ```
-end-to-end: 15 s
-objects:    18 files/directories
-size:       56.5 MiB
+files/dirs: 40 restored of 33 selected paths
+size:       1.63 GiB
+databases:  21 SQLite + 3 Bolt snapshots
 result:     restore-test ok
+cold run:   6m45s
+warm run:   1m22s
 ```
 
-Fifteen seconds to a validated set is fast enough that the drill runs quarterly
-without a maintenance window, and fast enough to run by hand after any change to
-the backup script or the retention policy.
+A warm restore is fast enough to run after backup changes without a maintenance
+window. The first run after new large dumps is network-bound and took 6m45s.
 
 ## Limits
 
 - **RPO is 24 hours.** The job runs nightly. Up to a day of new documents,
   photos and messages can be lost; that is accepted for this platform.
 - **There is no high availability.** A host failure means restoring to
-  replacement hardware, not failing over. The 15-second figure is the restore
-  of the curated set, not the time to rebuild a host.
+  replacement hardware, not failing over. The drill duration is the sampled
+  artifact restore, not the time to rebuild a host.
 - **One host, one repository chain.** The offsite copy protects against losing
   the house, but both repositories are written by the same job from the same
   host; a bug in the script affects both.

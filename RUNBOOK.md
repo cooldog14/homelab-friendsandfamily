@@ -979,3 +979,55 @@ Do not test by deleting data.
   with `admin` + the `.env` password returns `200`, `/api/user` with
   the returned cookie returns `200`, and
   `/api/dashboards/uid/homelab-overview` returns `200`.
+
+## maintenance 2026-11-17: isolation, edge, recovery, and monitoring hardening
+
+- Impact: application containers were recreated during the deploy; private admin
+  UIs were unavailable briefly while Caddy and Stirling restarted. The public
+  checks stayed green after the normal two-minute warmup. One planned reboot of
+  `chill-01` verified mount ordering and boot-time isolation.
+- Isolation: added `homelab-firewall-neko.service`, enabled after Docker and
+  re-applied by `make deploy`. Removed the broad `wg0` UFW allow, leaving only
+  `10.44.0.1`. Added one scoped `DOCKER-USER` allow for Prometheus to scrape the
+  hypervisor on Tailscale TCP/9100; 89 marker rules present after reboot.
+- Admin network: added external `homelab-edge` bridge network. Private Caddy and
+  the admin services now use it; Filebrowser, Stirling, Gotify, Radarr, Sonarr,
+  Bazarr and wrtag have no host-published admin port. Quoting/qBittorrent/
+  Prowlarr/slskd are bound only to Docker's `172.17.0.1` gateway and proxied by
+  private Caddy via `host.docker.internal`. VPS probes to all admin ports fail.
+- VPS: `vps/firewall.nft` now owns the effective input/forward table. Forwarding
+  is DNAT-only plus `wg0 -> eth0`; broad `10.44.0.0/24` accepts and the stale
+  `8088` rule were removed from `/etc/nftables.conf`. Applying the policy exposed
+  missing P2P source NAT, repaired in `vps/nftables.conf` with
+  `10.30.0.4 -> eth0 masquerade`. Gluetun recovered to healthy and reports the
+  VPS public IP.
+- Backup: database dumps are now atomic and failure-aware. PostgreSQL and
+  Filebrowser failures preserve the previous dump; SQLite and Bolt snapshots are
+  integrity-checked. Suwayomi is paused only for a tar snapshot, Minecraft is
+  flushed, live PostgreSQL/model-cache data is excluded, and a non-zero exit
+  after snapshots preserves `OnFailure`. Added weekly sampled-data checks for
+  the hosted cloud/local repos and the malice repo. Unattended reboot moved to
+  `02:30`.
+- Observability: cAdvisor and Grafana limits are 1 GiB; OOM/kernel-OOM alerts
+  exist. `prometheus-node-exporter` on malice listens only on its Tailscale
+  address and is up in Prometheus. PVE has a `gotify` endpoint and the default
+  matcher targets both `mail-to-root` and `gotify`; target test succeeded.
+- Deploy/storage: `/mnt/data` source is asserted by device/inode identity,
+  Docker requires `/mnt/data /mnt/pool /mnt/fast`, deploy archives HEAD instead
+  of the working tree, applies isolation after compose, and records
+  `/opt/stacks/.deployed-commit`.
+- Verification: `make host` second run `changed=0`; `make hypervisor` second run
+  `changed=0`; VPS configuration parses with `nft -c`. Public check is 13 HTTP +
+  4 TCP green. All 16 private vhosts return 200/302/401. Backup succeeded with
+  21 SQLite dumps, 3 Bolt snapshots and a 1.3G Suwayomi archive. The expanded
+  restore drill passed (40 paths, 1.63 GiB; cold 6m45s, warm 1m22s). A forced
+  missing PostgreSQL container and missing SQLite source preserved old dumps and
+  recorded failures.
+- Remaining: external dead-man needs a provider push URL in
+  `/etc/homelab-heartbeat.env` on the VPS (the client and 5-minute timer are
+  installed and tested). Physical removal of retired `sdc` and staged `sda`
+  remains on-site.
+- Rollback: restore the previous stack tree with a commit checkout, run
+  `make host`, `make vps`, `make deploy`; validate any firewall rollback with
+  `nft -c` before applying and never flush the ruleset.
+
