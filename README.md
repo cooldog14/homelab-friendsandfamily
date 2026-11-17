@@ -14,10 +14,11 @@ Playbooks, Compose files, Caddy routes, firewall/NAT rules and an import-only
 definition of `chill-01` live here. Secrets and application data do not.
 CrowdSec setup and the Caddy package source are not yet fully codified.
 
-![Homelab diagram: internet to the VPS edge, WireGuard into the Proxmox host, and the 42 Compose services on chill-01](docs/diagram/out/homelab.png)
+![High-level homelab architecture: internet, VPS edge, WireGuard backend, Proxmox host, service categories, shared storage, backups and Tailscale admin](docs/diagram/out/homelab.png)
 
-The diagram is generated from [`docs/diagram/inventory.yaml`](docs/diagram/inventory.yaml);
-render instructions are in [`docs/diagram`](docs/diagram).
+The public diagram is intentionally high-level: addresses, ports, hostnames,
+service inventories and known gaps are omitted. Render instructions are in
+[`docs/diagram`](docs/diagram).
 
 ## Numbers
 
