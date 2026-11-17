@@ -17,3 +17,7 @@ tofu/.terraform.tfstate.lock.info
 docs/diagram/__pycache__/
 docs/diagram/out/*.svg
 docs/diagram/private/
+
+# wrangler local dev secrets (local heartbeat sink URL only)
+workers/wan-heartbeat/.dev.vars
+workers/wan-heartbeat/.wrangler/
