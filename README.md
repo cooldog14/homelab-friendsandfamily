@@ -6,12 +6,11 @@ git, on one Proxmox hypervisor.
 [![ci](https://github.com/cooldog14/homelab-friendsandfamily/actions/workflows/ci.yml/badge.svg)](https://github.com/cooldog14/homelab-friendsandfamily/actions/workflows/ci.yml)
 
 The platform serves photos, documents, media, chat and games to a small group of
-people. `chill-01` hosts 42 Docker Compose services across 8 stacks; a small
-Debian VPS is the only host with a public IP and reaches the application VM over
-WireGuard.
+people. The application VM hosts 8 Docker Compose stacks; a small Debian VPS is
+the only host with a public IP and reaches the application VM over WireGuard.
 
 Playbooks, Compose files, Caddy routes, firewall/NAT rules and an import-only
-definition of `chill-01` live here. Secrets and application data do not.
+definition of the application VM live here. Secrets and application data do not.
 CrowdSec setup and the Caddy package source are not yet fully codified.
 
 ![High-level homelab architecture: internet, VPS edge, WireGuard backend, Proxmox host, service categories, shared storage, backups and Tailscale admin](docs/diagram/out/homelab.png)
@@ -24,10 +23,7 @@ service inventories and known gaps are omitted. Render instructions are in
 
 | Metric | Value |
 |---|---|
-| Compose services | 42 |
 | Compose stacks | 8 |
-| Public HTTPS vhosts | 13 |
-| Private (tailnet) vhosts | 16 |
 | Restore point objective | 24 h |
 | Backup retention | 3 snapshots per repository |
 | Full-platform recovery time | Not measured |
@@ -102,8 +98,8 @@ ansible-galaxy collection install -r ansible/requirements.yml
 
 - The public edge accepts **key-only SSH**; password authentication and root
   password login are disabled.
-- **Tailscale is the primary admin path.** VPS public-key SSH and `chill-01` LAN
-  SSH are separate admin paths. WireGuard is not a human admin path.
+- **Tailscale is the primary admin path.** VPS public-key SSH and application-VM
+  LAN SSH are separate admin paths. WireGuard is not a human admin path.
 - **Secrets are excluded from git.** Environment files and keys live on hosts
   with restrictive permissions; CI runs Gitleaks over full history.
 - **OpenTofu is plan-only by workflow.** Credentials are stored outside the
