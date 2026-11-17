@@ -13,6 +13,7 @@ tofu/*.tfstate.*
 tofu/*.tfvars
 tofu/.terraform.tfstate.lock.info
 
-# diagram: generated SVG is not tracked
+# diagram: generated SVG and the detailed private render are not tracked
 docs/diagram/__pycache__/
 docs/diagram/out/*.svg
+docs/diagram/private/
