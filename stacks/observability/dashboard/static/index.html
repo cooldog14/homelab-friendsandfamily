@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>HOMELAB / ADMIN</title>
+  <link rel="stylesheet" href="/static/styles.css">
+  <script src="/static/app.js" defer></script>
+</head>
+<body>
+  <div id="stale" class="stale hidden" role="status" aria-live="polite">
+    <span class="dot" aria-hidden="true"></span>
+    <span>DATA STALE — last update <span id="stale-age">0</span>s ago</span>
+  </div>
+
+  <header class="topbar">
+    <span class="brand">HOMELAB<span class="sep">/</span>ADMIN</span>
+    <span id="heartbeat" class="heartbeat" aria-hidden="true"></span>
+    <span class="grow"></span>
+    <span id="commit" class="commit">commit —</span>
+    <time id="clock" class="clock">--:--:--</time>
+    <span class="quick">
+      <label for="quick-filter" class="hint">filter</label>
+      <input id="quick-filter" type="search" autocomplete="off" spellcheck="false"
+             placeholder="/ or Ctrl-K" aria-label="Filter services, ports and logs">
+    </span>
+  </header>
+
+  <main class="shell">
+    <section class="panel" id="alerts" aria-label="Alerts">
+      <div class="panel-head">
+        <h2>Alerts</h2>
+        <span class="grow"></span>
+        <span class="meta" id="alerts-meta"></span>
+      </div>
+      <div id="alert-strip" class="alert-strip"></div>
+    </section>
+
+    <section class="panel" id="telemetry" aria-label="Telemetry">
+      <div class="panel-head">
+        <h2>Telemetry</h2>
+        <span class="grow"></span>
+        <span class="meta" id="telemetry-meta"></span>
+      </div>
+      <div id="telemetry-body"></div>
+    </section>
+
+    <section class="panel" id="services" aria-label="Services">
+      <div class="panel-head">
+        <h2>Services</h2>
+        <span class="grow"></span>
+        <span class="meta" id="services-meta"></span>
+      </div>
+      <div id="services-body"></div>
+    </section>
+
+    <section class="panel" id="media" aria-label="Media activity">
+      <div class="panel-head"><h2>Media activity</h2><span class="grow"></span><span class="meta" id="media-meta"></span></div>
+      <div id="media-body"></div>
+    </section>
+
+    <section class="panel" id="pipeline" aria-label="Media pipeline">
+      <div class="panel-head"><h2>Media pipeline</h2><span class="grow"></span><span class="meta" id="pipeline-meta"></span></div>
+      <div id="pipeline-body"></div>
+    </section>
+
+    <section class="panel" id="backups" aria-label="Backups and jobs">
+      <div class="panel-head"><h2>Backups &amp; jobs</h2><span class="grow"></span><span class="meta" id="backups-meta"></span></div>
+      <div id="backups-body"></div>
+    </section>
+
+    <section class="panel" id="network" aria-label="Network">
+      <div class="panel-head"><h2>Network</h2><span class="grow"></span><span class="meta" id="network-meta"></span></div>
+      <div id="network-body"></div>
+    </section>
+
+    <section class="panel" id="logs" aria-label="Logs">
+      <div class="panel-head"><h2>Logs</h2><span class="grow"></span><span class="meta" id="logs-meta"></span></div>
+      <div class="toolbar">
+        <div class="group-btns" role="group" aria-label="Minimum severity">
+          <button type="button" data-level="all" aria-pressed="true">All</button>
+          <button type="button" data-level="warn" aria-pressed="false">Warn+</button>
+          <button type="button" data-level="error" aria-pressed="false">Error</button>
+        </div>
+        <label class="faint" for="log-service">service</label>
+        <select id="log-service"><option value="all">all</option></select>
+      </div>
+      <div id="logs-body" class="log-feed"></div>
+    </section>
+
+    <section class="panel" id="config" aria-label="Configuration">
+      <div class="panel-head"><h2>Config &amp; inventory</h2><span class="grow"></span><span class="meta" id="config-meta"></span></div>
+      <div id="config-body"></div>
+    </section>
+  </main>
+
+  <footer id="footer">read-only snapshot · polled every 5 s · tailnet only</footer>
+</body>
+</html>

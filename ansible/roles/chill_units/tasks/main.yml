@@ -14,6 +14,7 @@
     - {src: firewall-neko.sh, dest: homelab-firewall-neko}
     - {src: restic-check.sh, dest: homelab-restic-check}
     - {src: restic-retention.py, dest: homelab-restic-retention}
+    - {src: backup-stats.py, dest: homelab-backup-stats}
 
 - name: Install systemd units
   ansible.builtin.copy:
@@ -33,6 +34,8 @@
     - homelab-metrics.timer
     - homelab-restic-check.service
     - homelab-restic-check.timer
+    - homelab-backup-stats.service
+    - homelab-backup-stats.timer
     - homelab-firewall-neko.service
     - notify@.service
   notify: Reload systemd
@@ -97,4 +100,5 @@
     - homelab-docker-prune.timer
     - homelab-metrics.timer
     - homelab-restic-check.timer
+    - homelab-backup-stats.timer
     - homelab-firewall-neko.service

@@ -24,3 +24,7 @@ workers/wan-heartbeat/.wrangler/
 
 # Ansible control-node venv (pinned Python/ansible-core)
 .venv/
+
+# Python bytecode from the dashboard smoke/build commands
+__pycache__/
+*.py[cod]

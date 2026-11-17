@@ -39,7 +39,7 @@ ssh "$host" 'set -e
   done
   edge_changed=0
   cmp -s /tmp/chill-stacks/edge/Caddyfile /opt/stacks/edge/Caddyfile || edge_changed=1
-  sudo rsync -a --delete --exclude .env --exclude state/ --exclude .deployed-commit --exclude docs/config/ --exclude media/suwayomi-auth-password /tmp/chill-stacks/ /opt/stacks/
+  sudo rsync -a --delete --exclude .env --exclude state/ --exclude .deployed-commit --exclude .deployed-meta --exclude docs/config/ --exclude media/suwayomi-auth-password /tmp/chill-stacks/ /opt/stacks/
   sudo install -d -o 1000 -g 1000 \
     /opt/stacks/apps/state/filebrowser-quantum \
     /opt/stacks/apps/state/filebrowser-upload \
@@ -85,6 +85,9 @@ ssh "$host" 'set -e
   sudo install -d -m 0755 -o 472 -g 472 /opt/stacks/observability/state/grafana
   sudo docker network inspect homelab-edge >/dev/null 2>&1 ||
     sudo docker network create --driver bridge --internal homelab-edge
+  # The dashboard is the one image built on the host: it is not published, and
+  # its source only exists in the synced tree.
+  (cd /opt/stacks/observability && sudo docker compose -p observability build dashboard)
   for s in apps comms docs edge games media observability photos; do
     (cd /opt/stacks/$s && sudo docker compose -p $s up -d --pull missing --remove-orphans)
   done
@@ -95,6 +98,23 @@ ssh "$host" 'set -e
     (cd /opt/stacks/edge && sudo docker compose -p edge restart caddy >/dev/null)
   fi
   sudo /usr/local/bin/homelab-firewall-neko'
+
+# The host has no checkout, so this file is the only truthful description of
+# the source tree that was deployed. `.deployed-commit` stays for older tooling.
+short=$(git rev-parse --short=12 HEAD)
+branch=$(git rev-parse --abbrev-ref HEAD)
+subject=$(git log -1 --pretty=%s | tr -d '\n')
+dirty=0
+if [ -n "$(git status --porcelain)" ]; then dirty=1; fi
+deployed_at=$(date -Is)
+{
+  printf 'commit=%s\n' "$commit"
+  printf 'short=%s\n' "$short"
+  printf 'branch=%s\n' "$branch"
+  printf 'subject=%s\n' "$subject"
+  printf 'dirty=%s\n' "$dirty"
+  printf 'deployed_at=%s\n' "$deployed_at"
+} | ssh "$host" 'sudo install -m 0644 /dev/stdin /opt/stacks/.deployed-meta'
 
 printf '%s\n' "$commit" |
   ssh "$host" 'sudo install -m 0644 /dev/stdin /opt/stacks/.deployed-commit'

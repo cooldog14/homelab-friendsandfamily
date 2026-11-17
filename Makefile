@@ -63,7 +63,11 @@ check:
 	host_net=$$(grep -RInE '^[[:space:]]*network_mode:[[:space:]]*host' stacks/*/docker-compose.yml | grep -Ev 'stacks/comms/docker-compose.yml' || true); test -z "$$host_net" || { echo "Undocumented host network service(s):" >&2; echo "$$host_net" >&2; exit 1; }
 	$(SHELLCHECK) host/backup.sh host/backup-watchdog.sh host/public-check.sh host/metrics.sh host/firewall-neko.sh host/restic-check.sh host/restore-test.sh host/deploy.sh stacks/media/config/slskd/autotag.sh
 	node --check workers/wan-heartbeat/src/index.js
-	PYTHONPYCACHEPREFIX=/tmp/homelab-pycache python3 -m py_compile host/restic-retention.py
+	PYTHONPYCACHEPREFIX=/tmp/homelab-pycache python3 -m py_compile \
+	  host/restic-retention.py host/backup-stats.py stacks/observability/dashboard/*.py
+	# Dashboard parsers are pure: the tests need no host, socket or fixture file.
+	PYTHONPATH=stacks/observability/dashboard PYTHONPYCACHEPREFIX=/tmp/homelab-pycache \
+	  python3 -m unittest discover -s stacks/observability/dashboard/tests -p 'test_*.py'
 	# Observability: promtool/amtool/blackbox validate the exact files the
 	# containers load, so a broken rule fails here instead of silently.
 	# The images set their server binary as ENTRYPOINT, hence --entrypoint.

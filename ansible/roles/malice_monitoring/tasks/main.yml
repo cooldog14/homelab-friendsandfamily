@@ -17,8 +17,9 @@
     dest: /etc/default/prometheus-node-exporter
     mode: "0644"
     content: |
-      # Metrics are consumed by Prometheus on chill-01 over Tailscale.
-      ARGS="--web.listen-address=100.99.204.109:9100"
+      # Metrics are consumed by Prometheus on chill-01 over Tailscale. The
+      # textfile collector is what homelab-metrics/homelab-backup-stats write.
+      ARGS="--web.listen-address=100.99.204.109:9100 --collector.textfile.directory=/var/lib/node_exporter/textfile"
   notify: Restart node exporter
 
 - name: Create the node exporter drop-in directory
@@ -47,6 +48,23 @@
     mode: "0644"
   notify: Reload systemd
 
+- name: Create the node_exporter textfile directory
+  ansible.builtin.file:
+    path: /var/lib/node_exporter/textfile
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Install the metric collectors
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../host/{{ item.src }}"
+    dest: "/usr/local/bin/{{ item.dest }}"
+    mode: "0755"
+  loop:
+    - {src: metrics.sh, dest: homelab-metrics}
+    - {src: backup-stats.py, dest: homelab-backup-stats}
+
 - name: Install the hypervisor backup helper
   ansible.builtin.copy:
     src: "{{ playbook_dir }}/../host/malice-restic-backup"
@@ -64,12 +82,16 @@
     - malice-restic-backup.timer
     - malice-restic-check.service
     - malice-restic-check.timer
+    - homelab-metrics.service
+    - homelab-metrics.timer
+    - homelab-backup-stats.service
+    - homelab-backup-stats.timer
   notify: Reload systemd
 
 - name: Reload systemd before enabling new units
   ansible.builtin.meta: flush_handlers
 
-- name: Enable hypervisor backup and sampled check timers
+- name: Enable hypervisor backup, metrics and stats timers
   ansible.builtin.systemd_service:
     name: "{{ item }}"
     enabled: true
@@ -77,6 +99,8 @@
   loop:
     - malice-restic-backup.timer
     - malice-restic-check.timer
+    - homelab-metrics.timer
+    - homelab-backup-stats.timer
 
 - name: Ensure the node exporter is enabled and running
   ansible.builtin.systemd_service:
