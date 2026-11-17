@@ -13,9 +13,10 @@
     snapshot: null,
     lastOk: 0,
     error: null,
-    filters: { text: '', level: 'all', service: 'all' },
+    filters: { text: '', level: 'all', service: 'all', problems: false },
     selection: -1,
     ping: {},
+    alertSince: new Map(),
   };
   const scrolls = new Map();
   const $ = (id) => document.getElementById(id);
@@ -58,6 +59,18 @@
   }
 
   function clear(node) { while (node.firstChild) node.removeChild(node.firstChild); }
+
+  /* A filter that hides everything must say so, not render a blank panel. */
+  function emptyNote(container, id, text, show) {
+    let node = container.querySelector('#' + id);
+    if (!show) {
+      if (node) node.remove();
+      return;
+    }
+    if (!node) {
+      container.appendChild(h('div', { class: 'empty', attrs: { id: id }, text: text }));
+    }
+  }
 
   function rememberScroll(root) {
     for (const el of root.querySelectorAll('[data-scroll]')) scrolls.set(el.dataset.scroll, el.scrollTop);
@@ -195,29 +208,80 @@
   function stateClass(item) {
     if (!item) return 'state-unknown';
     if (item.internal) return 'state-unknown';
-    if (item.state && item.state !== 'running' && item.state !== 'absent') return 'state-alert';
-    if (item.state === 'absent') return 'state-unknown';
+    if (BAD_STATES.has(item.state)) return 'state-alert';
+    if (item.state === 'paused') return 'state-warn';
     if (item.health === 'unhealthy') return 'state-alert';
     const probe = item.probe || {};
     if (probe.status === 'fail') return 'state-alert';
     if (probe.status === 'ok') return 'state-ok';
-    if (probe.status === 'unverified' || probe.status === 'internal') return 'state-unknown';
     return 'state-unknown';
   }
 
-  function probeText(item) {
-    const probe = item.probe || {};
-    if (!item.state || item.state === 'absent') return 'no container';
-    if (item.internal) return 'internal';
-    if (probe.status === 'ok') {
-      return 'up' + (num(probe.latency_ms) ? ' · ' + Math.round(probe.latency_ms) + ' ms' : '');
-    }
-    if (probe.status === 'fail') {
-      return 'down' + (num(probe.code) ? ' · ' + probe.code : '') +
-        (probe.error ? ' · ' + probe.error : '');
-    }
-    if (probe.status === 'unverified') return 'up / unverified';
+  const BAD_STATES = new Set(['exited', 'dead', 'restarting', 'created']);
+
+  function isProblem(item) {
+    if (!item) return false;
+    if (BAD_STATES.has(item.state)) return true;
+    if (item.health === 'unhealthy') return true;
+    return (item.probe || {}).status === 'fail';
+  }
+
+  function isWarning(item) {
+    if (!item) return false;
+    return item.state === 'paused' || item.state === 'absent';
+  }
+
+  /* Not serving: a hard failure or a deliberate stop. "Unverified" is excluded:
+     a running container with no probe is a coverage gap, not an outage. */
+  function notNominal(item) {
+    return isProblem(item) || isWarning(item);
+  }
+
+  function severityRank(item) {
+    if (isProblem(item)) return 0;
+    if (isWarning(item)) return 1;
+    return (item || {}).probe && item.probe.status === 'unverified' ? 2 : 3;
+  }
+
+  function stateWord(item) {
+    if (!item) return 'unknown';
+    if (item.state === 'paused') return 'paused';
+    if (BAD_STATES.has(item.state)) return item.state;
+    if (item.state === 'absent') return 'absent';
+    if (item.health === 'unhealthy') return 'unhealthy';
+    const status = (item.probe || {}).status;
+    if (status === 'ok') return 'up';
+    if (status === 'fail') return 'down';
+    if (status === 'unverified') return 'unverified';
+    if (status === 'internal') return 'internal';
     return 'unknown';
+  }
+
+  /* Why it is down, when Docker can tell us: exit code, OOM, restart count. */
+  function detailText(item) {
+    const detail = (item || {}).detail || {};
+    const bits = [];
+    if (num(detail.exit_code) && item.state !== 'running') bits.push('exit ' + detail.exit_code);
+    if (detail.oom_killed) bits.push('oom');
+    if (num(detail.restart_count) && detail.restart_count > 0) bits.push(detail.restart_count + ' restarts');
+    if (detail.error) bits.push(String(detail.error).slice(0, 56));
+    return bits.join(' \u00b7 ');
+  }
+
+  function probeRest(item) {
+    const probe = (item || {}).probe || {};
+    const parts = [];
+    if (probe.status === 'ok' && num(probe.latency_ms)) parts.push(Math.round(probe.latency_ms) + ' ms');
+    if (probe.status === 'fail' && num(probe.code)) parts.push(String(probe.code));
+    const detail = detailText(item);
+    if (detail) parts.push(detail);
+    if (probe.status === 'fail' && probe.error) parts.push(String(probe.error).slice(0, 56));
+    return parts.join(' \u00b7 ');
+  }
+
+  function probeText(item) {
+    const rest = probeRest(item);
+    return stateWord(item) + (rest ? ' \u00b7 ' + rest : '');
   }
 
   function linkNode(url, label) {
@@ -227,23 +291,78 @@
 
   // -------------------------------------------------------------- alerts --
 
+  function renderStatusChip(data) {
+    const chip = $('status-chip');
+    const summary = data.summary || { alert: 0, warn: 0, total: 0 };
+    if (!summary.total) {
+      chip.textContent = 'nominal';
+      chip.className = 'status-chip state-ok';
+    } else {
+      const parts = [];
+      if (summary.alert) parts.push(summary.alert + (summary.alert === 1 ? ' alert' : ' alerts'));
+      if (summary.warn) parts.push(summary.warn + ' warn');
+      chip.textContent = parts.join(' \u00b7 ');
+      chip.className = 'status-chip ' + (summary.alert ? 'state-alert' : 'state-warn');
+    }
+    chip.setAttribute('aria-label', 'open the problem list: ' + (summary.total || 0) + ' open');
+  }
+
+  /* First moment this client saw the alert: the strip has no history behind it. */
+  function alertSince(alert) {
+    if (alert.since) return new Date(alert.since).getTime();
+    const now = Date.now();
+    if (!state.alertSince.has(alert.id)) state.alertSince.set(alert.id, now);
+    return state.alertSince.get(alert.id);
+  }
+
+  function alertCard(alert) {
+    const since = alertSince(alert);
+    const meta = [
+      alert.source === 'prometheus'
+        ? 'prometheus \u00b7 ' + (alert.state || 'firing')
+        : 'dashboard check',
+      num(since) ? fmtAge(Math.max(0, (Date.now() - since) / 1000)) : null,
+    ].filter(Boolean).join(' \u00b7 ');
+    const href = '#' + String(alert.href || 'alerts').replace(/^#/, '');
+    return h('div', { class: 'alert alert-' + (alert.severity === 'alert' ? 'alert' : 'warn') },
+      h('div', { class: 'title', text: alert.title || 'alert' }),
+      h('div', { class: 'detail', text: alert.detail || '' }),
+      h('div', { class: 'alert-meta' },
+        h('span', { text: meta }),
+        h('a', { href: href, text: 'jump to section' }))
+    );
+  }
+
   function renderAlerts(data) {
     const strip = $('alert-strip');
     clear(strip);
-    const alerts = data.alerts || [];
-    $('alerts-meta').textContent = alerts.length ? alerts.length + ' open' : '';
-    if (!alerts.length) {
+    const derived = data.alerts || [];
+    const prometheus = data.prometheus_alerts || [];
+    renderStatusChip(data);
+
+    const seen = new Set();
+    for (const alert of derived) seen.add(alert.id);
+    for (const alert of prometheus) seen.add(alert.id);
+    for (const key of [...state.alertSince.keys()]) {
+      if (!seen.has(key)) state.alertSince.delete(key);
+    }
+
+    $('alerts-meta').textContent = 'dashboard ' + derived.length +
+      ' \u00b7 prometheus ' + prometheus.length;
+
+    if (!derived.length && !prometheus.length) {
       strip.appendChild(h('div', { class: 'nominal', text: 'all monitored checks nominal' }));
       return;
     }
-    for (const alert of alerts) {
-      strip.appendChild(
-        h('div', { class: 'alert alert-' + (alert.severity === 'alert' ? 'alert' : 'warn') },
-          h('div', { class: 'title', text: alert.title || 'alert' }),
-          h('div', { class: 'detail', text: alert.detail || '' }),
-          h('a', { href: '#' + String(alert.href || '').replace(/^#/, ''), text: 'jump to section' })
-        )
-      );
+    strip.appendChild(h('div', { class: 'alert-block' },
+      h('h3', { text: 'Dashboard checks' }),
+      derived.length
+        ? derived.map(alertCard)
+        : h('div', { class: 'empty', text: 'every dashboard check passes' })));
+    if (prometheus.length) {
+      strip.appendChild(h('div', { class: 'alert-block' },
+        h('h3', { text: 'Prometheus alerts' }),
+        prometheus.map(alertCard)));
     }
   }
 
@@ -343,6 +462,9 @@
       item.label, item.id, item.stack, item.service, item.image, item.version,
       item.state, item.health, probeText(item),
     ].filter(Boolean).join(' ').toLowerCase();
+    const rest = probeRest(item);
+    const rowClass = 'svc' + (item.internal ? ' internal' : '') +
+      (isProblem(item) ? ' bad' : isWarning(item) ? ' warn-row' : '');
 
     const image = kind === 'host'
       ? h('div', { class: 'image', text: item.note || 'host' })
@@ -352,8 +474,8 @@
         item.note ? h('div', { class: 'faint', text: item.note }) : null);
 
     return h('div', {
-      class: 'svc' + (item.internal ? ' internal' : ''),
-      dataset: { search: search },
+      class: rowClass,
+      dataset: { search: search, problem: notNominal(item) ? '1' : '0' },
     },
       h('span', { class: 'dot ' + stateClass(item), attrs: { 'aria-hidden': 'true' } }),
       h('div', {},
@@ -362,7 +484,9 @@
       image,
       h('div', { class: 'uptime', text: kind === 'host' ? '' : fmtDuration(item.uptime_seconds) }),
       links,
-      h('div', { class: 'probe ' + stateClass(item), text: probeText(item) })
+      h('div', { class: 'probe ' + stateClass(item) },
+        h('span', { class: 'sw', text: stateWord(item) }),
+        rest ? h('span', { class: 'rest', text: ' \u00b7 ' + rest }) : null)
     );
   }
 
@@ -376,29 +500,44 @@
     const hostsById = new Map(hosts.map((s) => [s.id, s]));
     const groups = data.groups || [];
     const running = services.filter((s) => s.state === 'running').length;
+    const problems = services.filter(notNominal).length + hosts.filter(notNominal).length;
+    const toggle = $('problems-toggle');
+    if (toggle) {
+      toggle.textContent = problems ? 'Problems (' + problems + ')' : 'Problems';
+      toggle.classList.toggle('state-alert', problems > 0);
+    }
     $('services-meta').textContent = services.length + ' compose services · ' +
-      running + ' running · ' + hosts.length + ' hosts';
+      running + ' running · ' + hosts.length + ' hosts' +
+      (problems ? ' · ' + problems + ' not serving' : '');
 
     if (!groups.length) {
       body.appendChild(h('div', { class: 'empty', text: 'no compose inventory yet' }));
       return;
     }
     for (const group of groups) {
-      const rows = [];
+      const entries = [];
       for (const id of group.services || []) {
         const item = byId.get(id);
-        if (item) rows.push(serviceRow(item, 'service'));
+        if (item) entries.push(item);
       }
       for (const id of group.hosts || []) {
         const item = hostsById.get(id);
-        if (item) rows.push(serviceRow(item, 'host'));
+        if (item) entries.push(item);
       }
-      if (!rows.length) continue;
-      body.appendChild(h('div', { class: 'group', dataset: { group: group.id } },
+      if (!entries.length) continue;
+      entries.sort((a, b) => severityRank(a) - severityRank(b) ||
+        String(a.label || '').localeCompare(String(b.label || '')));
+      const bad = entries.filter(isProblem).length;
+      const warn = entries.filter(isWarning).length;
+      const worst = bad ? 'state-alert' : warn ? 'state-warn' : 'state-ok';
+      body.appendChild(h('div', { class: 'group' + (bad ? ' bad' : ''), dataset: { group: group.id } },
         h('div', { class: 'group-head' },
+          h('span', { class: 'dot ' + worst, attrs: { 'aria-hidden': 'true' } }),
           h('h3', { text: group.label || group.id }),
-          h('span', { class: 'count', text: String(rows.length) })),
-        rows));
+          h('span', { class: 'count', text: String(entries.length) }),
+          bad ? h('span', { class: 'rollup state-alert', text: bad + ' failing' }) : null,
+          warn ? h('span', { class: 'rollup state-warn', text: warn + ' paused/absent' }) : null),
+        entries.map((item) => serviceRow(item, item.stack ? 'service' : 'host'))));
     }
     restoreScroll(body);
   }
@@ -869,7 +1008,9 @@
     let visible = 0;
     for (const row of servicesBody.querySelectorAll('.svc')) {
       const haystack = row.dataset.search || '';
-      const match = !needle || haystack.includes(needle);
+      const matchesText = !needle || haystack.includes(needle);
+      const matchesProblem = !state.filters.problems || row.dataset.problem === '1';
+      const match = matchesText && matchesProblem;
       row.classList.toggle('hidden', !match);
       if (match) visible += 1;
     }
@@ -878,12 +1019,28 @@
       const shown = group.querySelectorAll('.svc:not(.hidden)');
       group.classList.toggle('hidden', rows.length > 0 && shown.length === 0);
     }
+    emptyNote(
+      servicesBody,
+      'services-no-match',
+      state.filters.problems && !needle
+        ? 'no service is failing; switch Problems off to see the full directory'
+        : 'no service matches this filter',
+      visible === 0 && (Boolean(needle) || state.filters.problems)
+    );
     for (const row of document.querySelectorAll('#config-body tbody tr[data-search]')) {
       row.classList.toggle('hidden', Boolean(needle) && !(row.dataset.search || '').includes(needle));
     }
     for (const row of document.querySelectorAll('#logs-body .log[data-search]')) {
       row.classList.toggle('hidden', Boolean(needle) && !(row.dataset.search || '').includes(needle));
     }
+    const logsBody = $('logs-body');
+    const shownLogs = logsBody.querySelectorAll('.log:not(.hidden)').length;
+    emptyNote(
+      logsBody,
+      'logs-no-match',
+      'no log line matches this filter',
+      shownLogs === 0 && logsBody.querySelectorAll('.log').length > 0
+    );
     state.selection = -1;
     for (const row of servicesBody.querySelectorAll('.svc.kb')) row.classList.remove('kb');
   }
@@ -936,6 +1093,19 @@
         input.focus();
         input.select();
       }
+    });
+  }
+
+  function wireServicesControls() {
+    const toggle = $('problems-toggle');
+    toggle.addEventListener('click', () => {
+      state.filters.problems = !state.filters.problems;
+      toggle.setAttribute('aria-pressed', String(state.filters.problems));
+      applyFilter();
+    });
+    $('status-chip').addEventListener('click', () => {
+      const panel = $('alerts');
+      if (panel) panel.scrollIntoView({ block: 'start' });
     });
   }
 
@@ -1020,6 +1190,7 @@
 
   function boot() {
     wireFilter();
+    wireServicesControls();
     wireLogControls();
     setInterval(tick, 1000);
     tick();

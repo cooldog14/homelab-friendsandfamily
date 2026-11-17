@@ -23,6 +23,26 @@ WIREGUARD_WARN_SECONDS = 600.0
 BACKUP_ALERT_SECONDS = 48 * HOUR
 BACKUP_WARN_SECONDS = 12 * HOUR
 EXPECTED_HOSTS = (("chill-01", "node"), ("malice", "malice"))
+# Every rule below is already derived locally, so surfacing it twice would only
+# add noise. Anything not listed (OOM kills, restart loops, memory pressure)
+# reaches the page solely through Prometheus.
+MIRRORED_RULES = frozenset(
+    {
+        "HostDown",
+        "BackupStale",
+        "BackupMetricMissing",
+        "BackupRepositoryStale",
+        "HomelabJobFailed",
+        "HomelabJobMissed",
+        "HomelabJobTimerInactive",
+        "HomelabJobMetricsMissing",
+        "PublicEndpointDown",
+        "TLSCertExpiringSoon",
+        "TargetDown",
+        "DiskUsageHigh",
+        "WireGuardHandshakeStale",
+    }
+)
 EXPECTED_BACKUP_MARKERS = (("chill-01", "homelab"), ("malice", "malice"))
 
 
@@ -176,6 +196,7 @@ def _build_services(
                     "state": state,
                     "health": container.get("health"),
                     "status_text": container.get("status"),
+                    "detail": container.get("detail"),
                     "uptime_seconds": uptime,
                     "links": _service_links(config, service_id),
                     "probe": _probe_for(
@@ -667,7 +688,7 @@ def _derive_alerts(
             )
 
     for service in services:
-        if service["state"] in ("exited", "dead", "restarting", "created", "paused"):
+        if service["state"] in ("exited", "dead", "restarting", "created"):
             add(
                 "alert",
                 f"container:{service['id']}",
@@ -681,6 +702,14 @@ def _derive_alerts(
                 f"container-missing:{service['id']}",
                 f"{service['label']} has no container",
                 f"{service['id']} is declared in Compose but absent from Docker",
+                "#services",
+            )
+        if service["state"] == "paused":
+            add(
+                "warn",
+                f"container:{service['id']}",
+                f"{service['label']} is paused",
+                f"{service['id']} is paused: it is not serving requests",
                 "#services",
             )
         if service.get("health") == "unhealthy":
@@ -916,6 +945,41 @@ def _derive_alerts(
     return alerts
 
 
+def prometheus_alerts_section(infra: dict) -> list[dict]:
+    """Firing/pending Prometheus alerts that no local check already covers."""
+    rows: list[dict] = []
+    for alert in (infra or {}).get("prometheus_alerts") or []:
+        name = alert.get("name")
+        state = alert.get("state")
+        if name in MIRRORED_RULES or state not in ("firing", "pending"):
+            continue
+        severity = "alert" if state == "firing" and alert.get("severity") == "critical" else "warn"
+        rows.append(
+            {
+                "id": f"prometheus:{name}:{alert.get('host') or ''}",
+                "severity": severity,
+                "state": state,
+                "title": alert.get("summary") or name or "alert",
+                "detail": alert.get("description")
+                or f"{name} {'firing' if state == 'firing' else 'pending'}",
+                "host": alert.get("host"),
+                "since": alert.get("since"),
+                "source": "prometheus",
+            }
+        )
+    rows.sort(key=lambda row: (0 if row["severity"] == "alert" else 1, row["title"]))
+    return rows
+
+
+def summary_counts(alerts: list[dict], prometheus_alerts: list[dict]) -> dict:
+    everything = list(alerts) + list(prometheus_alerts)
+    return {
+        "alert": sum(1 for row in everything if row.get("severity") == "alert"),
+        "warn": sum(1 for row in everything if row.get("severity") == "warn"),
+        "total": len(everything),
+    }
+
+
 # --------------------------------------------------------------------------- #
 # Snapshot
 # --------------------------------------------------------------------------- #
@@ -972,10 +1036,13 @@ def build_snapshot(
     alerts = _derive_alerts(
         config, telemetry, services, backups, network, pipeline, media, errors, moment
     )
+    prometheus_alerts = prometheus_alerts_section(infra_data)
 
     return {
         "generated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(moment)),
         "alerts": alerts,
+        "prometheus_alerts": prometheus_alerts,
+        "summary": summary_counts(alerts, prometheus_alerts),
         "telemetry": telemetry,
         "groups": groups,
         "services": services,
