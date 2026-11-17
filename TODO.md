@@ -92,6 +92,11 @@ decision.
 
 ### P2 — drift and hygiene
 
+- [ ] **`ansible-playbook` intermittently dies with "A worker was found in a
+  dead state" at Gathering Facts.** ansible-core 2.20.7 on Python 3.14; the same
+  play completes and reports `changed=0` with `--forks 1`. Workaround until the
+  control node is pinned: run host-playbook runs with `--forks 1`. Recheck after
+  the next ansible-core release or a Python 3.12/3.13 venv.
 - [ ] Add private app health instrumentation where Docker has none (Caddy,
   Jellyseerr, Navidrome, Radarr/Sonarr/Bazarr) and monitor the private edge.
 - [ ] Narrow the eight broad `/mnt/data` mounts; add Filebrowser proxy-header
