@@ -39,7 +39,7 @@ ssh "$host" 'set -e
   done
   edge_changed=0
   cmp -s /tmp/chill-stacks/edge/Caddyfile /opt/stacks/edge/Caddyfile || edge_changed=1
-  sudo rsync -a --delete --exclude .env --exclude state/ --exclude docs/config/ --exclude media/suwayomi-auth-password /tmp/chill-stacks/ /opt/stacks/
+  sudo rsync -a --delete --exclude .env --exclude state/ --exclude .deployed-commit --exclude docs/config/ --exclude media/suwayomi-auth-password /tmp/chill-stacks/ /opt/stacks/
   sudo install -d -o 1000 -g 1000 \
     /opt/stacks/apps/state/filebrowser-quantum \
     /opt/stacks/apps/state/filebrowser-upload \
