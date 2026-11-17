@@ -1,6 +1,6 @@
 services:
   stirling-pdf:
-    image: stirlingtools/stirling-pdf:2.14.3
+    image: stirlingtools/stirling-pdf:3.3.0
     security_opt:
       - no-new-privileges:true
     # The entrypoint chowns its mounts and then setpriv-drops to
