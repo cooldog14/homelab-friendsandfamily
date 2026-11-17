@@ -1,7 +1,24 @@
 ---
-- name: Apply nftables rules
+- name: Validate the NAT table
+  ansible.builtin.command:
+    cmd: nft -c -f /etc/nftables.d/homelab_nat.conf
+  changed_when: false
+  listen: Apply nftables rules
+
+- name: Validate the effective firewall table
+  ansible.builtin.command:
+    cmd: nft -c -f /etc/nftables.d/homelab_firewall.conf
+  changed_when: false
+  listen: Apply nftables rules
+
+- name: Apply the NAT table
   ansible.builtin.command:
     cmd: nft -f /etc/nftables.d/homelab_nat.conf
+  listen: Apply nftables rules
+
+- name: Apply the effective firewall table
+  ansible.builtin.command:
+    cmd: nft -f /etc/nftables.d/homelab_firewall.conf
   listen: Apply nftables rules
 
 - name: Validate the Caddy configuration

@@ -60,11 +60,27 @@ for path in /sys/class/net/br-*; do
   done
 done
 
-# Persist across reboot (iptables-restore reads this on chill-01).
+# Persist the rules for emergency inspection. Boot persistence is provided by
+# homelab-firewall-neko.service, which re-runs after Docker and recreates bridge
+# names; nothing restores this file automatically.
 mkdir -p /etc/iptables
 iptables-save > "$SAVED" 2>/dev/null || true
 
 after=$(blocked_rules)
+if [ -z "$after" ]; then
+  echo "no isolation rules were installed" >&2
+  exit 1
+fi
+for path in /sys/class/net/br-*; do
+  [ -e "$path" ] || continue
+  br=${path##*/}
+  [ "$br" = "$edge_br" ] && continue
+  printf '%s\n' "$after" | grep -q -- "-i $br " || {
+    echo "isolation rule missing for $br" >&2
+    exit 1
+  }
+done
+
 if [ "$before" = "$after" ]; then
   echo unchanged
 else

@@ -11,6 +11,9 @@ services:
       # Lets private Caddy reach host services like Cockpit without exposing
       # them on the public VPS WireGuard path.
       - host.docker.internal:host-gateway
+    networks:
+      default:
+      homelab-edge:
     ports:
       # Localhost default fails closed when .env is missing.
       - "${TS_IP:-127.0.0.1}:443:443"
@@ -33,3 +36,6 @@ networks:
     ipam:
       config:
         - subnet: 172.18.0.0/16
+  homelab-edge:
+    external: true
+    name: homelab-edge

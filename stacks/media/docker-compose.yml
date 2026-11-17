@@ -40,9 +40,9 @@ services:
     devices:
       - /dev/net/tun
     ports:
-      - "10.44.0.2:8701:8701"
-      - "10.44.0.2:9696:9696"
-      - "10.44.0.2:5030:5030"
+      - "172.17.0.1:8701:8701"
+      - "172.17.0.1:9696:9696"
+      - "172.17.0.1:5030:5030"
     volumes:
       - ./state/gluetun:/gluetun
     environment:
@@ -110,8 +110,10 @@ services:
   radarr:
     image: lscr.io/linuxserver/radarr:6.2.1
     restart: unless-stopped
-    ports:
-      - "10.44.0.2:7878:7878"
+    networks:
+      default:
+      homelab-edge:
+        aliases: [radarr]
     environment:
       PUID: "1000"
       PGID: "1000"
@@ -125,8 +127,10 @@ services:
   sonarr:
     image: lscr.io/linuxserver/sonarr:4.0.17
     restart: unless-stopped
-    ports:
-      - "10.44.0.2:8989:8989"
+    networks:
+      default:
+      homelab-edge:
+        aliases: [sonarr]
     environment:
       PUID: "1000"
       PGID: "1000"
@@ -140,8 +144,10 @@ services:
   bazarr:
     image: lscr.io/linuxserver/bazarr:1.6.2
     restart: unless-stopped
-    ports:
-      - "10.44.0.2:6767:6767"
+    networks:
+      default:
+      homelab-edge:
+        aliases: [bazarr]
     environment:
       PUID: "1000"
       PGID: "1000"
@@ -197,8 +203,10 @@ services:
   wrtag:
     image: sentriz/wrtag:v0.30.0
     user: "1000:1000"
-    ports:
-      - "10.44.0.2:7373:7373"
+    networks:
+      default:
+      homelab-edge:
+        aliases: [wrtag]
     environment:
       WRTAG_PATH_FORMAT: '/mnt/data/media/music/clean/{{ artists .Release.Artists | sort | join "; " | safepath }}/({{ .Release.ReleaseGroup.FirstReleaseDate.Year }}) {{ .Release.Title | safepath }}{{ if not (eq .ReleaseDisambiguation "") }} ({{ .ReleaseDisambiguation | safepath }}){{ end }}/{{ if gt (len .Release.Media) 1 }}d{{ pad0 2 .Media.Position }} {{ end }}{{ pad0 2 .Track.Position }}.{{ .Media.TrackCount | pad0 2 }} {{ if .IsCompilation }}{{ artistsString .Track.Artists | safepath }} - {{ end }}{{ .Track.Title | safepath }}{{ .Ext }}'
       WRTAG_WEB_API_KEY: ${WRTAG_WEB_API_KEY}
@@ -307,3 +315,8 @@ services:
       - ./config/slskd/autotag.sh:/app/scripts/autotag.sh:ro
       - /mnt/data:/data
     restart: unless-stopped
+
+networks:
+  homelab-edge:
+    external: true
+    name: homelab-edge

@@ -2,12 +2,26 @@ groups:
   - name: homelab
     rules:
       - alert: HostDown
-        expr: up{job="node"} == 0
+        expr: up{job=~"node|malice"} == 0
         for: 2m
         labels: {severity: critical}
         annotations:
-          summary: "chill-01 ne répond plus"
-          description: "node_exporter est down depuis 2 minutes."
+          summary: "Hôte ne répond plus: {{ $labels.instance }}"
+          description: "L'exporter de l'hôte {{ $labels.instance }} est down depuis 2 minutes."
+      - alert: ContainerOOMKilled
+        expr: sum by (name) (increase(container_oom_events_total[1h])) > 0
+        for: 1m
+        labels: {severity: warning}
+        annotations:
+          summary: "Conteneur OOM: {{ $labels.name }}"
+          description: "Le noyau a tué le conteneur au moins une fois pendant l'heure écoulée."
+      - alert: KernelOOMKill
+        expr: increase(node_vmstat_oom_kill[1h]) > 0
+        for: 1m
+        labels: {severity: warning}
+        annotations:
+          summary: "OOM noyau sur {{ $labels.instance }}"
+          description: "Le noyau a tué un processus pendant l'heure écoulée."
       - alert: TargetDown
         expr: up{job=~"prometheus|alertmanager|grafana|cadvisor|blackbox|gotify-bridge"} == 0
         for: 5m

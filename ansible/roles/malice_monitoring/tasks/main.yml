@@ -1,0 +1,81 @@
+---
+# Hypervisor monitoring and host backup units. The other VMs are intentionally
+# outside this repository; only the hypervisor itself is addressed here.
+- name: Update apt cache
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Install the hypervisor node exporter
+  ansible.builtin.apt:
+    name: prometheus-node-exporter
+    state: present
+
+- name: Bind the exporter to the tailnet only
+  ansible.builtin.copy:
+    dest: /etc/default/prometheus-node-exporter
+    mode: "0644"
+    content: |
+      # Metrics are consumed by Prometheus on chill-01 over Tailscale.
+      ARGS="--web.listen-address=100.99.204.109:9100"
+  notify: Restart node exporter
+
+- name: Create the node exporter drop-in directory
+  ansible.builtin.file:
+    path: /etc/systemd/system/prometheus-node-exporter.service.d
+    state: directory
+    mode: "0755"
+
+- name: Start the exporter after Tailscale
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/prometheus-node-exporter.service.d/homelab.conf
+    mode: "0644"
+    content: |
+      [Unit]
+      Wants=tailscaled.service
+      After=tailscaled.service
+
+      [Service]
+      Restart=always
+  notify: Restart node exporter
+
+- name: Install the notification unit
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../host/notify@.service"
+    dest: /etc/systemd/system/notify@.service
+    mode: "0644"
+  notify: Reload systemd
+
+- name: Install the hypervisor backup helper
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../host/malice-restic-backup"
+    dest: /usr/local/sbin/malice-restic-backup
+    mode: "0700"
+  notify: Reload systemd
+
+- name: Install hypervisor backup and check units
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../host/{{ item }}"
+    dest: "/etc/systemd/system/{{ item }}"
+    mode: "0644"
+  loop:
+    - malice-restic-backup.service
+    - malice-restic-backup.timer
+    - malice-restic-check.service
+    - malice-restic-check.timer
+  notify: Reload systemd
+
+- name: Enable hypervisor backup and sampled check timers
+  ansible.builtin.systemd_service:
+    name: "{{ item }}"
+    enabled: true
+    state: started
+  loop:
+    - malice-restic-backup.timer
+    - malice-restic-check.timer
+
+- name: Ensure the node exporter is enabled and running
+  ansible.builtin.systemd_service:
+    name: prometheus-node-exporter
+    enabled: true
+    state: started

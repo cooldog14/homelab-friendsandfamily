@@ -48,47 +48,129 @@ else
   alert "vps pull FAILED on $(hostname) (backup continuing without VPS config)"
 fi
 
+PG_FAILED=
 pg_dump_container() {
   container=$1
   out=$2
-  if ! docker exec "$container" sh -c 'PGPASSWORD="$POSTGRES_PASSWORD" pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB"' > "$out.new"; then
+  if ! docker exec "$container" sh -c 'PGPASSWORD="$POSTGRES_PASSWORD" pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB"' > "$out.new" \
+    || [ ! -s "$out.new" ] \
+    || ! grep -q "PostgreSQL database dump" "$out.new"; then
     rm -f "$out.new"
-    log "postgres dump FAILED: $container"
+    log "postgres dump FAILED (continuing): $container"
+    PG_FAILED="${PG_FAILED}${PG_FAILED:+, }$container"
     return 1
   fi
   mv "$out.new" "$out"
+  log "postgres dump ok: $out"
 }
-pg_dump_container photos-immich-db-1 "$DUMP_DIR/immich.sql"
-pg_dump_container docs-paperless-db-1 "$DUMP_DIR/paperless.sql"
+pg_dump_container photos-immich-db-1 "$DUMP_DIR/immich.sql" || true
+pg_dump_container docs-paperless-db-1 "$DUMP_DIR/paperless.sql" || true
 # SQLite hot-backup: raw restic copies of live sqlite files can be corrupt.
-# .backup takes a consistent snapshot; failures must not fail the backup.
+# Every dump is written aside, integrity-checked, then swapped only on success.
+# A failure alerts and continues; the previous good dump remains untouched.
 SQLITE_FAILED=
 sql_backup() {
-  if [ -f "$1" ]; then
-    if sqlite3 "$1" ".backup '$2'" 2>/dev/null; then
-      log "sqlite dump ok: $2"
-    else
-      log "sqlite dump FAILED (continuing): $1"
-      rm -f "$2"
-      SQLITE_FAILED="${SQLITE_FAILED}${SQLITE_FAILED:+, }$1"
-    fi
+  src=$1
+  out=$2
+  tmp="$out.new"
+  rm -f "$tmp"
+  if [ ! -f "$src" ]; then
+    log "sqlite dump FAILED (missing): $src"
+    SQLITE_FAILED="${SQLITE_FAILED}${SQLITE_FAILED:+, }$src(missing)"
+  elif sqlite3 "$src" ".backup '$tmp'" 2>/dev/null \
+    && [ -s "$tmp" ] \
+    && sqlite3 "$tmp" "PRAGMA quick_check;" 2>/dev/null | grep -qx ok; then
+    mv "$tmp" "$out"
+    log "sqlite dump ok: $out"
+  else
+    log "sqlite dump FAILED (continuing): $src"
+    rm -f "$tmp"
+    SQLITE_FAILED="${SQLITE_FAILED}${SQLITE_FAILED:+, }$src"
   fi
 }
-# NOTE: filebrowser.db is NOT sqlite (Filebrowser v2 uses bbolt) — raw restic
-# copy of /opt covers it; do not add it here.
+# NOTE: filebrowser's bbolt files are not SQLite; their raw restic copies are
+# outside the SQLite dump path. Dump the SQLite side of each Filebrowser.
+sql_backup /opt/stacks/apps/state/filebrowser-quantum/database.sqlite "$DUMP_DIR/filebrowser-quantum.sqlite"
+sql_backup /opt/stacks/apps/state/filebrowser-family/database.sqlite "$DUMP_DIR/filebrowser-family.sqlite"
+sql_backup /opt/stacks/apps/state/filebrowser-upload/database.sqlite "$DUMP_DIR/filebrowser-upload.sqlite"
 sql_backup /opt/stacks/docs/state/kavita/kavita.db "$DUMP_DIR/kavita.db"
+sql_backup /opt/stacks/comms/state/mumble/mumble-server.sqlite "$DUMP_DIR/mumble.sqlite"
+sql_backup /opt/stacks/media/state/navidrome/navidrome.db "$DUMP_DIR/navidrome.db"
+sql_backup /opt/stacks/media/state/prowlarr/prowlarr.db "$DUMP_DIR/prowlarr.db"
+sql_backup /opt/stacks/media/state/radarr/radarr.db "$DUMP_DIR/radarr.db"
+sql_backup /opt/stacks/media/state/sonarr/sonarr.db "$DUMP_DIR/sonarr.db"
+sql_backup /opt/stacks/media/state/bazarr/db/bazarr.db "$DUMP_DIR/bazarr.db"
+sql_backup /opt/stacks/media/state/jellyseerr/db/db.sqlite3 "$DUMP_DIR/jellyseerr.sqlite"
+sql_backup /opt/stacks/media/state/slskd/data/transfers.db "$DUMP_DIR/slskd-transfers.db"
+sql_backup /opt/stacks/media/state/slskd/data/events.db "$DUMP_DIR/slskd-events.db"
+sql_backup /opt/stacks/media/state/slskd/data/messaging.db "$DUMP_DIR/slskd-messaging.db"
+sql_backup /opt/stacks/media/state/slskd/data/search.db "$DUMP_DIR/slskd-search.db"
+sql_backup /opt/stacks/media/state/wrtag/wrtag.db "$DUMP_DIR/wrtag.db"
+sql_backup /opt/stacks/media/state/jellyfin-config/data/jellyfin.db "$DUMP_DIR/jellyfin.db"
 sql_backup /opt/stacks/observability/state/gotify/gotify.db "$DUMP_DIR/gotify.db"
-if [ -n "$SQLITE_FAILED" ]; then
-  alert "sqlite backup FAILED on $(hostname): $SQLITE_FAILED (backup continuing)"
+sql_backup /opt/stacks/observability/state/grafana/grafana.db "$DUMP_DIR/grafana.db"
+if [ -n "$PG_FAILED" ] || [ -n "$SQLITE_FAILED" ]; then
+  alert "database dump incomplete on $(hostname): PG=[$PG_FAILED] SQLite=[$SQLITE_FAILED] (backup continuing)"
+fi
+
+# Minecraft: disable periodic saves and flush once. Suwayomi uses H2, which
+# cannot be hot-copied with sqlite3; freeze the process only for the read window.
+QUIESCE_FAILED=
+MC_QUIESCED=
+SUWAYOMI_PAUSED=
+cleanup_live_state() {
+  if [ "$SUWAYOMI_PAUSED" = 1 ]; then
+    docker unpause media-suwayomi-1 >/dev/null 2>&1 || {
+      log "FAILED to unpause media-suwayomi-1"
+      alert "media-suwayomi-1 remains paused on $(hostname)"
+    }
+  fi
+  if [ "$MC_QUIESCED" = 1 ]; then
+    docker exec games-mc-1 rcon-cli save-on >/dev/null 2>&1 || {
+      log "FAILED to re-enable Minecraft saves"
+      alert "Minecraft save-on failed on $(hostname)"
+    }
+  fi
+}
+trap cleanup_live_state EXIT
+
+if docker inspect -f '{{.State.Running}}' games-mc-1 2>/dev/null | grep -qx true; then
+  if docker exec games-mc-1 rcon-cli save-off >/dev/null 2>&1 \
+    && docker exec games-mc-1 rcon-cli save-all flush >/dev/null 2>&1; then
+    MC_QUIESCED=1
+    sleep 2
+    log "minecraft writes quiesced"
+  else
+    QUIESCE_FAILED="${QUIESCE_FAILED}${QUIESCE_FAILED:+, }minecraft"
+    log "minecraft quiesce FAILED (raw snapshot may be inconsistent)"
+  fi
+fi
+
+if docker inspect -f '{{.State.Running}}' media-suwayomi-1 2>/dev/null | grep -qx true; then
+  if docker pause media-suwayomi-1 >/dev/null 2>&1; then
+    SUWAYOMI_PAUSED=1
+    log "suwayomi paused for the snapshot"
+  else
+    QUIESCE_FAILED="${QUIESCE_FAILED}${QUIESCE_FAILED:+, }suwayomi"
+    log "suwayomi pause FAILED (raw snapshot may be inconsistent)"
+  fi
+fi
+
+if [ -n "$QUIESCE_FAILED" ]; then
+  alert "live-state quiesce incomplete on $(hostname): $QUIESCE_FAILED (backup continuing)"
 fi
 
 backup_and_prune() {
-  # /mnt/data covers /mnt/data/photos (mirror disk) — single path only.
+  # /mnt/data covers the takeover tree; live database internals are excluded
+  # because the consistent dumps above are the restore source.
   restic backup /opt "$DUMP_DIR" /mnt/data /etc /root/.ssh \
     --exclude /mnt/data/downloads \
     --exclude /mnt/data/media/music/inbox/slskd/incomplete \
     --exclude /mnt/data/media/movies \
     --exclude /mnt/data/media/tv \
+    --exclude /opt/stacks/photos/state/immich/db \
+    --exclude /opt/stacks/photos/state/immich/model-cache \
+    --exclude /opt/stacks/docs/state/paperless-db \
     --exclude /opt/stacks/observability/state/prometheus
   case "${RESTIC_PRUNE:-1}" in 1) restic forget --prune --keep-daily 7 --keep-weekly 4 --keep-monthly 6 ;; esac
 }
@@ -117,5 +199,9 @@ mkdir -p "$RESTIC_REPOSITORY"
 restic snapshots >/dev/null 2>&1 || restic init
 backup_and_prune
 export RESTIC_REPOSITORY="$cloud_repo"
+if [ -n "$PG_FAILED" ] || [ -n "$SQLITE_FAILED" ] || [ -n "$QUIESCE_FAILED" ]; then
+  alert "backup completed INCOMPLETE on $(hostname): PG=[$PG_FAILED] SQLite=[$SQLITE_FAILED] quiesce=[$QUIESCE_FAILED]"
+  exit 1
+fi
 # Success marker for the watchdog timer (a disabled timer fails silently otherwise).
 mkdir -p /var/lib && date -Is > /var/lib/homelab-backup.last-ok

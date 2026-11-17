@@ -1,0 +1,6 @@
+---
+- name: malice (hypervisor)
+  hosts: hypervisor
+  become: false
+  roles:
+    - malice_monitoring

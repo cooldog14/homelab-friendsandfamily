@@ -49,12 +49,26 @@
     to_port: "9090"
     proto: tcp
 
-- name: Allow all traffic on the overlay interfaces
+- name: Allow all traffic on the tailnet interface
   community.general.ufw:
     rule: allow
     direction: in
-    interface: "{{ item }}"
-  loop: [wg0, tailscale0]
+    interface: tailscale0
+
+- name: Remove the broad WireGuard allowance
+  community.general.ufw:
+    rule: allow
+    direction: in
+    interface: wg0
+    delete: true
+  ignore_errors: true
+
+- name: Allow only the VPS WireGuard address
+  community.general.ufw:
+    rule: allow
+    direction: in
+    interface: wg0
+    from_ip: 10.44.0.1
 
 - name: Allow LAN media playback
   community.general.ufw:

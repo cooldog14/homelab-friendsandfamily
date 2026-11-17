@@ -11,3 +11,9 @@ all:
       hosts:
         vps-ingress:
           ansible_user: root
+    hypervisor:
+      hosts:
+        malice:
+          ansible_user: root
+      vars:
+        ansible_become: false

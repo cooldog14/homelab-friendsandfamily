@@ -1,6 +1,49 @@
 # todo
 
-## next (updated 2026-10-21)
+## immediate (updated 2026-11-17)
+
+Based on the 2026-11-09 live review. Execute each workstream in order; an item
+closes only after its verification passes. The older material below is retained
+as investigation history, not as the active queue.
+
+- [ ] **P0 — Make isolation survive reboot and deploy.** Install/enable a systemd
+  unit for `host/firewall-neko.sh`, invoke it after every `make deploy`, and
+  remove the broad `wg0` UFW allow while retaining only `from 10.44.0.1`.
+  **Verify:** after a planned reboot, marker rules reference current bridges,
+  Neko lateral probes time out, public routes remain green, and the second
+  `make host` reports `changed=0`.
+- [ ] **P0 — Narrow VPS forwarding, then remove admin-port exposure.** Replace
+  broad forwarding to `10.44.0.0/24` with explicit DNAT/P2P rules and codify the
+  complete policy in Ansible/git. After that control is proven, move private-only
+  admin ports off `10.44.0.2` and proxy them through private Caddy. Keep a proven
+  SSH session open; never flush the VPS firewall. **Verify:** VPS probes reach
+  only intended public backends, every private vhost works over Tailscale, and
+  Mumble/Neko/Screego/Minecraft/P2P paths still pass.
+- [ ] **P0 — Make backups fail safely and prove recovery.** Alert-and-continue on
+  individual PostgreSQL dump failures while exiting non-zero at the end; make
+  SQLite dumps atomic; exclude live PostgreSQL/model-cache data; add consistent
+  dumps/quiescing for valuable application state; schedule sampled-data
+  `restic check`; move the unattended reboot outside the backup window.
+  **Verify:** forced dump failures preserve the previous dumps, still snapshot
+  other data and alert; both repositories pass checks; `make restore-test`
+  passes.
+- [ ] **P0 — Close monitoring and capacity blind spots.** Add an external
+  dead-man check, hypervisor metrics and PVE failure notifications; add OOM
+  alerts and remove the observed cAdvisor/Grafana memory pressure. **Verify:** a
+  stopped heartbeat and test OOM alert fire externally, cAdvisor stays stable for
+  24 h, and hypervisor memory has an actionable alert.
+- [ ] **P0 on site — Finish the disk retirement.** Pull retired `sdc` and the
+  staged-backup disk `sda` only after verifying the `/mnt/pool/.diskmove` copies
+  and current mounts; do not pull the vault disk. Complete the replacement/staging
+  plan before changing backup destinations. **Verify:** VMs, mounts, public checks
+  and one manual backup pass after reboot; restic snapshots remain readable.
+- [ ] **P1 — Remove remaining orchestration drift.** Scope the storage role to
+  the takeover bind with a source assertion and Docker mount requirements; make
+  deploy require a clean commit and record the deployed revision. **Verify:**
+  missing/wrong storage blocks Docker and deploy, a second `make host` is
+  unchanged, and deployment records the exact commit.
+
+## historical investigation backlog (not the active queue; last old update 2026-10-21)
 
 ### P0 — access, secrets, and recovery
 
