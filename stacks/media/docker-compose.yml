@@ -140,7 +140,7 @@ services:
     restart: unless-stopped
 
   radarr:
-    image: lscr.io/linuxserver/radarr:6.2.1
+    image: lscr.io/linuxserver/radarr:7.0.3
     security_opt:
       - no-new-privileges:true
     cap_drop:
