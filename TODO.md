@@ -1,44 +1,125 @@
 # todo
 
-## immediate (updated 2026-11-17)
+## live audit — 2026-11-17
 
-### on-site
+Read-only audit of the workstation repo, `chill-01`, `malice`, the VPS, DNS and
+external automation. Everything below was verified live unless marked as a
+decision.
 
-- [ ] **Finish the disk retirement on site.** Pull retired `sdc` and the
-  staged-backup disk `sda` only after verifying the `/mnt/pool/.diskmove` copies
-  and current mounts; do not pull the vault disk. **Verify:** VMs, mounts, public
-  checks and one manual backup pass after reboot; restic snapshots remain
-  readable.
+### P0 — safety and security
 
-### completed 2026-11-17
+- [ ] **Prepare and complete the disk retirement.** Live state: `/mnt/pool/.diskmove`
+  does not exist, `sda` is still mounted at `/mnt/backup`, and `sdc` is absent
+  from the kernel after offlining. Stage local restic and VM dumps before any
+  physical pull; then pull `sdc` + `sda`, keeping `sdb` (`/mnt/vault`).
+  **Verify:** `/mnt/pool/.diskmove` byte-verified, mounts rebuilt, VM dumps and
+  local restic readable, public checks green after reboot.
+- [ ] **Make the WAN monitor actually scheduled.** The GitHub workflow works
+  manually and its outage/recovery issue path was tested, but as of 10:12 UTC
+  GitHub produced no `schedule` runs after 30+ minutes. Check scheduler
+  enablement/delay; if it stays silent, replace it with a provider-side URL
+  monitor. This is the only remaining gap in WAN-down detection.
+- [ ] **Restore CrowdSec HTTP enforcement.** Live CrowdSec is `1.4.6` with
+  bouncer `0.0.25`; it reads SSH plus dead nginx/apache paths and has no Caddy
+  acquisition. Upgrade to current and feed `/var/log/caddy/access.log` through
+  an HTTP-aware acquisition/bouncer. **Verify:** a scanner request produces a
+  decision and a ban.
 
-- [x] Activated external dead-man monitoring: the VPS sends 5-minute heartbeats
-  to the configured external check only while all public HTTP/TCP checks pass.
-  Failure and recovery pings were accepted.
-- [x] Rebooted the VPS and verified its persisted firewall/NAT, WireGuard,
-  gluetun egress, all public checks and the recovered heartbeat timer.
-- [x] Added a GitHub-hosted public-edge probe every 10 minutes. It opens an
-  assigned outage issue on failure and closes it on recovery; both paths were
-  exercised successfully.
-- [x] Persisted `DOCKER-USER` isolation through a boot service and deploy hook;
-  removed the broad `wg0` UFW rule.
-- [x] Codified the VPS firewall, removed broad forwarding, moved private admin
-  traffic to the internal `homelab-edge` network, and removed admin ports from
-  `10.44.0.2`.
-- [x] Made PostgreSQL, SQLite, Filebrowser Bolt and Suwayomi backups atomic;
-  added sampled-data checks, moved the reboot window, and passed the expanded
-  restore drill (21 SQLite dumps, 3 Bolt snapshots, 1.63 GiB). Both hosted
-  cloud/local and hypervisor sampled checks completed successfully.
-- [x] Added hypervisor metrics, OOM alerts, PVE Gotify notifications and larger
-  cAdvisor/Grafana limits.
-- [x] Added storage identity assertions, Docker mount ordering, exact-commit
-  deploy archives and `/opt/stacks/.deployed-commit`.
-- [x] Verified host, VPS and hypervisor idempotence (`changed=0` each), the
-  `chill-01` reboot (42 running containers, zero unhealthy, 89 isolation rules),
-  all 13 public HTTP + 4 TCP checks and all 16 private vhosts.
-  `/opt/stacks/.deployed-commit` records the final commit.
+### P1 — recovery, exposure and maintenance
 
-## historical investigation backlog (not the active queue; last old update 2026-10-21)
+- [ ] **Plan the Immich PostgreSQL 14 upgrade.** The image is 13 months old and
+  PG14 is past its 2026-11-12 EOL. Dump/restore to a supported image and verify
+  VectorChord/vectors compatibility before changing the tag.
+- [ ] **Normalise backup retention and VM-image coverage.** The cloud repo has
+  48 snapshots across six historical path layouts; local has 12. Prune legacy
+  groups deliberately and decide whether weekly VM dumps are copied offsite.
+  **Verify:** every retained path group is intentional and both repos pass
+  sampled checks.
+- [ ] **Apply the container-hardening baseline by risk.** 27 of 42 services lack
+  `no-new-privileges` and `cap_drop`, 30 lack an explicit `user`, and none are
+  `read_only`. Start with public edge, Immich, the *arr stack, Jellyfin and
+  Minecraft; document unavoidable exceptions.
+- [ ] **Clear the update backlog and add update automation.** 7 pending host
+  packages, 8 on the VPS, 50 on malice. Image drift includes Paperless 3.1.3→3.5.0,
+  Gotify 2.5.0→3.1.1, Jellyfin 12.3→12.4, Kavita 0.9.1→0.9.1.4, Immich 3.3.5→3.4.1,
+  Seerr 3.5.1→3.5.2, Minecraft 2026.9.2→2026.11.0, slskd 0.26.0→0.26.2,
+  Caddy container 2.11.4→2.11.9 and VPS 2.11.7→2.11.9, and CrowdSec
+  1.4.6→1.8.2. Renovate is configured but has never opened a PR.
+- [ ] **Codify the VPS Caddy package source.** The live Cloudsmith Caddy repo
+  works, but `vps_edge` does not install it; a clean VPS rebuild would fall back
+  to Debian Caddy 2.6.2.
+- [ ] **Schedule hypervisor maintenance.** 50 pending Proxmox updates include
+  pve-manager and QEMU; the host has only ~2.9 GiB available and 1.1 GiB swap in
+  use. Plan a vzdump-backed upgrade/reboot and add a memory/swap alert.
+- [ ] **Address the power-loss risk.** No UPS or NUT units are present; the
+  hypervisor has prior unclean shutdown history. Decide on UPS/BIOS auto-power
+  and shutdown integration.
+- [ ] **Harden VPS key access or explicitly record the accepted risk.** Two root
+  authorized keys are unrestricted, `/root/chill0-priv` still exists, and
+  `/etc/wireguard` has timestamped private-key backups. You previously accepted
+  the credential risk; this item is closed only if that remains the policy.
+- [ ] **Restrict Minecraft.** `white-list=false`, `enforce-whitelist=false`, RCON
+  enabled, and the server is publicly forwarded. Add a whitelist and decide
+  whether to keep RCON enabled.
+- [ ] **Retire the broken PVE mail path.** PVE Gotify delivery works, but the
+  default matcher still targets `mail-to-root`; two messages are queued to
+  `duck.com:25` and timing out. Remove the dead target or fix delivery, then
+  flush the queue.
+
+### P2 — drift and hygiene
+
+- [ ] Add private app health instrumentation where Docker has none (Caddy,
+  Jellyseerr, Navidrome, Radarr/Sonarr/Bazarr) and monitor the private edge.
+- [ ] Narrow the eight broad `/mnt/data` mounts; add Filebrowser proxy-header
+  handling behind Caddy.
+- [ ] Remove the stale IPv6 UFW rule for retired Beszel port `45876` and the
+  duplicate LAN SSH/media rules.
+- [ ] Fix HTTP/3: Caddy advertises `h3`, but the VPS firewall does not allow
+  UDP/443. Either allow `udp 443` or disable h3.
+- [ ] Add HSTS/baseline headers, CAA, DNSSEC and an explicit null MX; document
+  IPv4-only public service.
+- [ ] Remove VPS `.bak` clutter safely, autoremove the old `6.12.116` kernel,
+  disable idle Docker, and decide whether to keep Docker packages.
+- [ ] Clean unused host images/cache (11.3G reclaimable; root filesystem 76%).
+  Pin the remaining floating tags (`postgres:16-alpine`, `redis:7-alpine`,
+  `gotenberg:8`).
+- [ ] Disable Tailscale key expiry for `chill-01` and `malice` if they should
+  remain infrastructure nodes beyond March 2027.
+- [ ] Fix current doc drift: `AGENTS.md` sde usage, `vps/README` missing
+  `vps/firewall.nft`, edge bootstrap comments, and photos/games “mirror disk”
+  comments. Historical RUNBOOK bootstrap references are expected history.
+- [ ] Repeat the restore drill quarterly and keep the result in the runbook.
+
+### decisions
+
+- [ ] Accept, move, or separate the P2P exit currently using the VPS public IP;
+  an abuse complaint could suspend the whole edge.
+- [ ] Decide whether full VM images need offsite retention or whether
+  rebuild-from-git plus offsite app data is the accepted recovery model.
+- [ ] Keep the current offline tailnet devices registered unless explicitly
+  revoked.
+
+### verified healthy / closed
+
+- 42/42 containers up, health checks green, no failed systemd units, no active
+  Prometheus alerts, and no observed container restarts.
+- Public edge: 13 HTTP + 4 TCP green; all 16 private vhosts return 200/302/401.
+- Isolation: 89 `DOCKER-USER` rules restored after reboot; private admin ports
+  no longer bind `10.44.0.2`.
+- VPS and `chill-01` rebooted cleanly; persisted firewall/NAT, WireGuard,
+  gluetun egress, and heartbeat recovered.
+- Backups: last success 2026-11-17 04:26 UTC; 21 SQLite dumps, three Bolt
+  snapshots, Suwayomi archive; expanded restore drill passed (40 paths, 1.63
+  GiB; cold 6m45s, warm 1m22s). Hosted and hypervisor sampled checks pass.
+- External alert failure/recovery accepted; PVE Gotify target tested; VPS
+  heartbeat verified every five minutes.
+- Closed/stale historical items: broad wireguard exposure, admin-port exposure,
+  Neko lateral movement, boot guard, backup dump atomicity, reboot/backup
+  overlap, public-check independence, PVE notification absence, sdc NFS/virtiofs
+  state, failed relay, Beszel, old slskd/wrtag auth, current Prowlarr/Sonarr
+  log key leakage, and stale Filebrowser log key leakage.
+
+## historical investigation backlog (superseded; retained only for traceability)
 
 ### P0 — access, secrets, and recovery
 
