@@ -115,3 +115,10 @@ ansible-galaxy collection install -r ansible/requirements.yml
 
 Debian, Proxmox VE, Docker Compose, Caddy, WireGuard, Tailscale, restic,
 systemd, Ansible, OpenTofu, Prometheus, Grafana, Alertmanager.
+
+## Credits
+
+- Diagram generator adapted from
+  [Goblinmine/homelab-diagram](https://github.com/Goblinmine/homelab-diagram)
+  (MIT).
+- Diagram fonts: Fira Sans and Fira Code.
