@@ -1024,7 +1024,8 @@ Do not test by deleting data.
   200/302/401. Backup succeeded with 21 SQLite dumps, 3 Bolt snapshots and a
   1.3G Suwayomi archive. The expanded restore drill passed (40 paths, 1.63 GiB;
   cold 6m45s, warm 1m22s). A forced missing PostgreSQL container and missing
-  SQLite source preserved old dumps and recorded failures.
+  SQLite source preserved old dumps and recorded failures. Hosted cloud/local
+  and hypervisor 5% data checks both completed successfully.
 - Remaining: external dead-man needs a provider push URL in
   `/etc/homelab-heartbeat.env` on the VPS (the client and 5-minute timer are
   installed and tested). Physical removal of retired `sdc` and staged `sda`

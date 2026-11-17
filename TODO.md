@@ -26,7 +26,8 @@
   `10.44.0.2`.
 - [x] Made PostgreSQL, SQLite, Filebrowser Bolt and Suwayomi backups atomic;
   added sampled-data checks, moved the reboot window, and passed the expanded
-  restore drill (21 SQLite dumps, 3 Bolt snapshots, 1.63 GiB).
+  restore drill (21 SQLite dumps, 3 Bolt snapshots, 1.63 GiB). Both hosted
+  cloud/local and hypervisor sampled checks completed successfully.
 - [x] Added hypervisor metrics, OOM alerts, PVE Gotify notifications and larger
   cAdvisor/Grafana limits.
 - [x] Added storage identity assertions, Docker mount ordering, exact-commit
