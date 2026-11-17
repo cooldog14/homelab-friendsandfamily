@@ -106,6 +106,14 @@ class Prometheus:
         rows = self.query(expression)
         return rows[0]["value"] if rows else None
 
+    def alerts(self) -> list[dict]:
+        """Alertmanager's view of Prometheus rules: firing and pending."""
+        data = self._api("/api/v1/alerts", {})
+        rows = data.get("alerts")
+        if not isinstance(rows, list):
+            raise ClientError("prometheus: unexpected alerts payload")
+        return [row for row in rows if isinstance(row, dict)]
+
     def query_range(
         self, expression: str, seconds: int = 1800, step: int = 30
     ) -> list[dict]:
@@ -205,6 +213,14 @@ class Docker(_UnixClient):
             f"?stdout=1&stderr=1&timestamps=1&tail={int(tail)}",
             limit=2 * 1024 * 1024,
         )
+
+    def inspect(self, container_id: str) -> dict:
+        """One container's state detail. Only used for unhealthy/stopped ones."""
+        quoted = urllib.parse.quote(container_id, safe="")
+        payload = _decode(self._get(f"/containers/{quoted}/json", limit=1024 * 1024))
+        if not isinstance(payload, dict):
+            raise ClientError("docker: unexpected inspect payload")
+        return payload
 
 
 class Tailscale(_UnixClient):

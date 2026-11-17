@@ -575,6 +575,46 @@ def normalize_arr_queue(payload: Any, kind: str) -> dict:
     }
 
 
+def normalize_prometheus_alerts(payload: Any) -> list[dict]:
+    """Alertmanager/Prometheus alert state, firing and pending."""
+    rows: list[dict] = []
+    for alert in _as_list(payload):
+        if not isinstance(alert, dict):
+            continue
+        labels = alert.get("labels") or {}
+        annotations = alert.get("annotations") or {}
+        since = parse_timestamp(str(alert.get("activeAt") or ""))
+        rows.append(
+            {
+                "name": labels.get("alertname"),
+                "severity": str(labels.get("severity") or "warning").lower(),
+                "state": str(alert.get("state") or "").lower(),
+                "since": iso_z(since) if since else None,
+                "summary": annotations.get("summary"),
+                "description": annotations.get("description"),
+                "host": labels.get("host") or labels.get("instance"),
+                "value": alert.get("value"),
+            }
+        )
+    return rows
+
+
+def normalize_container_detail(payload: Any) -> dict:
+    """Why a container is not serving: exit code, OOM, restarts, error text."""
+    document = payload if isinstance(payload, dict) else {}
+    state = document.get("State") or {}
+    code = state.get("ExitCode")
+    restarts = document.get("RestartCount")
+    return {
+        "exit_code": code if isinstance(code, int) else None,
+        "oom_killed": bool(state.get("OOMKilled")),
+        "error": str(state.get("Error")) if state.get("Error") else None,
+        "restart_count": restarts if isinstance(restarts, int) else None,
+        "started_at": state.get("StartedAt") or None,
+        "finished_at": state.get("FinishedAt") or None,
+    }
+
+
 def normalize_arr_health(payload: Any) -> dict:
     errors: list[str] = []
     warnings: list[str] = []

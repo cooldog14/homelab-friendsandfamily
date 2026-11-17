@@ -412,6 +412,84 @@ ARR_HEALTH = [
 ]
 
 
+PROMETHEUS_ALERTS = [
+    {
+        "labels": {"alertname": "ContainerRestartLoop", "severity": "warning", "name": "jellyfin"},
+        "annotations": {"summary": "Conteneur redémarré plusieurs fois: jellyfin"},
+        "state": "firing",
+        "activeAt": "2026-11-17T19:40:00.000Z",
+        "value": "4",
+    },
+    {
+        "labels": {"alertname": "BackupMetricMissing", "severity": "warning", "host": "malice"},
+        "annotations": {"summary": "Métrique de sauvegarde absente"},
+        "state": "firing",
+        "activeAt": "2026-11-17T19:00:00.000Z",
+    },
+    {
+        "labels": {"alertname": "KernelOOMKill", "severity": "critical", "instance": "node-exporter:9100"},
+        "annotations": {"summary": "OOM noyau"},
+        "state": "pending",
+        "activeAt": "2026-11-17T19:59:00.000Z",
+    },
+]
+
+CONTAINER_INSPECT = {
+    "RestartCount": 3,
+    "State": {
+        "Status": "exited",
+        "ExitCode": 137,
+        "OOMKilled": True,
+        "Error": "",
+        "StartedAt": "2026-11-17T19:00:00Z",
+        "FinishedAt": "2026-11-17T19:05:00Z",
+    },
+}
+
+
+class TriageTests(unittest.TestCase):
+    def test_prometheus_alert_normalization(self) -> None:
+        rows = parsers.normalize_prometheus_alerts(PROMETHEUS_ALERTS)
+        self.assertEqual(len(rows), 3)
+        first = rows[0]
+        self.assertEqual(first["name"], "ContainerRestartLoop")
+        self.assertEqual(first["severity"], "warning")
+        self.assertEqual(first["state"], "firing")
+        self.assertEqual(first["since"], "2026-11-17T19:40:00.000Z")
+        self.assertIn("jellyfin", first["summary"])
+        self.assertEqual(rows[2]["host"], "node-exporter:9100")
+
+    def test_container_detail_normalization(self) -> None:
+        detail = parsers.normalize_container_detail(CONTAINER_INSPECT)
+        self.assertEqual(detail["exit_code"], 137)
+        self.assertTrue(detail["oom_killed"])
+        self.assertEqual(detail["restart_count"], 3)
+        self.assertIsNone(detail["error"])
+
+    def test_mirrored_rules_are_not_repeated(self) -> None:
+        infra = {"prometheus_alerts": parsers.normalize_prometheus_alerts(PROMETHEUS_ALERTS)}
+        rows = snapshot.prometheus_alerts_section(infra)
+        names = {row["title"] for row in rows}
+        # BackupMetricMissing is already a dashboard check; the other two are not.
+        self.assertEqual(len(rows), 2)
+        self.assertFalse(any("sauvegarde" in name.lower() for name in names))
+        by_state = {row["state"]: row for row in rows}
+        self.assertEqual(by_state["firing"]["severity"], "warn")
+        # A pending critical is not firing yet: amber until it does.
+        self.assertEqual(by_state["pending"]["severity"], "warn")
+        self.assertEqual(snapshot.prometheus_alerts_section({"prometheus_alerts": []}), [])
+
+    def test_summary_counts_both_sources(self) -> None:
+        counts = snapshot.summary_counts(
+            [{"severity": "alert"}, {"severity": "warn"}],
+            [{"severity": "alert"}, {"severity": "warn"}, {"severity": "warn"}],
+        )
+        self.assertEqual(counts, {"alert": 2, "warn": 3, "total": 5})
+        self.assertEqual(
+            snapshot.summary_counts([], []), {"alert": 0, "warn": 0, "total": 0}
+        )
+
+
 class PayloadTests(unittest.TestCase):
     def test_jellyfin_sessions(self) -> None:
         result = parsers.normalize_jellyfin_sessions(JELLYFIN_SESSIONS)
@@ -606,6 +684,17 @@ class AlertTests(unittest.TestCase):
             ]
         )
         self.assertEqual(by_id(alerts)["probe:media/jellyfin"]["severity"], "alert")
+
+    def test_exited_container_detail_is_carried(self) -> None:
+        row = service("jellyfin", state="exited")
+        row["detail"] = {"exit_code": 137, "oom_killed": True, "restart_count": 3}
+        alerts = by_id(derive(services=[row]))
+        self.assertEqual(alerts["container:media/jellyfin"]["severity"], "alert")
+        self.assertIn("exited", alerts["container:media/jellyfin"]["title"])
+
+    def test_paused_container_is_amber_not_red(self) -> None:
+        alerts = by_id(derive(services=[service("jellyfin", state="paused")]))
+        self.assertEqual(alerts["container:media/jellyfin"]["severity"], "warn")
 
     def test_unverified_running_service_is_muted(self) -> None:
         alerts = derive(

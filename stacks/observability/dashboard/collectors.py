@@ -24,6 +24,9 @@ NETWORK_DEVICE = "eth0"
 LOG_CAPACITY = 500
 LOG_TAIL = 30
 TITLE_TTL_SECONDS = 6 * 3600
+# Only unhealthy/stopped containers are inspected: the detail answers "why is
+# it down", and 43 extra API calls per 10 s would be pointless noise.
+MAX_INSPECT = 40
 
 _HEALTH_RE = re.compile(r"\((healthy|unhealthy|starting)\)")
 
@@ -384,6 +387,7 @@ class Collectors:
             "http_probes": http_probes,
             "tcp_probes": tcp_probes,
             "repos": repos,
+            "prometheus_alerts": parsers.normalize_prometheus_alerts(prom.alerts()),
         }
 
     # -- Docker ----------------------------------------------------------- #
@@ -414,8 +418,23 @@ class Collectors:
             if project and service:
                 by_key[f"{project}/{service}"] = row
 
+        self._inspect_problems(rows)
         self._collect_logs(by_key)
         return {"containers": rows, "by_key": by_key}
+
+    def _inspect_problems(self, rows: list[dict]) -> None:
+        inspected = 0
+        for row in rows:
+            if inspected >= MAX_INSPECT:
+                return
+            if row["state"] == "running" and row["health"] != "unhealthy":
+                continue
+            try:
+                payload = self.docker.inspect(row["id"])
+            except clients.ClientError:
+                continue
+            row["detail"] = parsers.normalize_container_detail(payload)
+            inspected += 1
 
     def _collect_logs(self, by_key: dict[str, dict]) -> None:
         secrets = self.settings.secrets
