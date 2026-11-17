@@ -31,8 +31,10 @@
   cAdvisor/Grafana limits.
 - [x] Added storage identity assertions, Docker mount ordering, exact-commit
   deploy archives and `/opt/stacks/.deployed-commit`.
-- [x] Verified host idempotence (`changed=0`), VPS policy syntax/runtime, all
-  public/private routes, and the full restore path.
+- [x] Verified host, VPS and hypervisor idempotence (`changed=0` each), the
+  `chill-01` reboot (42 running containers, zero unhealthy, 89 isolation rules),
+  all 13 public HTTP + 4 TCP checks and all 16 private vhosts.
+  `/opt/stacks/.deployed-commit` records the final commit.
 
 ## historical investigation backlog (not the active queue; last old update 2026-10-21)
 
