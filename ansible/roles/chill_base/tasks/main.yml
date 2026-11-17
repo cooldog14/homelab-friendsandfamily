@@ -81,6 +81,8 @@
   ansible.builtin.file:
     path: /opt/stacks
     state: directory
+    owner: "1000"
+    group: "1000"
     mode: "0755"
 
 - name: Ensure base services are enabled and running

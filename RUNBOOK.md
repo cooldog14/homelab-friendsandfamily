@@ -1016,13 +1016,15 @@ Do not test by deleting data.
   Docker requires `/mnt/data /mnt/pool /mnt/fast`, deploy archives HEAD instead
   of the working tree, applies isolation after compose, and records
   `/opt/stacks/.deployed-commit`.
-- Verification: `make host` second run `changed=0`; `make hypervisor` second run
-  `changed=0`; VPS configuration parses with `nft -c`. Public check is 13 HTTP +
-  4 TCP green. All 16 private vhosts return 200/302/401. Backup succeeded with
-  21 SQLite dumps, 3 Bolt snapshots and a 1.3G Suwayomi archive. The expanded
-  restore drill passed (40 paths, 1.63 GiB; cold 6m45s, warm 1m22s). A forced
-  missing PostgreSQL container and missing SQLite source preserved old dumps and
-  recorded failures.
+- Verification: `make host` second run `changed=0`; `make vps` second run
+  `changed=0`; `make hypervisor` second run `changed=0`. `chill-01` rebooted
+  cleanly with 42 containers running and zero unhealthy snapshots, 89 isolation
+  rules restored, and the takeover bind verified. VPS configuration parses with
+  `nft -c`. Public check is 13 HTTP + 4 TCP green. All 16 private vhosts return
+  200/302/401. Backup succeeded with 21 SQLite dumps, 3 Bolt snapshots and a
+  1.3G Suwayomi archive. The expanded restore drill passed (40 paths, 1.63 GiB;
+  cold 6m45s, warm 1m22s). A forced missing PostgreSQL container and missing
+  SQLite source preserved old dumps and recorded failures.
 - Remaining: external dead-man needs a provider push URL in
   `/etc/homelab-heartbeat.env` on the VPS (the client and 5-minute timer are
   installed and tested). Physical removal of retired `sdc` and staged `sda`
