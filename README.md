@@ -53,10 +53,10 @@ RTO for rebuilding the platform.
   prevention.
 - **Observable, reproducible core services.** Prometheus and Alertmanager cover
   the application VM, the hypervisor and the public edge. The VPS sends a
-  five-minute external heartbeat only while public checks pass, giving
-  whole-platform outage detection outside the application VM. Ansible manages
-  host state; OpenTofu plans the imported application VM without applying
-  changes.
+  five-minute external heartbeat only while public checks pass, and a
+  GitHub-hosted probe checks the same public edge from outside the network every
+  ten minutes. Ansible manages host state; OpenTofu plans the imported
+  application VM without applying changes.
 
 ## Deep dives
 

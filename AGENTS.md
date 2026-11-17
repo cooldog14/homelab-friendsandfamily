@@ -165,6 +165,9 @@ guests, snapshot, zstd, Sun 03:30, keep-last 8, writes
   TCP backends every five minutes. It sends a heartbeat only when all pass.
   `/etc/homelab-heartbeat.env` (0600, root-only) holds `HEARTBEAT_URL` and is
   outside git. Configure the external check for a 5m period / 15m grace.
+- `.github/workflows/external-public-check.yml` probes the public edge from
+  GitHub every 10 minutes. It opens an assigned issue on failure and closes it
+  on recovery. `workflow_dispatch` with `force_failure=true` tests alerting.
 
 ## access matrix
 | Target | Primary (Tailscale) | Fallback |

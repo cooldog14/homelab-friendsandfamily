@@ -1014,7 +1014,9 @@ Do not test by deleting data.
   matcher targets both `mail-to-root` and `gotify`; target test succeeded. The
   VPS heartbeat client checks public HTTP/TCP every five minutes and sends the
   configured external heartbeat only on success; an immediate delivery
-  completed successfully.
+  completed successfully. Its fail and recovery pings were accepted. A
+  GitHub-hosted public probe runs every 10 minutes, opens an assigned outage
+  issue on failure and closes it after recovery; both paths were tested.
 - Deploy/storage: `/mnt/data` source is asserted by device/inode identity,
   Docker requires `/mnt/data /mnt/pool /mnt/fast`, deploy archives HEAD instead
   of the working tree, applies isolation after compose, and records
@@ -1022,13 +1024,15 @@ Do not test by deleting data.
 - Verification: `make host` second run `changed=0`; `make vps` second run
   `changed=0`; `make hypervisor` second run `changed=0`. `chill-01` rebooted
   cleanly with 42 containers running and zero unhealthy snapshots, 89 isolation
-  rules restored, and the takeover bind verified. VPS configuration parses with
-  `nft -c`. Public check is 13 HTTP + 4 TCP green. All 16 private vhosts return
-  200/302/401. Backup succeeded with 21 SQLite dumps, 3 Bolt snapshots and a
-  1.3G Suwayomi archive. The expanded restore drill passed (40 paths, 1.63 GiB;
-  cold 6m45s, warm 1m22s). A forced missing PostgreSQL container and missing
-  SQLite source preserved old dumps and recorded failures. Hosted cloud/local
-  and hypervisor 5% data checks both completed successfully.
+  rules restored, and the takeover bind verified. The VPS also rebooted cleanly:
+  persisted firewall/NAT, SSH, Caddy, WireGuard, gluetun egress, public checks
+  and the heartbeat timer all recovered; `nft -c` passes. Public check is 13 HTTP
+  + 4 TCP green. All 16 private vhosts return 200/302/401. Backup succeeded
+  with 21 SQLite dumps, 3 Bolt snapshots and a 1.3G Suwayomi archive. The
+  expanded restore drill passed (40 paths, 1.63 GiB; cold 6m45s, warm 1m22s).
+  A forced missing PostgreSQL container and missing SQLite source preserved
+  old dumps and recorded failures. Hosted cloud/local and hypervisor 5% data
+  checks both completed successfully.
 - Remaining: physical removal of retired `sdc` and staged `sda` remains
   on-site.
 - Rollback: restore the previous stack tree with a commit checkout, run
