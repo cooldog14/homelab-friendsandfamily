@@ -286,9 +286,7 @@
     if (detail) parts.push(detail);
     if (probe.status === 'fail' && probe.error) parts.push(String(probe.error).slice(0, 56));
     const usage = (item || {}).usage || {};
-    if (num(usage.restarts_24h) && usage.restarts_24h > 0) {
-      parts.push(usage.restarts_24h + ' restarts/24h');
-    }
+    if (usage.restarted_24h) parts.push('restarted in 24h');
     if (num(usage.oom_24h) && usage.oom_24h > 0) parts.push(usage.oom_24h + ' oom/24h');
     return parts.join(' · ');
   }
