@@ -37,8 +37,10 @@ def _age(now: float, stamp: float | None) -> float | None:
 
 
 def _days(now: float, stamp: float | None) -> float | None:
-    age = _age(now, stamp)
-    return None if age is None else round(-age / DAY, 2)
+    """Days until `stamp`. Positive while a certificate is still valid."""
+    if not stamp:
+        return None
+    return round((float(stamp) - now) / DAY, 2)
 
 
 def disk_severity(used_pct: float | None) -> str | None:

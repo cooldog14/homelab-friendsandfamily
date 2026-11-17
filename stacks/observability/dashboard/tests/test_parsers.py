@@ -698,6 +698,55 @@ class AlertTests(unittest.TestCase):
         alerts = by_id(derive(disks=[{"mountpoint": "/mnt/data", "used_pct": 91.0}]))
         self.assertEqual(alerts["disk:/mnt/data"]["severity"], "alert")
 
+    def test_certificate_days_are_positive_while_valid(self) -> None:
+        """A future expiry must not collapse to 0 d and page someone."""
+        self.assertEqual(snapshot._days(NOW, NOW + 30 * 86400), 30.0)
+        self.assertAlmostEqual(snapshot._days(NOW, NOW + 6 * 3600), 0.25)
+        self.assertEqual(snapshot._days(NOW, NOW - 86400), -1.0)
+        self.assertIsNone(snapshot._days(NOW, None))
+
+    def test_live_route_shape_yields_no_tls_alert(self) -> None:
+        routes = {
+            "private": [
+                {
+                    "exposure": "private",
+                    "host": "files.h.malice.biz",
+                    "upstream": "filebrowser:80",
+                    "probe": {
+                        "ok": True,
+                        "code": 200,
+                        "latency_ms": 12.0,
+                        "expires_ts": NOW + 60 * 86400,
+                    },
+                }
+            ],
+            "public": [
+                {
+                    "exposure": "public",
+                    "host": "photos.malice.biz",
+                    "upstream": "10.44.0.2:2283",
+                }
+            ],
+        }
+        infra = {
+            "http_probes": [
+                {
+                    "instance": "https://photos.malice.biz",
+                    "success": True,
+                    "duration": 0.1,
+                    "expires_ts": NOW + 60 * 86400,
+                }
+            ]
+        }
+        network = snapshot._network_section(
+            CONFIG, routes, infra, {"available": True, "peers": []}, NOW
+        )
+        self.assertEqual(network["routes"][0]["tls_days"], 60.0)
+        alerts = by_id(derive(routes=network["routes"]))
+        self.assertEqual(
+            [key for key in alerts if key.startswith("tls")], []
+        )
+
     def test_tls_thresholds(self) -> None:
         self.assertIsNone(snapshot.tls_severity(15.0))
         self.assertEqual(snapshot.tls_severity(13.0), "warn")
