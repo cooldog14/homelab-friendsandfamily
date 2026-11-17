@@ -8,63 +8,79 @@ decision.
 
 ### P0 — safety and security
 
-- [ ] **Prepare and complete the disk retirement.** Live state: `/mnt/pool/.diskmove`
-  does not exist, `sda` is still mounted at `/mnt/backup`, and `sdc` is absent
-  from the kernel after offlining. Stage local restic and VM dumps before any
-  physical pull; then pull `sdc` + `sda`, keeping `sdb` (`/mnt/vault`).
-  **Verify:** `/mnt/pool/.diskmove` byte-verified, mounts rebuilt, VM dumps and
-  local restic readable, public checks green after reboot.
-- [ ] **Make the WAN monitor actually scheduled.** The GitHub workflow works
-  manually and its outage/recovery issue path was tested, but as of 10:12 UTC
-  GitHub produced no `schedule` runs after 30+ minutes. Check scheduler
-  enablement/delay; if it stays silent, replace it with a provider-side URL
-  monitor. This is the only remaining gap in WAN-down detection.
-- [ ] **Restore CrowdSec HTTP enforcement.** Live CrowdSec is `1.4.6` with
-  bouncer `0.0.25`; it reads SSH plus dead nginx/apache paths and has no Caddy
-  acquisition. Upgrade to current and feed `/var/log/caddy/access.log` through
-  an HTTP-aware acquisition/bouncer. **Verify:** a scanner request produces a
-  decision and a ban.
+- [ ] **Complete the disk retirement (blocked: needs on-site access).** Nothing
+  was moved this round by design: `/mnt/pool/.diskmove` still does not exist,
+  `sda` is still mounted at `/mnt/backup`, and `sdc` stays offlined. Stage local
+  restic and VM dumps before any physical pull, then pull `sdc` + `sda` and keep
+  `sdb` (`/mnt/vault`). **Verify:** `/mnt/pool/.diskmove` byte-verified, mounts
+  rebuilt, dumps and local restic readable, public checks green after reboot.
+- [ ] **Deploy the WAN prober (blocked: Cloudflare Workers token).** The
+  GitHub schedule still produces no runs, and the VPS heartbeat only proves the
+  VPS can reach the backends, not that the WAN path works. `workers/wan-heartbeat`
+  is written and both paths are verified locally (`GET /` on success,
+  `GET /fail` on any failure), but it cannot be deployed: there is no
+  Workers-enabled token in `~/.config/homelab/cloudflare-workers.env`. The
+  existing DNS token returns 403 for Workers and must not be reused.
+  **Next:** create an Account → Workers Scripts → Edit token, deploy, put
+  `HEARTBEAT_URL` as a secret, confirm a scheduled run in `wrangler tail`, then
+  remove `homelab-edge-heartbeat.{service,timer}` and
+  `.github/workflows/external-public-check.yml`. Until then both stay in place.
+- [x] **Restore CrowdSec HTTP enforcement.** Caddy 2.11.9 and CrowdSec 1.8.2
+  now come from their own repositories, the bouncer is 0.0.38 in nftables mode
+  with input+forward hooks, and `/var/log/caddy/access.log` is acquired with the
+  `caddy` label. First scan traffic after the restart produced five scenarios
+  and a 4h ban on a real internet scanner (34.156.228.89), visible in
+  `crowdsec-blacklists-crowdsec` and in both base chains.
 
 ### P1 — recovery, exposure and maintenance
 
-- [ ] **Plan the Immich PostgreSQL 14 upgrade.** The image is 13 months old and
-  PG14 is past its 2026-11-12 EOL. Dump/restore to a supported image and verify
-  VectorChord/vectors compatibility before changing the tag.
-- [ ] **Normalise backup retention and VM-image coverage.** The cloud repo has
-  48 snapshots across six historical path layouts; local has 12. Prune legacy
-  groups deliberately and decide whether weekly VM dumps are copied offsite.
-  **Verify:** every retained path group is intentional and both repos pass
-  sampled checks.
-- [ ] **Apply the container-hardening baseline by risk.** 27 of 42 services lack
-  `no-new-privileges` and `cap_drop`, 30 lack an explicit `user`, and none are
-  `read_only`. Start with public edge, Immich, the *arr stack, Jellyfin and
-  Minecraft; document unavoidable exceptions.
-- [ ] **Clear the update backlog and add update automation.** 7 pending host
-  packages, 8 on the VPS, 50 on malice. Image drift includes Paperless 3.1.3→3.5.0,
-  Gotify 2.5.0→3.1.1, Jellyfin 12.3→12.4, Kavita 0.9.1→0.9.1.4, Immich 3.3.5→3.4.1,
-  Seerr 3.5.1→3.5.2, Minecraft 2026.9.2→2026.11.0, slskd 0.26.0→0.26.2,
-  Caddy container 2.11.4→2.11.9 and VPS 2.11.7→2.11.9, and CrowdSec
-  1.4.6→1.8.2. Renovate is configured but has never opened a PR.
-- [ ] **Codify the VPS Caddy package source.** The live Cloudsmith Caddy repo
-  works, but `vps_edge` does not install it; a clean VPS rebuild would fall back
-  to Debian Caddy 2.6.2.
-- [ ] **Schedule hypervisor maintenance.** 50 pending Proxmox updates include
-  pve-manager and QEMU; the host has only ~2.9 GiB available and 1.1 GiB swap in
-  use. Plan a vzdump-backed upgrade/reboot and add a memory/swap alert.
-- [ ] **Address the power-loss risk.** No UPS or NUT units are present; the
-  hypervisor has prior unclean shutdown history. Decide on UPS/BIOS auto-power
-  and shutdown integration.
-- [ ] **Harden VPS key access or explicitly record the accepted risk.** Two root
-  authorized keys are unrestricted, `/root/chill0-priv` still exists, and
-  `/etc/wireguard` has timestamped private-key backups. You previously accepted
-  the credential risk; this item is closed only if that remains the policy.
-- [ ] **Restrict Minecraft.** `white-list=false`, `enforce-whitelist=false`, RCON
-  enabled, and the server is publicly forwarded. Add a whitelist and decide
-  whether to keep RCON enabled.
-- [ ] **Retire the broken PVE mail path.** PVE Gotify delivery works, but the
-  default matcher still targets `mail-to-root`; two messages are queued to
-  `duck.com:25` and timing out. Remove the dead target or fix delivery, then
-  flush the queue.
+- [x] **Immich on PostgreSQL 18 / v3.4.1.** PG 14.19 → 18.4 via the
+  `-upgrade` image, vchord 0.4.3 → 1.1.1 (recreated after pg_upgrade dropped
+  it), pgvector 0.8.1 → 0.8.5, asset/album/user counts unchanged (0/1/1; the
+  library itself is empty and `/mnt/data/photos` holds no files). The old
+  cluster is kept at `state/immich/db/14.bak` until a backup and a restore
+  drill pass. Known cosmetic warning: `immich-admin schema-check` reports the
+  `user_metadata_audit` function as missing while it exists in `public`, is
+  owned by `immich`, and has its trigger attached.
+- [x] **Normalise backup retention.** Both repositories now keep exactly three
+  current-path snapshots, enforced by `host/restic-retention.py` after every
+  snapshot. The 38 six-layout legacy snapshots and the excess current-path ones
+  were pruned deliberately (cloud 191+94 packs, local 57 packs). VM images stay
+  local: rebuild from git plus offsite application data.
+- [x] **Apply the container-hardening baseline.** All 42 services have
+  `no-new-privileges` and `cap_drop: [ALL]` except `cadvisor` (privileged, the
+  documented exception). Capabilities are added back only where an image proves
+  it needs them: `NET_ADMIN` (gluetun), `NET_BIND_SERVICE` (Caddy) and
+  `CHOWN/DAC_OVERRIDE/SETUID/SETGID` (both PostgreSQL servers, Paperless,
+  Stirling and the LinuxServer images). Redis needed `SETUID/SETGID` for its
+  `setpriv` drop. No arbitrary `user:` or `read_only:` was forced.
+- [x] **Clear the update backlog and add update automation.** Paperless 3.5.0,
+  Gotify 3.1.1, Jellyfin 12.4, Seerr v3.5.2, Minecraft 2026.11.0-java25,
+  slskd 0.26.2, edge Caddy 2.11.9, Immich v3.4.1; Kavita stays 0.9.1 (no stable
+  newer tag). Host and VPS packages are current (Docker 29.10.0 on both,
+  Tailscale 1.104.7, PVE 9.2.28 with 0 pending). Dependabot replaces Renovate,
+  weekly per stack, grouped patch/minor.
+- [x] **Codify the VPS Caddy package source.** Cloudsmith Caddy and
+  packagecloud CrowdSec repositories are in `vps_edge`, so a rebuild no longer
+  falls back to Debian Caddy 2.6.2.
+- [x] **Hypervisor maintenance and capacity alerting.** A fresh vzdump of all
+  three guests (6.1G/37G/2.7G) completed and notified Gotify, then
+  `full-upgrade` cleared all 50 packages. `HypervisorMemoryLow` and
+  `HypervisorSwapIn` are loaded in Prometheus.
+- [ ] **Address the power-loss risk (accepted, hardware absent).** No UPS or NUT
+  units exist, so no shutdown integration is possible. Accepted mitigation is
+  alerting only: memory/swap alerts, the host-down rule, and the nightly
+  vzdump. Revisit only when a UPS is bought.
+- [ ] **VPS root-key and secret-rotation risk (accepted policy).** Two
+  unrestricted root authorized keys, `/root/chill0-priv`, and timestamped
+  WireGuard private-key copies under `/etc/wireguard` remain. Closed only if
+  this stays the explicit policy.
+- [ ] **Minecraft stays public without a whitelist (accepted).** `white-list`
+  remains false and RCON remains enabled; the server is intentionally open for
+  friends and family. Revisit if the player base grows beyond invitees.
+- [x] **Retire the broken PVE mail path.** The default matcher now targets
+  `gotify` only, the two stale `duck.com:25` messages are drained, and a fresh
+  vzdump notified successfully through Gotify.
 
 ### P2 — drift and hygiene
 

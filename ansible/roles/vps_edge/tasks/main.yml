@@ -165,7 +165,8 @@
 # user; either way the assertion below is what proves acquisition can work.
 - name: Read the user the CrowdSec engine runs as
   ansible.builtin.command:
-    cmd: systemctl show crowdsec -p User --value
+    # No module exposes a unit's User= property; this is a read-only query.
+    cmd: systemctl show crowdsec -p User --value  # noqa: command-instead-of-module
   register: vps_edge_cs_user
   changed_when: false
 
@@ -220,7 +221,8 @@
 # never fetched, so parsers and scenarios were skipped while the engine still
 # reported healthy. Dangling links go, then the content is installed below.
 - name: Find CrowdSec hub symlinks with no target
-  ansible.builtin.shell: find /var/lib/crowdsec/hub /etc/crowdsec -xtype l
+  ansible.builtin.command:
+    cmd: find /var/lib/crowdsec/hub /etc/crowdsec -xtype l
   register: vps_edge_cs_dangling
   changed_when: false
 
@@ -286,10 +288,14 @@
 
 - name: Find tainted CrowdSec collections
   ansible.builtin.set_fact:
-    vps_edge_cs_tainted: "{{ vps_edge_cs_current | selectattr('tainted', 'defined') | selectattr('tainted') | map(attribute='name') | list }}"
+    vps_edge_cs_tainted: >-
+      {{ vps_edge_cs_current | selectattr('tainted', 'defined')
+         | selectattr('tainted') | map(attribute='name') | list }}
   vars:
     vps_edge_cs_after_parsed: "{{ vps_edge_cs_collections_after.stdout | from_json }}"
-    vps_edge_cs_current: "{{ (vps_edge_cs_after_parsed['collections'] if vps_edge_cs_after_parsed is mapping else vps_edge_cs_after_parsed) if vps_edge_cs_collections_after is not skipped else vps_edge_cs_items }}"
+    vps_edge_cs_current: >-
+      {{ (vps_edge_cs_after_parsed['collections'] if vps_edge_cs_after_parsed is mapping else vps_edge_cs_after_parsed)
+         if vps_edge_cs_collections_after is not skipped else vps_edge_cs_items }}
 
 # Tainted entries were edited locally and no longer match the hub, so a rule
 # fix shipped upstream never lands. --force is what actually overwrites them.

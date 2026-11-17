@@ -1039,3 +1039,57 @@ Do not test by deleting data.
   `make host`, `make vps`, `make deploy`; validate any firewall rollback with
   `nft -c` before applying and never flush the ruleset.
 
+## maintenance 2026-11-17: retention, edge enforcement, and PG18
+
+- Impact: every stack was recreated, so public and private routes blipped for
+  the usual warmup. The hypervisor rebooted for a kernel upgrade, taking all
+  three guests down for the duration. Public check is 13 HTTP + 4 TCP green
+  afterwards, all 16 private vhosts answer, and 42 containers are up with none
+  unhealthy or restarting.
+- Backup: retention is now the latest three snapshots per repository, enforced
+  by `homelab-restic-retention` (`host/restic-retention.py`) after each
+  snapshot. It refuses a snapshot whose path set is not the five current paths
+  unless `--cleanup-legacy` is passed, so a future path edit fails the backup
+  instead of deleting history. The 38 legacy-layout snapshots and the excess
+  current-path snapshots were pruned: cloud 191 then 94 packs, local 57 packs.
+  Both repositories hold exactly three current-path snapshots and pass
+  `restic check`; the 5% sampled reads and the restore drill pass.
+- Edge: Caddy 2.11.9 and CrowdSec 1.8.2 now come from Cloudsmith and
+  packagecloud; the bouncer is 0.0.38 in nftables mode with `input` and
+  `forward` hooks. Upgrading from CrowdSec 1.4 left `/etc/crowdsec` full of
+  symlinks into hub content that was never downloaded, so no parser or scenario
+  ran; the dangling links were pruned and the collection set (linux, sshd,
+  base-http-scenarios, http-cve, caddy) reinstalled. `acquis.yaml` now reads
+  only what the host has: sshd via journald and the redacted Caddy access log.
+  Within a minute of the restart a real scanner drew five scenarios and a 4h
+  ban. dpkg replaced the binary without restarting the engine, so the role now
+  notifies a restart on package change; the same applied to the bouncer, which
+  only created its forward chain after an explicit restart.
+- Immich: PostgreSQL 14.19 → 18.4 through the `-upgrade` image, then the
+  regular PG18 image. pg_upgrade dropped `vchord`, so it was recreated at 1.1.1
+  and pgvector updated to 0.8.5 before the server started. Asset/album/user
+  counts are unchanged (0/1/1); the photo library is empty in both the database
+  and `/mnt/data/photos`. `state/immich/db/14.bak` stays until the next backup
+  and restore drill pass. `immich-admin schema-check` still reports
+  `user_metadata_audit` as missing although the function and its trigger exist.
+- Containers: `no-new-privileges` and `cap_drop: [ALL]` on every service except
+  the privileged cAdvisor. Capabilities were added back only where the image
+  failed: redis (`SETUID/SETGID` for `setpriv`), Paperless and Stirling
+  (`CHOWN/DAC_OVERRIDE/SETUID/SETGID` for s6 chown plus drop), gluetun
+  (`NET_ADMIN`), Caddy (`NET_BIND_SERVICE`), both PostgreSQL servers and the
+  LinuxServer images. Images: Paperless 3.5.0 (migrations applied), Gotify 3.1.1
+  (migration ran, 1 user and 4 applications intact), Jellyfin 12.4, Seerr
+  v3.5.2, Minecraft 2026.11.0-java25 (saves flushed first; world loaded,
+  "Done (14.6s)"), slskd 0.26.2.
+- Hypervisor: fresh vzdump of all guests (6.1G, 37G, 2.7G), PVE matcher set to
+  `gotify` only, mail queue drained, then a full upgrade (pve-manager 9.2.28,
+  qemu-server 9.2.15, 0 pending) and a reboot into 7.0.14-29-pve. Prometheus now
+  alert on hypervisor memory below 10% and on any swap-in rate.
+- Deploy: `make host`, `make vps` and `make hypervisor` second runs report
+  `changed=0`.
+- Rollback: previous image tags are in the commit before this one. The Immich
+  path is `14.bak` plus the pre-upgrade dump at
+  `/mnt/fast/dumps/immich-pg14-pre-upgrade.dump` (18 MB, `pg_restore --list`
+  clean). Stack state was archived to
+  `/mnt/fast/scratch/pre-upgrade-20261117T125357Z` before recreation.
+
