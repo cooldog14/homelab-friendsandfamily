@@ -43,7 +43,7 @@ services:
     mem_limit: 1g
 
   alertmanager:
-    image: prom/alertmanager:v0.34.2
+    image: prom/alertmanager:v0.35.0
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
@@ -105,7 +105,7 @@ services:
   # nothing (Prometheus scrapes it inside the compose network).
   cadvisor:
     # cAdvisor publishes v0.60.x to ghcr.io; gcr.io stops at v0.55.1.
-    image: ghcr.io/google/cadvisor:v0.60.6
+    image: ghcr.io/google/cadvisor:v0.61.0
     restart: unless-stopped
     privileged: true
     devices:
@@ -193,7 +193,7 @@ services:
       retries: 3
 
   grafana:
-    image: grafana/grafana:13.3.0
+    image: grafana/grafana:13.3.1
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
