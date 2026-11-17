@@ -265,7 +265,7 @@
     if (detail.oom_killed) bits.push('oom');
     if (num(detail.restart_count) && detail.restart_count > 0) bits.push(detail.restart_count + ' restarts');
     if (detail.error) bits.push(String(detail.error).slice(0, 56));
-    return bits.join(' \u00b7 ');
+    return bits.join(' · ');
   }
 
   function probeRest(item) {
@@ -276,12 +276,12 @@
     const detail = detailText(item);
     if (detail) parts.push(detail);
     if (probe.status === 'fail' && probe.error) parts.push(String(probe.error).slice(0, 56));
-    return parts.join(' \u00b7 ');
+    return parts.join(' · ');
   }
 
   function probeText(item) {
     const rest = probeRest(item);
-    return stateWord(item) + (rest ? ' \u00b7 ' + rest : '');
+    return stateWord(item) + (rest ? ' · ' + rest : '');
   }
 
   function linkNode(url, label) {
@@ -301,7 +301,7 @@
       const parts = [];
       if (summary.alert) parts.push(summary.alert + (summary.alert === 1 ? ' alert' : ' alerts'));
       if (summary.warn) parts.push(summary.warn + ' warn');
-      chip.textContent = parts.join(' \u00b7 ');
+      chip.textContent = parts.join(' · ');
       chip.className = 'status-chip ' + (summary.alert ? 'state-alert' : 'state-warn');
     }
     chip.setAttribute('aria-label', 'open the problem list: ' + (summary.total || 0) + ' open');
@@ -317,18 +317,19 @@
 
   function alertCard(alert) {
     const since = alertSince(alert);
-    const meta = [
-      alert.source === 'prometheus'
-        ? 'prometheus \u00b7 ' + (alert.state || 'firing')
-        : 'dashboard check',
-      num(since) ? fmtAge(Math.max(0, (Date.now() - since) / 1000)) : null,
-    ].filter(Boolean).join(' \u00b7 ');
+    const elapsed = num(since) ? fmtDuration(Math.max(0, (Date.now() - since) / 1000)) : null;
+    /* Derived alerts have no server-side start time: say what we know
+       (how long this page has seen it) instead of implying a birth moment. */
+    const meta = alert.source === 'prometheus'
+      ? ['prometheus', alert.state || 'firing', elapsed ? 'active ' + elapsed : null]
+      : ['dashboard check', elapsed ? 'seen ' + elapsed : null];
+    const metaText = meta.filter(Boolean).join(' · ');
     const href = '#' + String(alert.href || 'alerts').replace(/^#/, '');
     return h('div', { class: 'alert alert-' + (alert.severity === 'alert' ? 'alert' : 'warn') },
       h('div', { class: 'title', text: alert.title || 'alert' }),
       h('div', { class: 'detail', text: alert.detail || '' }),
       h('div', { class: 'alert-meta' },
-        h('span', { text: meta }),
+        h('span', { text: metaText }),
         h('a', { href: href, text: 'jump to section' }))
     );
   }
@@ -348,7 +349,7 @@
     }
 
     $('alerts-meta').textContent = 'dashboard ' + derived.length +
-      ' \u00b7 prometheus ' + prometheus.length;
+      ' · prometheus ' + prometheus.length;
 
     if (!derived.length && !prometheus.length) {
       strip.appendChild(h('div', { class: 'nominal', text: 'all monitored checks nominal' }));
@@ -486,7 +487,7 @@
       links,
       h('div', { class: 'probe ' + stateClass(item) },
         h('span', { class: 'sw', text: stateWord(item) }),
-        rest ? h('span', { class: 'rest', text: ' \u00b7 ' + rest }) : null)
+        rest ? h('span', { class: 'rest', text: ' · ' + rest }) : null)
     );
   }
 
