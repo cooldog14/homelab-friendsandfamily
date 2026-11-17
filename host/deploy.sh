@@ -25,7 +25,8 @@ git archive --format=tar HEAD stacks |
   ssh "$host" 'set -e; rm -rf /tmp/chill-stacks; mkdir -p /tmp/chill-stacks; tar -xf - --strip-components=1 -C /tmp/chill-stacks'
 
 ssh "$host" 'set -e
-  findmnt -no SOURCE /mnt/data | grep -Fxq /mnt/pool/takeover-primary/r1/mnt/data
+  mountpoint -q /mnt/data
+  [ "$(stat -c %d:%i /mnt/data)" = "$(stat -c %d:%i /mnt/pool/takeover-primary/r1/mnt/data)" ]
   mountpoint -q /mnt/pool
   mountpoint -q /mnt/fast
   sudo rsync -a --delete --exclude .env --exclude state/ --exclude docs/config/stirling/ --exclude media/suwayomi-auth-password /tmp/chill-stacks/ /opt/stacks/

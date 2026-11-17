@@ -59,19 +59,30 @@
     label: "{{ item.target }}"
   changed_when: false
 
-- name: Read the live /mnt/data source
+- name: Verify /mnt/data is a mountpoint
   ansible.builtin.command:
-    cmd: findmnt -no SOURCE /mnt/data
-  register: chill_storage_data_source_live
+    cmd: mountpoint -q /mnt/data
+  changed_when: false
+
+- name: Read the live /mnt/data identity
+  ansible.builtin.command:
+    cmd: stat -c '%d:%i' /mnt/data
+  register: chill_storage_data_identity
+  changed_when: false
+
+- name: Read the takeover source identity
+  ansible.builtin.command:
+    cmd: stat -c '%d:%i' {{ chill_storage_data_source }}
+  register: chill_storage_source_identity
   changed_when: false
 
 - name: Refuse a /mnt/data mount that is not the takeover bind
   ansible.builtin.assert:
     that:
-      - chill_storage_data_source_live.stdout | trim == chill_storage_data_source
+      - chill_storage_data_identity.stdout == chill_storage_source_identity.stdout
     fail_msg: >-
-      /mnt/data source is {{ chill_storage_data_source_live.stdout | trim }},
-      expected {{ chill_storage_data_source }}. Refusing to continue.
+      /mnt/data does not resolve to {{ chill_storage_data_source }}.
+      Refusing to continue.
     quiet: true
 
 - name: Remove the retired archive mountpoint
