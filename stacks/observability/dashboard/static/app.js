@@ -396,6 +396,25 @@
     );
   }
 
+  function hostTable(nodes) {
+    if (!nodes.length) return h('div', { class: 'empty', text: 'no host metrics yet' });
+    return h('div', { class: 'table-wrap' }, h('table', {},
+      h('thead', {}, h('tr', {},
+        h('th', { text: 'host' }), h('th', { text: 'state' }),
+        h('th', { class: 'right', text: 'cpu' }), h('th', { class: 'right', text: 'mem' }))),
+      h('tbody', {}, nodes.map((node) => h('tr', {},
+        h('td', { class: 'mono', text: node.name || '—' }),
+        h('td', {
+          class: stateClass({
+            state: node.up ? 'running' : 'exited',
+            probe: { status: node.up ? 'ok' : 'fail' },
+          }),
+        }, h('span', { class: 'dot' }), node.up ? 'up' : 'down'),
+        h('td', { class: 'right mono', text: fmtPct(node.cpu_pct, 1) + '%' }),
+        h('td', { class: 'right mono', text: fmtPct(node.mem_pct, 1) + '%' })
+      )))));
+  }
+
   function consumerTable(rows, kind) {
     if (!rows || !rows.length) return h('div', { class: 'empty', text: 'no container metrics yet' });
     const max = Math.max(...rows.map((row) => (kind === 'cpu' ? row.cpu_pct : row.mem_bytes) || 0), 1);
@@ -426,7 +445,6 @@
     const nodes = telemetry.nodes || [];
     const series = telemetry.series || {};
     const chill = nodes.find((n) => n.name === 'chill-01') || {};
-    const malice = nodes.find((n) => n.name === 'malice') || {};
     $('telemetry-meta').textContent = telemetry.updated_at
       ? 'updated ' + fmtAge((Date.now() - new Date(telemetry.updated_at).getTime()) / 1000)
       : 'waiting for prometheus';
@@ -444,7 +462,11 @@
     const diskRows = (telemetry.disks || []).map((disk) => {
       const cls = disk.used_pct > 90 ? 'alert' : disk.used_pct >= 85 ? 'warn' : '';
       return h('tr', {},
-        h('td', { class: 'mono', text: disk.mountpoint }),
+        h('td', {},
+          h('div', { class: 'mono', text: disk.mountpoint }),
+          (disk.aliases || []).length
+            ? h('div', { class: 'faint mono', text: '+ ' + disk.aliases.join(' ') })
+            : null),
         h('td', { class: 'right mono ' + (cls ? 'state-' + cls : '') }, fmtPct(disk.used_pct, 1) + '%'),
         h('td', { class: 'right mono muted', text: fmtBytes(disk.size_bytes) }),
         h('td', { class: 'right mono muted', text: fmtBytes(disk.avail_bytes) }),
@@ -475,19 +497,8 @@
           : h('div', { class: 'empty', text: 'no filesystem metrics' })
       ),
       h('div', {},
-        h('h3', { text: 'Hosts' }),
-        h('div', { class: 'table-wrap' }, h('table', {},
-          h('thead', {}, h('tr', {},
-            h('th', { text: 'host' }), h('th', { text: 'state' }),
-            h('th', { class: 'right', text: 'cpu' }), h('th', { class: 'right', text: 'mem' }))),
-          h('tbody', {}, [chill, malice].map((node) =>
-            h('tr', {},
-              h('td', { class: 'mono', text: node.name || '—' }),
-              h('td', { class: stateClass({ state: node.up ? 'running' : 'exited', probe: { status: node.up ? 'ok' : 'fail' } }) },
-                h('span', { class: 'dot' }), node.up ? 'up' : 'down'),
-              h('td', { class: 'right mono', text: fmtPct(node.cpu_pct, 1) + '%' }),
-              h('td', { class: 'right mono', text: fmtPct(node.mem_pct, 1) + '%' })
-            ))))))
+        h('h3', { text: 'Host' }),
+        hostTable(nodes))
     ));
 
     body.appendChild(h('div', { class: 'grid grid-2' },
@@ -568,8 +579,9 @@
       toggle.textContent = problems ? 'Problems (' + problems + ')' : 'Problems';
       toggle.classList.toggle('state-alert', problems > 0);
     }
+    const hostLabel = hosts.length === 1 ? '1 host' : hosts.length + ' hosts';
     $('services-meta').textContent = services.length + ' compose services · ' +
-      running + ' running · ' + hosts.length + ' hosts' +
+      running + ' running · ' + hostLabel +
       (problems ? ' · ' + problems + ' not serving' : '');
 
     if (!groups.length) {

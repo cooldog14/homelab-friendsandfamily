@@ -637,6 +637,35 @@ def normalize_arr_health(payload: Any) -> dict:
 _SAFE_SCHEMES = ("http://", "https://")
 
 
+def dedupe_disks(rows: list[dict], order: Sequence[str] = ()) -> list[dict]:
+    """Collapse bind mounts: the same device must not appear twice.
+
+    `/mnt/data` and `/mnt/pool` are both `device=pve1-pool`, so statvfs reports
+    identical size and free space for each. One row per device keeps the first
+    mountpoint in `order` and lists the rest as aliases.
+    """
+    groups: dict[str, list[dict]] = {}
+    for row in rows:
+        key = str(row.get("device") or row.get("mountpoint") or "")
+        groups.setdefault(key, []).append(row)
+    rank = {mount: index for index, mount in enumerate(order)}
+
+    def sort_key(row: dict) -> tuple:
+        mount = str(row.get("mountpoint") or "")
+        return (rank.get(mount, len(order)), mount)
+
+    kept: list[dict] = []
+    for group in groups.values():
+        group.sort(key=sort_key)
+        primary = dict(group[0])
+        primary["aliases"] = [
+            str(row.get("mountpoint")) for row in group[1:] if row.get("mountpoint")
+        ]
+        kept.append(primary)
+    kept.sort(key=sort_key)
+    return kept
+
+
 def days_until_full(avail_bytes: Any, bytes_per_second: Any) -> float | None:
     """Linear projection: free space divided by the shrink rate, in days."""
     try:
