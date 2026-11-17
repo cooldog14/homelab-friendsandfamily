@@ -88,11 +88,11 @@ decision.
 
 ### P2 — drift and hygiene
 
-- [ ] **`ansible-playbook` hangs on the control node.** ansible-core 2.20.7 on
-  Python 3.14; it hung at Gathering Facts and again at the heartbeat
-  `file` cleanup task even with `--forks 1`. The Worker cutover cleanup was
-  completed manually and verified. Pin a Python 3.12/3.13 venv with a known
-  ansible-core before trusting live `make host`/`make vps` runs.
+- [x] **Pin the Ansible control node.** `make ansible-bootstrap` creates a
+  gitignored `.venv` on Python 3.12 with ansible-core 2.20.7; `make host`,
+  `make vps` and `make hypervisor` use it automatically. The full VPS playbook
+  now completes with `changed=0`. Revisit when ansible-core supports Python
+  3.14; the homelab hosts keep Debian Python 3.13.
 - [ ] Add private app health instrumentation where Docker has none (Caddy,
   Jellyseerr, Navidrome, Radarr/Sonarr/Bazarr) and monitor the private edge.
 - [ ] Narrow the eight broad `/mnt/data` mounts; add Filebrowser proxy-header

@@ -73,12 +73,16 @@ managed platform has one hypervisor, one application VM and one VPS; each is a
 single point of failure, and maintenance windows are announced rather than
 avoided.
 
-Install the Ansible collections once per workstation first, then use the Make
-targets:
+Create the pinned Ansible control-node venv once per workstation, then use the
+Make targets:
 
 ```sh
-ansible-galaxy collection install -r ansible/requirements.yml
+make ansible-bootstrap
 ```
+
+The venv pins `ansible-core` on the already-installed Python 3.12 because the
+workstation's default Python 3.14 currently makes Ansible hang. It lives in
+gitignored `.venv/`; the homelab hosts keep their Debian Python 3.13.
 
 | Command | What it does |
 |---|---|

@@ -8,6 +8,18 @@ STACKS = apps comms docs edge games media observability photos
 # Ansible installs shellcheck on the host; a dev box without it falls back
 # to the container so `make check` works everywhere.
 SHELLCHECK ?= $(shell command -v shellcheck 2>/dev/null || printf "docker run --rm -v %s:/mnt -w /mnt koalaman/shellcheck:stable" "$(CURDIR)")
+# ansible-core 2.20.7 is unreliable on the workstation's Python 3.14. Pin a
+# control-node venv on the already-installed 3.12 until 3.14 is supported.
+PYTHON312 ?= python3.12
+ANSIBLE ?= $(shell test -x .venv/bin/ansible-playbook && echo .venv/bin/ansible-playbook || echo ansible-playbook)
+
+# One-time control-node setup; .venv is gitignored.
+ansible-bootstrap:
+	@command -v $(PYTHON312) >/dev/null || { echo "$(PYTHON312) is required" >&2; exit 1; }
+	$(PYTHON312) -m venv --clear .venv
+	.venv/bin/pip install --upgrade pip
+	.venv/bin/pip install 'ansible-core==2.20.7'
+	.venv/bin/ansible-galaxy collection install -r ansible/requirements.yml
 
 # git is the source of truth. `make deploy` archives HEAD, never the dirty
 # working tree, and records the deployed commit on the host.
@@ -17,16 +29,16 @@ deploy: check
 # Host state is Ansible-owned: bootstrap.sh is gone, and the playbook is
 # idempotent (second run reports changed=0).
 host:
-	ansible-playbook ansible/chill.yml
+	$(ANSIBLE) ansible/chill.yml
 
 vps:
-	ansible-playbook ansible/vps.yml
+	$(ANSIBLE) ansible/vps.yml
 
 hypervisor:
-	ansible-playbook ansible/malice.yml
+	$(ANSIBLE) ansible/malice.yml
 
 ansible-check:
-	ansible-playbook --syntax-check ansible/chill.yml ansible/vps.yml ansible/malice.yml
+	$(ANSIBLE) --syntax-check ansible/chill.yml ansible/vps.yml ansible/malice.yml
 
 # Offline: no Proxmox credentials needed, so CI can run it.
 tofu-check:
@@ -67,4 +79,4 @@ check:
 edge-reload:
 	ssh $(HOST) 'cd /opt/stacks/edge && sudo docker compose -p edge restart caddy'
 
-.PHONY: deploy host vps hypervisor restore-test check edge-reload ansible-check tofu-check tofu-plan
+.PHONY: deploy host vps hypervisor restore-test check edge-reload ansible-check ansible-bootstrap tofu-check tofu-plan

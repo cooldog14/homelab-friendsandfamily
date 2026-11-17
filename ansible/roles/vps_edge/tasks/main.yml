@@ -514,7 +514,6 @@
     - /usr/local/bin/homelab-edge-heartbeat
     - /etc/homelab-heartbeat.env
 
-- name: Reload systemd after removing the retired heartbeat units
-  ansible.builtin.command:
-    cmd: systemctl daemon-reload  # noqa: command-instead-of-module
-  changed_when: false
+# No daemon-reload task here: the retired units are stopped and removed. A
+# reload over the control connection has hung; systemd drops the stale
+# definitions on the next daemon-reload or reboot, and the timer is disabled.

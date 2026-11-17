@@ -21,3 +21,6 @@ docs/diagram/private/
 # wrangler local dev secrets (local heartbeat sink URL only)
 workers/wan-heartbeat/.dev.vars
 workers/wan-heartbeat/.wrangler/
+
+# Ansible control-node venv (pinned Python/ansible-core)
+.venv/
