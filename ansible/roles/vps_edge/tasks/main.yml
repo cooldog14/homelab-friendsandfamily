@@ -5,16 +5,123 @@
     update_cache: true
     cache_valid_time: 3600
 
+# Caddy and CrowdSec come from their own repositories. Without these a clean
+# rebuild falls back to Debian's Caddy 2.6.2 and has no CrowdSec upgrade path,
+# so the codified edge would be older and weaker than the live one.
+- name: Install repository and ACL prerequisites
+  ansible.builtin.apt:
+    name:
+      - acl
+      - ca-certificates
+      - curl
+      - gnupg
+    state: present
+
+- name: Create the apt keyring directory
+  ansible.builtin.file:
+    path: /etc/apt/keyrings
+    state: directory
+    mode: "0755"
+
+- name: Fetch the Caddy signing key
+  ansible.builtin.get_url:
+    url: https://dl.cloudsmith.io/public/caddy/stable/gpg.key
+    dest: /tmp/caddy-cloudsmith.gpg.key
+    mode: "0644"
+    force: false
+
+- name: Dearmor the Caddy signing key
+  ansible.builtin.command:
+    cmd: gpg --dearmor --yes --output /usr/share/keyrings/caddy-stable-archive-keyring.gpg /tmp/caddy-cloudsmith.gpg.key
+    creates: /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+
+- name: Add the Caddy apt repository
+  ansible.builtin.copy:
+    dest: /etc/apt/sources.list.d/caddy-stable.list
+    mode: "0644"
+    content: |
+      deb [signed-by=/usr/share/keyrings/caddy-stable-archive-keyring.gpg] https://dl.cloudsmith.io/public/caddy/stable/deb/debian any-version main
+  register: vps_edge_caddy_repo
+
+- name: Fetch the CrowdSec signing key
+  ansible.builtin.get_url:
+    url: https://packagecloud.io/crowdsec/crowdsec/gpgkey
+    dest: /tmp/crowdsec-packagecloud.gpg.key
+    mode: "0644"
+    force: false
+
+- name: Dearmor the CrowdSec signing key
+  ansible.builtin.command:
+    cmd: gpg --dearmor --yes --output /etc/apt/keyrings/crowdsec_crowdsec-archive-keyring.gpg /tmp/crowdsec-packagecloud.gpg.key
+    creates: /etc/apt/keyrings/crowdsec_crowdsec-archive-keyring.gpg
+
+# packagecloud publishes one 'any' suite for CrowdSec; a codename such as
+# 'trixie' has no Release file and makes apt refuse the whole cache refresh.
+- name: Add the CrowdSec apt repository
+  ansible.builtin.copy:
+    dest: /etc/apt/sources.list.d/crowdsec_crowdsec.list
+    mode: "0644"
+    content: |
+      deb [signed-by=/etc/apt/keyrings/crowdsec_crowdsec-archive-keyring.gpg] https://packagecloud.io/crowdsec/crowdsec/any/ any main
+  register: vps_edge_crowdsec_repo
+
+# A new repo is invisible to a cache refreshed earlier in this play, so refresh
+# again whenever a list file was written.
+- name: Refresh the apt cache after adding repositories
+  ansible.builtin.apt:
+    update_cache: true
+  when: vps_edge_caddy_repo.changed or vps_edge_crowdsec_repo.changed
+
+- name: Check whether CrowdSec is already installed
+  ansible.builtin.stat:
+    path: /etc/crowdsec/config.yaml
+  register: vps_edge_cs_config
+
+- name: Look for an earlier CrowdSec configuration backup
+  ansible.builtin.find:
+    paths: /root
+    patterns: "crowdsec-pre-upgrade-*.tar.gz"
+  register: vps_edge_cs_backups
+
+# /etc/crowdsec carries the bouncer API key: archive it 0600 before the first
+# package jump, and never overwrite the oldest copy on later runs.
+- name: Record the CrowdSec configuration before any package change
+  ansible.builtin.shell: |
+    set -eu
+    umask 077
+    tar -czf "/root/crowdsec-pre-upgrade-{{ ansible_date_time.iso8601_basic_short }}.tar.gz" -C / etc/crowdsec
+  when:
+    - vps_edge_cs_config.stat.exists
+    - vps_edge_cs_backups.matched == 0
+
 - name: Install edge packages
   ansible.builtin.apt:
     name:
-      - caddy
-      - ca-certificates
-      - curl
       - nftables
       - unattended-upgrades
       - wireguard
     state: present
+
+# The nftables build is the one packagecloud ships at a current version; the
+# distro package it replaces is the 0.0.25 iptables-era build still installed
+# here. Removing it first keeps one bouncer binary and one unit.
+- name: Remove the superseded distro firewall bouncer
+  ansible.builtin.apt:
+    name: crowdsec-firewall-bouncer
+    state: absent
+
+# `latest` is deliberate: this is the only tracked path to a supported Caddy
+# and CrowdSec, and both fix security issues rather than features. The notify is
+# required: dpkg replaced the binary without restarting the running engine, so
+# the old process kept serving the new config from memory.
+- name: Install Caddy and CrowdSec from their own repositories
+  ansible.builtin.apt:
+    name:
+      - caddy
+      - crowdsec
+      - crowdsec-firewall-bouncer-nftables
+    state: latest
+  notify: crowdsec config changed
 
 # 4522 is internet-exposed: a password there is a brute-force target. The
 # drop-in sorts before sshd_config and OpenSSH uses the first value it reads.
@@ -52,6 +159,145 @@
   loop:
     - caddy.log
     - access.log
+
+# The Debian CrowdSec package runs the engine as root, so it already reads the
+# 0600 caddy-owned log. Apply ACLs only if that ever changes to a dedicated
+# user; either way the assertion below is what proves acquisition can work.
+- name: Read the user the CrowdSec engine runs as
+  ansible.builtin.command:
+    cmd: systemctl show crowdsec -p User --value
+  register: vps_edge_cs_user
+  changed_when: false
+
+- name: Let CrowdSec read the current Caddy access log
+  ansible.posix.acl:
+    path: /var/log/caddy/access.log
+    entity: "{{ vps_edge_cs_user.stdout | trim }}"
+    etype: user
+    permissions: r
+    state: present
+  when: vps_edge_cs_user.stdout | trim not in ['', 'root']
+
+- name: Default ACL so rotated and new Caddy logs stay readable
+  ansible.posix.acl:
+    path: /var/log/caddy
+    entity: "{{ vps_edge_cs_user.stdout | trim }}"
+    etype: user
+    permissions: r
+    default: true
+    state: present
+  when: vps_edge_cs_user.stdout | trim not in ['', 'root']
+
+- name: Verify the CrowdSec engine can read the Caddy access log
+  ansible.builtin.command:
+    cmd: "runuser -u {{ vps_edge_cs_user.stdout | trim or 'root' }} -- test -r /var/log/caddy/access.log"
+  changed_when: false
+
+# Only the two log sources this edge actually has: Caddy HTTP and sshd. The
+# nginx/apache paths in the shipped file point at servers that do not exist.
+- name: Install the CrowdSec acquisition configuration
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../vps/crowdsec/acquis.yaml"
+    dest: /etc/crowdsec/acquis.yaml
+    mode: "0644"
+  notify: crowdsec config changed
+
+# The package ships INPUT only. The edge forwards into the app VM, so a banned
+# scanner must be dropped on the forward path too, not just on the host itself.
+- name: Enable the CrowdSec firewall hooks
+  ansible.builtin.blockinfile:
+    path: /etc/crowdsec/bouncers/crowdsec-firewall-bouncer.yaml
+    marker: "# {mark} HOMELAB HOOKS"
+    insertafter: EOF
+    block: |
+      nftables_hooks:
+        - input
+        - forward
+  notify: crowdsec config changed
+
+# CrowdSec 1.8 ships the hub as an index plus per-item downloads. Upgrading
+# from the 1.4 tree left /etc/crowdsec full of symlinks into content that was
+# never fetched, so parsers and scenarios were skipped while the engine still
+# reported healthy. Dangling links go, then the content is installed below.
+- name: Find CrowdSec hub symlinks with no target
+  ansible.builtin.shell: find /var/lib/crowdsec/hub /etc/crowdsec -xtype l
+  register: vps_edge_cs_dangling
+  changed_when: false
+
+- name: Remove CrowdSec hub symlinks with no target
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop: "{{ vps_edge_cs_dangling.stdout_lines }}"
+  loop_control:
+    label: "{{ item | basename }}"
+
+- name: Read installed CrowdSec collections
+  ansible.builtin.command:
+    cmd: cscli collections list -o json
+  register: vps_edge_cs_collections
+  changed_when: false
+
+# The CLI wraps the list in an object on some releases and returns a bare list
+# on others; both are normalised here so a CrowdSec upgrade cannot break the run.
+- name: Summarise the CrowdSec collection inventory
+  ansible.builtin.set_fact:
+    vps_edge_cs_items: "{{ vps_edge_cs_parsed['collections'] if vps_edge_cs_parsed is mapping else vps_edge_cs_parsed }}"
+  vars:
+    vps_edge_cs_parsed: "{{ vps_edge_cs_collections.stdout | from_json }}"
+
+- name: Compute the collection changes
+  ansible.builtin.set_fact:
+    vps_edge_cs_install: "{{ vps_edge_cs_wanted | reject('in', vps_edge_cs_names) | list }}"
+    vps_edge_cs_remove: "{{ ['crowdsecurity/nginx', 'crowdsecurity/apache2'] | select('in', vps_edge_cs_names) | list }}"
+  vars:
+    vps_edge_cs_wanted:
+      - crowdsecurity/linux
+      - crowdsecurity/sshd
+      - crowdsecurity/base-http-scenarios
+      - crowdsecurity/http-cve
+      - crowdsecurity/caddy
+    vps_edge_cs_names: "{{ vps_edge_cs_items | map(attribute='name') | list }}"
+
+- name: Refresh the CrowdSec hub index
+  ansible.builtin.command:
+    cmd: cscli hub update
+  when: vps_edge_cs_install | length > 0
+  changed_when: false
+
+- name: Install the required collections
+  ansible.builtin.command:
+    cmd: "cscli collections install {{ item }}"
+  loop: "{{ vps_edge_cs_install }}"
+  notify: crowdsec config changed
+
+- name: Remove the collections for servers this edge does not run
+  ansible.builtin.command:
+    cmd: "cscli collections remove {{ item }}"
+  loop: "{{ vps_edge_cs_remove }}"
+  notify: crowdsec config changed
+
+- name: Re-read installed CrowdSec collections
+  ansible.builtin.command:
+    cmd: cscli collections list -o json
+  register: vps_edge_cs_collections_after
+  changed_when: false
+  when: vps_edge_cs_install | length > 0 or vps_edge_cs_remove | length > 0
+
+- name: Find tainted CrowdSec collections
+  ansible.builtin.set_fact:
+    vps_edge_cs_tainted: "{{ vps_edge_cs_current | selectattr('tainted', 'defined') | selectattr('tainted') | map(attribute='name') | list }}"
+  vars:
+    vps_edge_cs_after_parsed: "{{ vps_edge_cs_collections_after.stdout | from_json }}"
+    vps_edge_cs_current: "{{ (vps_edge_cs_after_parsed['collections'] if vps_edge_cs_after_parsed is mapping else vps_edge_cs_after_parsed) if vps_edge_cs_collections_after is not skipped else vps_edge_cs_items }}"
+
+# Tainted entries were edited locally and no longer match the hub, so a rule
+# fix shipped upstream never lands. --force is what actually overwrites them.
+- name: Upgrade tainted collections
+  ansible.builtin.command:
+    cmd: "cscli collections upgrade --force {{ item }}"
+  loop: "{{ vps_edge_cs_tainted }}"
+  notify: crowdsec config changed
 
 - name: Install the Caddy entrypoint
   ansible.builtin.copy:
@@ -232,6 +478,15 @@
     name: caddy
     enabled: true
     state: started
+
+- name: Ensure CrowdSec is enabled and running
+  ansible.builtin.systemd_service:
+    name: "{{ item }}"
+    enabled: true
+    state: started
+  loop:
+    - crowdsec
+    - crowdsec-firewall-bouncer
 
 - name: Install the external heartbeat client
   ansible.builtin.copy:

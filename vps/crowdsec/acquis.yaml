@@ -1,0 +1,17 @@
+# CrowdSec acquisition for the homelab VPS edge.
+#
+# Debian 13 has no /var/log/auth.log or /var/log/syslog (journald only), so the
+# shipped syslog-file stanzas match nothing and only log a warning every start.
+# sshd is read from the journal instead, and Caddy's redacted JSON access log is
+# the only HTTP source. The nginx/apache paths in the package default point at
+# servers that are not installed and are deliberately absent.
+source: journalctl
+journalctl_filter:
+  - "_SYSTEMD_UNIT=ssh.service"
+labels:
+  type: syslog
+---
+filenames:
+  - /var/log/caddy/access.log
+labels:
+  type: caddy
