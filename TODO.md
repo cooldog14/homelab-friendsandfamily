@@ -67,6 +67,14 @@ decision.
   three guests (6.1G/37G/2.7G) completed and notified Gotify, then
   `full-upgrade` cleared all 50 packages. `HypervisorMemoryLow` and
   `HypervisorSwapIn` are loaded in Prometheus.
+- [ ] **Refresh the hypervisor's EFI boot menu (needs console access).**
+  `7.0.14-29-pve` is installed and `/boot/grub/grub.cfg` lists it first, but the
+  host boots `7.0.14-26-pve` because the EFI system partition (`sde2`) is not
+  mounted at `/boot/efi`, so `update-grub` cannot refresh the ESP menu. Fix in a
+  window with provider console ready: mount `/dev/sde2` at `/boot/efi`, add it
+  to `/etc/fstab` (`vfat umask=0077`), run `grub-install --target=x86_64-efi
+  --efi-directory=/boot/efi --bootloader-id=proxmox`, `update-grub`, reboot.
+  **Verify:** `uname -r` reports `7.0.14-29-pve` and all guests autostart.
 - [ ] **Address the power-loss risk (accepted, hardware absent).** No UPS or NUT
   units exist, so no shutdown integration is possible. Accepted mitigation is
   alerting only: memory/swap alerts, the host-down rule, and the nightly
