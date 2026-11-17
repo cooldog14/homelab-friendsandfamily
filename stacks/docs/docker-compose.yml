@@ -5,8 +5,10 @@ services:
     mem_limit: 2g
     mem_reservation: 1g
     cpus: 2.0
-    ports:
-      - "10.44.0.2:8091:8080"
+    networks:
+      default:
+      homelab-edge:
+        aliases: [stirling]
     volumes:
       - /mnt/data/apps/stirling/tessdata:/usr/share/tessdata
       - /mnt/data/apps/stirling/config:/configs
@@ -88,3 +90,8 @@ services:
     volumes:
       - /mnt/data/media/books:/books
       - ./state/kavita:/kavita/config
+
+networks:
+  homelab-edge:
+    external: true
+    name: homelab-edge

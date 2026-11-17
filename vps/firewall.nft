@@ -1,0 +1,43 @@
+#!/usr/sbin/nft -f
+# Effective VPS input/forward policy, loaded after the provider base file.
+#
+# This table intentionally replaces `inet firewall` from /etc/nftables.conf in
+# one atomic transaction. It NEVER flushes the ruleset: CrowdSec, Docker and the
+# homelab NAT table are separate tables and are untouched.
+#
+# Forwarding is DNAT-only plus the P2P return path. The former blanket
+# `ip daddr 10.44.0.0/24 accept` rules and Docker bridge forward were removed.
+destroy table inet firewall
+
+table inet firewall {
+	chain input {
+		type filter hook input priority filter; policy drop;
+
+		ct state established,related accept
+		iif "lo" accept
+		ip protocol icmp limit rate 10/second burst 5 packets accept
+		ip protocol icmp drop
+
+		# Public SSH is rate-limited; existing sessions survive the limit.
+		tcp dport 4522 ct state new limit rate 5/minute burst 5 packets accept
+		tcp dport 4522 drop
+
+		# WireGuard: wg0 carries the P2P exit, chill0 carries public backends.
+		udp dport { 51820, 51824 } accept
+
+		tcp dport { 80, 443 } accept
+	}
+
+	chain forward {
+		type filter hook forward priority filter; policy drop;
+
+		tcp flags & (syn | rst) == syn tcp option maxseg size set 1220
+		ct state established,related accept
+
+		# Only connections explicitly DNAT'd by homelab_nat pass inbound.
+		iifname "eth0" ct status dnat accept
+
+		# gluetun's P2P egress leaves through wg0 to the public interface.
+		iifname "wg0" oifname "eth0" accept
+	}
+}

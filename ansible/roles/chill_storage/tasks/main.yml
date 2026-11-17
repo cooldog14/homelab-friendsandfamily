@@ -1,14 +1,14 @@
 ---
-# Storage layout. /mnt/data is a pool bind (takeover), not virtiofs: the guard
-# below skips a target that is already in fstab so a live bind is never shadowed.
+# Storage layout. /mnt/data is a bind from the takeover tree on /mnt/pool, not
+# virtiofs. The exact bind is owned here and asserted after mount.
 - name: Define virtiofs mounts
   ansible.builtin.set_fact:
     chill_storage_virtiofs_mounts:
-      - {tag: pve1-primary, target: /mnt/data}
       - {tag: pve1-fast, target: /mnt/fast}
       - {tag: pve1-vault, target: /mnt/vault}
       - {tag: pve1-pool, target: /mnt/pool}
       - {tag: pve1-backup, target: /mnt/backup}
+    chill_storage_data_source: /mnt/pool/takeover-primary/r1/mnt/data
 
 - name: Migrate retired virtiofs tags in fstab
   ansible.builtin.replace:
@@ -16,8 +16,6 @@
     regexp: "{{ item.regexp }}"
     replace: "{{ item.replace }}"
   loop:
-    - regexp: pve1-mirror /mnt/data
-      replace: pve1-primary /mnt/data
     - regexp: pve1-archive /mnt/vault
       replace: pve1-vault /mnt/vault
 
@@ -39,6 +37,13 @@
     label: "{{ item.item.target }}"
   when: item.rc != 0
 
+- name: Ensure /mnt/data is the takeover bind
+  ansible.builtin.lineinfile:
+    path: /etc/fstab
+    regexp: '^[^#].*[[:space:]]/mnt/data[[:space:]]'
+    line: "{{ chill_storage_data_source }} /mnt/data none rbind,nofail,x-systemd.requires-mounts-for=/mnt/pool 0 0"
+    state: present
+
 # `mount -a`, not ansible.posix.mount: the module would claim /mnt/data and
 # shadow the takeover bind. This only applies what fstab already declares.
 - name: Mount everything fstab declares  # noqa: command-instead-of-module
@@ -46,13 +51,28 @@
     cmd: mount -a
   changed_when: false
 
-- name: Verify every expected mount is live
+- name: Verify every expected virtiofs mount is live
   ansible.builtin.command:
     cmd: mountpoint -q {{ item.target }}
   loop: "{{ chill_storage_virtiofs_mounts }}"
   loop_control:
     label: "{{ item.target }}"
   changed_when: false
+
+- name: Read the live /mnt/data source
+  ansible.builtin.command:
+    cmd: findmnt -no SOURCE /mnt/data
+  register: chill_storage_data_source_live
+  changed_when: false
+
+- name: Refuse a /mnt/data mount that is not the takeover bind
+  ansible.builtin.assert:
+    that:
+      - chill_storage_data_source_live.stdout | trim == chill_storage_data_source
+    fail_msg: >-
+      /mnt/data source is {{ chill_storage_data_source_live.stdout | trim }},
+      expected {{ chill_storage_data_source }}. Refusing to continue.
+    quiet: true
 
 - name: Remove the retired archive mountpoint
   ansible.builtin.command:

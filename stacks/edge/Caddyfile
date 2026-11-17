@@ -41,24 +41,26 @@
 	# everywhere; see media compose for the LAN .28:8096 direct path).
 	@jellyfin host jellyfin.h.malice.biz
 	route {
-		reverse_proxy @files 10.44.0.2:8085
-		reverse_proxy @stirling 10.44.0.2:8091
-		reverse_proxy @gotify 10.44.0.2:8070
+		reverse_proxy @files filebrowser:80
+		reverse_proxy @stirling stirling:8080
+		reverse_proxy @gotify gotify:80
 		reverse_proxy @cockpit https://host.docker.internal:9090 {
 			transport http {
 				tls_insecure_skip_verify
 			}
 		}
 		reverse_proxy @immich 10.44.0.2:2283
-		reverse_proxy @qbittorrent 10.44.0.2:8701
-		reverse_proxy @prowlarr 10.44.0.2:9696
-		reverse_proxy @radarr 10.44.0.2:7878
-		reverse_proxy @sonarr 10.44.0.2:8989
-		reverse_proxy @bazarr 10.44.0.2:6767
-		reverse_proxy @slskd 10.44.0.2:5030
-		reverse_proxy @wrtag 10.44.0.2:7373
+		# gluetun owns these ports in its namespace; only the Docker host
+		# gateway is published, never the WireGuard address.
+		reverse_proxy @qbittorrent host.docker.internal:8701
+		reverse_proxy @prowlarr host.docker.internal:9696
+		reverse_proxy @radarr radarr:7878
+		reverse_proxy @sonarr sonarr:8989
+		reverse_proxy @bazarr bazarr:6767
+		reverse_proxy @slskd host.docker.internal:5030
+		reverse_proxy @wrtag wrtag:7373
 		reverse_proxy @suwayomi 10.44.0.2:4567
-		reverse_proxy @grafana 10.44.0.2:3000
+		reverse_proxy @grafana grafana:3000
 		# No websocket config needed: Jellyfin WS is same-origin /socket on 8096,
 		# Caddy proxies Upgrade transparently.
 		reverse_proxy @jellyfin 10.44.0.2:8096

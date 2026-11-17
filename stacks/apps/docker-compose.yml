@@ -6,8 +6,10 @@ services:
     cap_drop:
       - ALL
     restart: unless-stopped
-    ports:
-      - "10.44.0.2:8085:80"
+    networks:
+      default:
+      homelab-edge:
+        aliases: [filebrowser]
     volumes:
       - /mnt/data:/srv
       - /mnt/pool:/srv/pool
@@ -41,3 +43,8 @@ services:
       - /mnt/data/family:/srv
       - ./state/filebrowser-family:/home/filebrowser/data
       - ./config/filebrowser/config.yaml:/home/filebrowser/data/config.yaml:ro
+
+networks:
+  homelab-edge:
+    external: true
+    name: homelab-edge

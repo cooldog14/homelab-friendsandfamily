@@ -14,3 +14,31 @@
     name: docker
     enabled: true
     state: started
+
+- name: Create the Docker drop-in directory
+  ansible.builtin.file:
+    path: /etc/systemd/system/docker.service.d
+    state: directory
+    mode: "0755"
+
+- name: Require host mounts before Docker starts
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/docker.service.d/homelab-mounts.conf
+    mode: "0644"
+    content: |
+      [Unit]
+      RequiresMountsFor=/mnt/data /mnt/pool /mnt/fast
+  notify: Reload systemd
+
+- name: Check the internal admin network
+  ansible.builtin.command:
+    cmd: docker network inspect homelab-edge
+  register: chill_docker_edge_network
+  changed_when: false
+  failed_when: false
+
+- name: Create the internal admin network
+  ansible.builtin.command:
+    cmd: docker network create --driver bridge --internal homelab-edge
+  when: chill_docker_edge_network.rc != 0 || chill_docker_edge_network.stdout == ''
+  changed_when: true

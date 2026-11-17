@@ -56,7 +56,7 @@
     mode: "0644"
     content: |
       Unattended-Upgrade::Automatic-Reboot "true";
-      Unattended-Upgrade::Automatic-Reboot-Time "04:30";
+      Unattended-Upgrade::Automatic-Reboot-Time "02:30";
 
 - name: Set SSH posture (LAN keeps passwords, everything else is key-only)
   ansible.builtin.copy:

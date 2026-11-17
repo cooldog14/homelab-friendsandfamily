@@ -50,15 +50,16 @@ but fails integrity checks — or worse, opens and is quietly inconsistent.
 So the job dumps before it snapshots:
 
 - `pg_dump` inside the container for the two PostgreSQL applications (photos and
-  documents), using the container's own credentials.
-- `sqlite3 .backup` for each SQLite database (documents library, notifications,
-  host monitoring). `.backup` uses SQLite's online backup API, which takes a
-  consistent copy while the application keeps running.
+  documents), using the container's own credentials. Each dump is written to a
+  `.new` path and moved into place only on success.
+- `sqlite3 .backup` for the Kavita and Gotify databases. `.backup` uses SQLite's
+  online backup API, which takes a consistent copy while the application keeps
+  running.
 
-Dumps are written to a fresh path and moved into place only on success, so a
-failed dump never replaces a good one. A dump failure does not fail the whole
-backup: the rest of the data is still worth capturing, and the failure is sent
-to the notification channel and left in the journal.
+Current limits: the SQLite dumps are not yet atomic. A SQLite failure alerts and
+continues, but either unguarded PostgreSQL dump failure aborts the entire script
+under `set -e`. Other application databases are copied raw while running rather
+than dumped. Closing these gaps is in the immediate backup work in `TODO.md`.
 
 ### The drill
 

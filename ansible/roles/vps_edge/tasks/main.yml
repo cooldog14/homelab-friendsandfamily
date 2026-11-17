@@ -129,12 +129,45 @@
     mode: "0644"
   notify: Apply nftables rules
 
-# The include lives outside nftables.d, so it cannot be shipped as a whole file.
+# The effective filter table is rebuilt atomically from git after the provider
+# base file loads. Separate tables (CrowdSec/Docker/NAT) are never flushed.
+- name: Install the effective homelab firewall table
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../vps/firewall.nft"
+    dest: /etc/nftables.d/homelab_firewall.conf
+    mode: "0644"
+  notify: Apply nftables rules
+
+# Remove rules superseded by the git-owned table. This prevents a stale broad
+# rule from being active between base-table load and the atomic replacement.
+- name: Remove legacy broad firewall rules
+  ansible.builtin.lineinfile:
+    path: /etc/nftables.conf
+    regexp: "{{ item }}"
+    state: absent
+  loop:
+    - '^\s*iifname "eth0" oifname "wg0" ct state new accept$'
+    - '^\s*iifname "wg0" ip daddr 10\.44\.0\.0/24 accept$'
+    - '^\s*ip daddr 10\.44\.0\.0/24 accept$'
+    - '^\s*iifname "wg0" oifname "eth0" accept$'
+    - '^\s*iifname "br-\*" oifname "eth0" accept$'
+    - '^\s*iifname "chill0" tcp dport 8088 accept$'
+  notify: Apply nftables rules
+
+# The includes live outside nftables.d, so they cannot be shipped as one file.
 - name: Ensure the homelab NAT table is included
   ansible.builtin.lineinfile:
     path: /etc/nftables.conf
     line: 'include "/etc/nftables.d/homelab_nat.conf"'
     insertafter: EOF
+    state: present
+  notify: Apply nftables rules
+
+- name: Ensure the effective firewall table is included last
+  ansible.builtin.lineinfile:
+    path: /etc/nftables.conf
+    line: 'include "/etc/nftables.d/homelab_firewall.conf"'
+    insertafter: '^include "/etc/nftables.d/homelab_nat\.conf"$'
     state: present
   notify: Apply nftables rules
 

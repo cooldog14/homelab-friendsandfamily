@@ -6,8 +6,10 @@ services:
     cap_drop:
       - ALL
     restart: unless-stopped
-    ports:
-      - "10.44.0.2:8070:80"   # private via gotify.h.malice.biz
+    networks:
+      default:
+      homelab-edge:
+        aliases: [gotify]
     environment:
       GOTIFY_DEFAULTUSER_PASS: ${GOTIFY_DEFAULTUSER_PASS}
     volumes:
@@ -117,7 +119,7 @@ services:
       - /sys:/sys:ro
       - /var/lib/docker/:/var/lib/docker:ro
       - /dev/disk/:/dev/disk:ro
-    mem_limit: 256m
+    mem_limit: 1g
 
   blackbox-exporter:
     image: prom/blackbox-exporter:v0.29.1
@@ -141,10 +143,10 @@ services:
     cap_drop:
       - ALL
     user: "472:472"
-    # Published on the WG address so the private edge Caddy can proxy
-    # grafana.h.malice.biz over the tailnet; never public.
-    ports:
-      - "10.44.0.2:3000:3000"
+    networks:
+      default:
+      homelab-edge:
+        aliases: [grafana]
     environment:
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?set GRAFANA_ADMIN_PASSWORD in .env}
       GF_USERS_ALLOW_SIGN_UP: "false"
@@ -155,4 +157,9 @@ services:
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
       - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
       - ./state/grafana:/var/lib/grafana
-    mem_limit: 512m
+    mem_limit: 1g
+
+networks:
+  homelab-edge:
+    external: true
+    name: homelab-edge

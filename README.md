@@ -1,15 +1,18 @@
 # homelab
 
-A friends & family platform: one hypervisor, one application VM, one edge VPS, all defined in git.
+A friends & family platform: one application VM and one edge VPS, managed in
+git, on one Proxmox hypervisor.
 
 [![ci](https://github.com/cooldog14/homelab-friendsandfamily/actions/workflows/ci.yml/badge.svg)](https://github.com/cooldog14/homelab-friendsandfamily/actions/workflows/ci.yml)
 
 The platform serves photos, documents, media, chat and games to a small group of
-people. A single Proxmox hypervisor runs one Debian VM that hosts ~43 Docker
-Compose services across 8 stacks; a small Debian VPS is the only
-internet-facing host and reaches the VM over WireGuard. Everything that can be
-codified — playbooks, compose files, Caddy routes, firewall rules, VM
-definition — lives in this repository.
+people. `chill-01` hosts 42 Docker Compose services across 8 stacks; a small
+Debian VPS is the only host with a public IP and reaches the application VM over
+WireGuard.
+
+Playbooks, Compose files, Caddy routes, NAT rules and an import-only definition
+of `chill-01` live here. Secrets and application data do not. The VPS input
+firewall, CrowdSec setup and Caddy package source are not yet fully codified.
 
 ```mermaid
 flowchart LR
@@ -25,33 +28,35 @@ flowchart LR
 
 | Metric | Value |
 |---|---|
-| Compose services | 43 |
+| Compose services | 42 |
 | Compose stacks | 8 |
 | Public HTTPS vhosts | 13 |
-| Private (tailnet) vhosts | 17 |
+| Private (tailnet) vhosts | 16 |
 | Restore point objective | 24 h |
-| Restore time objective | 15 s |
-| Hosts | 1 hypervisor, 1 application VM, 1 edge VPS |
+| Full-platform recovery time | Not measured |
+| Managed machines | 1 application VM, 1 edge VPS |
 
-RTO measured 2026-11-09 with `make restore-test`: 18 objects / 56.5 MiB
-restored from the offsite restic repository.
+The 2026-11-09 `make restore-test` drill took 15 seconds to restore and validate
+18 objects / 56.5 MiB from the offsite restic repository. That is a sampled
+artifact-restore time, **not** an RTO for rebuilding the platform.
 
 ## What this demonstrates
 
 - **A public edge for a host that has no public IP.** TLS terminates on the VPS;
-  the home address never appears in public DNS. The application host accepts no
-  inbound connection from the internet.
-- **Segmentation with two different tools for two different jobs.** WireGuard
-  carries public backend traffic from the edge to the app VM. Tailscale is the
-  only human admin path. Neither tunnel can reach the other's surfaces.
-- **Tested restores, not just backups.** A drill pulls real objects out of the
-  offsite repository, validates the database dumps, and fails on corruption.
+  the home address never appears in public DNS. Internet-originated connections
+  reach the application VM only through VPS proxying or explicit port forwarding.
+- **Different tunnels for backend and admin access.** WireGuard carries edge
+  traffic and the P2P exit; Tailscale is the primary human admin path. The
+  exceptions and remaining exposure are listed under **Current gaps**.
+- **Sampled restores, not just backups.** A drill pulls real objects out of the
+  offsite repository, validates the two PostgreSQL and two SQLite dumps, and
+  fails on sampled corruption. It does not rebuild or restore the full platform.
 - **Incident handling with written post-mortems.** Outages end with a dated
   runbook entry that records the symptom, the diagnosis, the repair and the
   prevention.
-- **SRE-grade observability and IaC.** Prometheus with Alertmanager routing and
-  blackbox probes on the public edge, plus Ansible and OpenTofu for host and VM
-  state.
+- **Observable, reproducible core services.** Prometheus, Alertmanager and
+  blackbox probes cover the application VM and public edge. Ansible manages host
+  state; OpenTofu plans the imported application VM without applying changes.
 
 ## Deep dives
 
@@ -66,9 +71,10 @@ restored from the offsite restic repository.
 
 ## Operations
 
-This is a best-effort personal platform, not a highly available service. There
-is one hypervisor, one application VM and one VPS; each is a single point of
-failure, and maintenance windows are announced rather than avoided.
+This is a best-effort personal platform, not a highly available service. The
+managed platform has one hypervisor, one application VM and one VPS; each is a
+single point of failure, and maintenance windows are announced rather than
+avoided.
 
 Install the Ansible collections once per workstation first, then use the Make
 targets:
@@ -89,22 +95,40 @@ ansible-galaxy collection install -r ansible/requirements.yml
 | `make tofu-plan` | Read-only plan of the application VM against the hypervisor. |
 | `make ansible-check` | Syntax-checks both playbooks. |
 
+## Current gaps
+
+A live review on 2026-11-09 found these differences between the intended design
+and the enforced state. Their remediation is the immediate list in [TODO.md](TODO.md).
+
+- The `DOCKER-USER` isolation rules are not restored at boot. A broad `wg0` UFW
+  allow and broad VPS forwarding rules expose more of the application subnet
+  than the published-backend model implies; several admin UIs are reachable
+  from the VPS.
+- A PostgreSQL dump failure aborts the whole backup; only Kavita and Gotify
+  SQLite databases are dumped consistently. Other application databases and
+  Minecraft state are copied while running.
+- Monitoring runs in the failure domain it watches: there is no external
+  dead-man alert, hypervisor exporter or PVE notification target. The 2026-11-09
+  review also observed cAdvisor OOM kills and Grafana nearing its memory limit.
+- `make deploy` ships the working tree without requiring a clean commit or
+  recording the deployed revision; it is not yet a provenance guarantee.
+
 ## Security model
 
 - The public edge accepts **key-only SSH**; password authentication and root
   password login are disabled.
-- **Admin access is tailnet-only.** Private services and the host admin
-  interface are reachable from Tailscale, never from the public edge.
-- **No secrets in git.** Environment files and keys live on the hosts with
-  restrictive permissions; CI runs a secret scanner over the full history.
-- **Least privilege for automation.** OpenTofu uses a dedicated Proxmox API
-  token scoped to auditing, the single VM and its storage, with credentials
-  stored outside the repository.
-- **WireGuard is VPS-to-VM only.** It carries published backends, is scoped to
-  their ports, and is never an admin path.
-- **Isolation is layered.** UFW, nftables and explicit `DOCKER-USER` rules keep
-  containers from reaching each other or the host outside their documented
-  paths.
+- **Tailscale is the primary admin path.** VPS public-key SSH and `chill-01` LAN
+  SSH are separate admin paths. WireGuard is not a human admin path by policy,
+  although admin-port exposure from the VPS remains a current gap.
+- **Secrets are excluded from git.** Environment files and keys live on hosts
+  with restrictive permissions; CI runs Gitleaks over full history.
+- **OpenTofu is plan-only by workflow.** Credentials are stored outside the
+  repository.
+- **WireGuard has separate backend and P2P uses.** `chill0` links the VPS to the
+  application VM; `wg0` provides P2P egress through the VPS. Their intended
+  port-level restrictions are not yet fully enforced.
+- **Isolation uses UFW, nftables and `DOCKER-USER`.** The container rules are
+  effective only after `host/firewall-neko.sh` runs; boot persistence is open.
 
 ## Stack
 

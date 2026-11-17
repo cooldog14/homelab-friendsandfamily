@@ -1,0 +1,13 @@
+[Unit]
+Description=Weekly sampled malice restic integrity check
+Wants=network-online.target
+After=network-online.target
+OnFailure=notify@%n.service
+
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/restic/malice.env
+ExecStart=/usr/bin/restic check --read-data-subset=5%
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7

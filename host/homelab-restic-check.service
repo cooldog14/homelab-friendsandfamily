@@ -1,0 +1,11 @@
+[Unit]
+Description=Sampled restic integrity check (cloud + local)
+RequiresMountsFor=/mnt/backup
+OnFailure=notify@%n.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/homelab-restic-check
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
