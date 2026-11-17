@@ -52,8 +52,11 @@ RTO for rebuilding the platform.
   runbook entry that records the symptom, the diagnosis, the repair and the
   prevention.
 - **Observable, reproducible core services.** Prometheus and Alertmanager cover
-  the application VM, the hypervisor and the public edge. Ansible manages host
-  state; OpenTofu plans the imported application VM without applying changes.
+  the application VM, the hypervisor and the public edge. The VPS sends a
+  five-minute external heartbeat only while public checks pass, giving
+  whole-platform outage detection outside the application VM. Ansible manages
+  host state; OpenTofu plans the imported application VM without applying
+  changes.
 
 ## Deep dives
 
@@ -92,14 +95,6 @@ ansible-galaxy collection install -r ansible/requirements.yml
 | `make tofu-check` | Offline OpenTofu format and validation checks (no credentials needed). |
 | `make tofu-plan` | Read-only plan of the application VM against the hypervisor. |
 | `make ansible-check` | Syntax-checks all playbooks. |
-
-## Remaining limitation
-
-The external heartbeat client is installed on the VPS and passes its local
-health checks, but no external push URL is configured. Until
-`/etc/homelab-heartbeat.env` contains `HEARTBEAT_URL`, the five-minute
-dead-man timer skips the service. Prometheus, Alertmanager and Gotify also
-remain on the application VM they monitor.
 
 ## Security model
 
