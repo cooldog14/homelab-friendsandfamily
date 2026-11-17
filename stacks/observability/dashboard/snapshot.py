@@ -689,7 +689,9 @@ def _derive_alerts(
                 "#telemetry",
             )
         fill_days = disk.get("fill_days")
-        if fill_days is not None and fill_days < 14:
+        # A projection only matters on a disk that has little room left: a
+        # nearly empty filesystem with a noisy slope must stay quiet.
+        if fill_days is not None and fill_days < 14 and (disk.get("used_pct") or 0) > 60:
             add(
                 "alert" if fill_days < 7 else "warn",
                 f"disk-forecast:{disk.get('mountpoint')}",
@@ -969,7 +971,6 @@ def _top_consumers(infra: dict, name_to_service: dict, config: DashboardConfig) 
                 else name,
                 "cpu_pct": stats.get("cpu_pct"),
                 "mem_bytes": stats.get("mem_bytes"),
-                "restarted_24h": stats.get("restarted_24h"),
             }
             for name, stats in (infra.get("containers") or {}).items()
             if isinstance(stats, dict) and stats.get(key) is not None
@@ -1034,6 +1035,12 @@ def build_snapshot(
 
     telemetry_data = _data(telemetry_store) or {}
     infra_data = _data(infra_store) or {}
+    # Capacity is projected from the 7 d slope computed in the infra group.
+    slope = (infra_data or {}).get("disk_slope") or {}
+    for disk in telemetry_data.get("disks") or []:
+        disk["fill_days"] = parsers.days_until_full(
+            disk.get("avail_bytes"), slope.get(disk.get("mountpoint"))
+        )
     docker_data = _data(docker_store) or {}
     routes_data = _data(routes_store) or {}
     integrations_data = _data(integrations_store) or {}

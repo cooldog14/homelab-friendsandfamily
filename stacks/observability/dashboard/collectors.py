@@ -80,26 +80,23 @@ DISK_AVAIL_Q = (
     f'max by (mountpoint) (node_filesystem_avail_bytes{{job="node",{_FS_FILTER}}})'
 )
 
-# cAdvisor: what each container actually uses, and how often it restarted.
+# cAdvisor: what each container actually uses.
 CONTAINER_CPU_Q = (
     'sum by (name) (rate(container_cpu_usage_seconds_total{name!=""}[2m])) * 100'
 )
 CONTAINER_MEM_Q = 'sum by (name) (container_memory_working_set_bytes{name!=""})'
-# `changes()` counts sub-second jitter in cAdvisor's start timestamp, so a
-# quiet container reported restarts that never happened. A real restart moves
-# the start time by minutes; one second of drift is measurement noise.
-CONTAINER_RESTARTS_Q = (
-    "max by (name) ("
-    "(max_over_time(container_start_time_seconds{name!=""}[24h])"
-    " - min_over_time(container_start_time_seconds{name!=""}[24h])) > 60"
-    ")"
-)
 CONTAINER_OOM_Q = 'sum by (name) (increase(container_oom_events_total{name!=""}[24h]))'
-# Six hours of a deploy-heavy evening projected a 12-day fill on a disk whose
-# 24 h trend is actually growing. Capacity needs the long window.
+# Restart counts are deliberately not derived here: a start-time delta cannot
+# tell a crash from a recreated container, and cAdvisor's timestamp jitters by
+# fractions of a second. Docker's RestartCount is read for stopped containers;
+# the Prometheus restart-loop rule covers the rest.
+#
+# For capacity: 6 h caught one evening of image builds (a 12-day projection on a
+# disk that was growing), 24 h still followed the weekly vzdump sawtooth. A week
+# smooths both, and capacity is a 15 s question, not a 10 s one.
 DISK_SLOPE_Q = (
     'deriv(node_filesystem_avail_bytes'
-    f'{{job="node",{_FS_FILTER}}}[24h]'
+    f'{{job="node",{_FS_FILTER}}}[7d]'
     ')'
 )
 
@@ -275,23 +272,17 @@ class Collectors:
         used = {row["metric"].get("mountpoint"): row["value"] for row in prom.query(DISK_USED_Q)}
         size = {row["metric"].get("mountpoint"): row["value"] for row in prom.query(DISK_SIZE_Q)}
         avail = {row["metric"].get("mountpoint"): row["value"] for row in prom.query(DISK_AVAIL_Q)}
-        slope = {
-            row["metric"].get("mountpoint"): row["value"]
-            for row in prom.query(DISK_SLOPE_Q)
-        }
         disks = []
         for mount in DISK_MOUNTS:
             if mount not in used:
                 continue
             free = int(avail.get(mount) or 0)
-            fill_days = parsers.days_until_full(free, slope.get(mount))
             disks.append(
                 {
                     "mountpoint": mount,
                     "used_pct": used.get(mount),
                     "size_bytes": int(size.get(mount) or 0),
                     "avail_bytes": free,
-                    "fill_days": fill_days,
                 }
             )
 
@@ -413,20 +404,22 @@ class Collectors:
 
         cpu = index(CONTAINER_CPU_Q, ("name",))
         mem = index(CONTAINER_MEM_Q, ("name",))
-        restarts = index(CONTAINER_RESTARTS_Q, ("name",))
         oom = index(CONTAINER_OOM_Q, ("name",))
         containers = {
             name[0]: {
                 "cpu_pct": cpu.get(name),
                 "mem_bytes": int(mem[name]) if name in mem else None,
-                "restarted_24h": restarts.get(name) == 1.0,
                 "oom_24h": int(oom.get(name) or 0),
             }
-            for name in set(cpu) | set(mem) | set(restarts) | set(oom)
+            for name in set(cpu) | set(mem) | set(oom)
             if name[0]
         }
         return {
             "containers": containers,
+            "disk_slope": {
+                row["metric"].get("mountpoint"): row["value"]
+                for row in prom.query(DISK_SLOPE_Q)
+            },
             "up": hosts_up,
             "jobs": jobs,
             "backup_markers": markers,

@@ -286,7 +286,6 @@
     if (detail) parts.push(detail);
     if (probe.status === 'fail' && probe.error) parts.push(String(probe.error).slice(0, 56));
     const usage = (item || {}).usage || {};
-    if (usage.restarted_24h) parts.push('restarted in 24h');
     if (num(usage.oom_24h) && usage.oom_24h > 0) parts.push(usage.oom_24h + ' oom/24h');
     return parts.join(' · ');
   }
@@ -382,7 +381,8 @@
   // ----------------------------------------------------------- telemetry --
 
   function fmtDays(days) {
-    if (!num(days)) return '—';
+    // A projection decades out is noise, not information.
+    if (!num(days) || days > 365) return '—';
     if (days < 1) return '<1 d';
     return days.toFixed(days < 10 ? 1 : 0) + ' d';
   }
