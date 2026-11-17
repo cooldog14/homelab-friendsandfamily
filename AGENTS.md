@@ -28,10 +28,11 @@ incidents in `RUNBOOK.md`.
   `/etc/ssh/sshd_config.d/00-homelab-hardening.conf`, written by the
   `vps_edge` Ansible role); root still has a console password for the
   provider, but SSH never accepts it.
-- Host state is Ansible-managed: `ansible/chill.yml` and
-  `ansible/vps.yml` with roles under `ansible/roles/`. `bootstrap.sh`
-  and `vps/bootstrap.sh` were deleted; `make host` / `make vps` are the
-  only host entry points, and a second run reports `changed=0`.
+- Host state is Ansible-managed: `ansible/chill.yml`, `ansible/vps.yml` and
+  `ansible/malice.yml` with roles under `ansible/roles/`. `make host`,
+  `make vps` and `make hypervisor` are the only host entry points, and a second
+  run reports `changed=0`. `make deploy` archives the committed `stacks/` tree,
+  re-applies container isolation and records `/opt/stacks/.deployed-commit`.
 - OpenTofu (`tofu/`) codifies VM 101 import-only: `prevent_destroy`,
   plan-only policy, never apply. Credentials live outside the repo at
   `~/.config/homelab/tofu.env` (a least-privilege Proxmox API token).
@@ -99,16 +100,17 @@ guests, snapshot, zstd, Sun 03:30, keep-last 8, writes
   public `mg.malice.biz` + private), wrtag (`:7373`). Jellyfin
   `/cache` -> `/mnt/fast/jellyfin-cache`;
   `/pool/movies|tv` ro. GPU `renderD128` present, QSV->VAAPI flip open.
-  slskd (`:5030`) and wrtag (`:7373`) web UIs run with authentication
-  **disabled on purpose**: they are reachable only through the private
-  `*.h.malice.biz` Caddy over Tailscale (`slskd.h` / `wrtag.h`), never
-  public and never from the VPS tunnel. The tailnet is the auth boundary.
+  slskd (`:5030`) and wrtag (`:7373`) web UIs require authentication.
+  They are reachable only through the private `*.h.malice.biz` Caddy over
+  Tailscale (`slskd.h` / `wrtag.h`), never public and never from the VPS
+  tunnel. The tailnet remains the outer auth boundary.
 - `observability`: Gotify (`:8070`, private only),
   prometheus (published only on `127.0.0.1:9091` — Cockpit owns
   `*:9090`), alertmanager, alertmanager-gotify-bridge, node-exporter,
   cadvisor (privileged — documented exception), blackbox-exporter,
-  grafana. Grafana is private-only via `grafana.h.malice.biz` ->
-  `10.44.0.2:3000`. Roughly 43 containers in total on the host.
+  grafana. Private admin UIs are reached by private Caddy over the
+  internal `homelab-edge` Docker network, not published on `10.44.0.2`.
+  Roughly 42 containers in total on the host.
 - Host admin: Cockpit (`cockpit.h.malice.biz` / `:9090`, includes web
   terminal) is Tailscale/private Caddy only; no public route and blocked
   from the VPS WireGuard tunnel.
@@ -124,7 +126,8 @@ guests, snapshot, zstd, Sun 03:30, keep-last 8, writes
   All backends `reverse_proxy 10.44.0.2:<port>`.
 - nftables NAT: Mumble `64738`, Neko `52000`, Screego `3478` +
   `52100-52200`, and Minecraft `25565` are forwarded to `10.44.0.2`.
-  CrowdSec blacklist active.
+  CrowdSec blacklist active. `vps/firewall.nft` is the effective
+  input/forward policy: DNAT-only forwarding plus the P2P return path.
 - If public-check goes red, compare git-owned `vps/sites/*.caddy`
   against VPS live config before changing apps.
 
@@ -133,7 +136,9 @@ guests, snapshot, zstd, Sun 03:30, keep-last 8, writes
 - Nightly `homelab-backup` (restic offsite + local
   `/mnt/backup/restic`): `/opt`, `/mnt/fast/dumps`, `/mnt/data`,
   `/etc`, `/root/.ssh`. Excludes downloads, movies, TV, and raw music
-  staging. Dumps fresh for immich/paperless/gotify/kavita.
+  staging. Dumps fresh for Immich, Paperless and active SQLite databases;
+  copies Filebrowser bbolt state and a Suwayomi archive consistently.
+  Weekly hosted and hypervisor timers read 5% of pack data.
 - `homelab-backup-watchdog` (48h), `homelab-public-check`, Gotify, and
   Prometheus are the alert path. Prometheus rules (host down, target
   down, public endpoint down, TLS expiring, disk above 85% for 5
@@ -151,7 +156,15 @@ guests, snapshot, zstd, Sun 03:30, keep-last 8, writes
   hypervisor (`/etc`, `/etc/pve`, `/root`, `/usr/local/sbin`).
   `OnFailure=notify@` live and tested (tailnet Gotify POST 200);
   `/etc/homelab.env` on malice uses the `gotify.h` URL (public
-  `gotify.malice.biz` has no VPS route). No PVE notification target yet.
+  `gotify.malice.biz` has no VPS route). PVE notifications target
+  `gotify` (matcher `default-matcher` includes `mail-to-root` and `gotify`);
+  weekly `malice-restic-check.timer` reads 5% of pack data.
+  `prometheus-node-exporter` listens only on the malice Tailscale address
+  and is scraped by Prometheus on `chill-01`.
+- `homelab-edge-heartbeat.timer` on the VPS checks public Caddy routes and
+  TCP backends every five minutes. It sends a heartbeat only when all pass.
+  It remains skipped until `/etc/homelab-heartbeat.env` (0600) defines
+  `HEARTBEAT_URL`; configure the external check for 5m period / 15m grace.
 
 ## access matrix
 | Target | Primary (Tailscale) | Fallback |

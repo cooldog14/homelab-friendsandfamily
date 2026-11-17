@@ -2,46 +2,37 @@
 
 ## immediate (updated 2026-11-17)
 
-Based on the 2026-11-09 live review. Execute each workstream in order; an item
-closes only after its verification passes. The older material below is retained
-as investigation history, not as the active queue.
+### blocked or on-site
 
-- [ ] **P0 — Make isolation survive reboot and deploy.** Install/enable a systemd
-  unit for `host/firewall-neko.sh`, invoke it after every `make deploy`, and
-  remove the broad `wg0` UFW allow while retaining only `from 10.44.0.1`.
-  **Verify:** after a planned reboot, marker rules reference current bridges,
-  Neko lateral probes time out, public routes remain green, and the second
-  `make host` reports `changed=0`.
-- [ ] **P0 — Narrow VPS forwarding, then remove admin-port exposure.** Replace
-  broad forwarding to `10.44.0.0/24` with explicit DNAT/P2P rules and codify the
-  complete policy in Ansible/git. After that control is proven, move private-only
-  admin ports off `10.44.0.2` and proxy them through private Caddy. Keep a proven
-  SSH session open; never flush the VPS firewall. **Verify:** VPS probes reach
-  only intended public backends, every private vhost works over Tailscale, and
-  Mumble/Neko/Screego/Minecraft/P2P paths still pass.
-- [ ] **P0 — Make backups fail safely and prove recovery.** Alert-and-continue on
-  individual PostgreSQL dump failures while exiting non-zero at the end; make
-  SQLite dumps atomic; exclude live PostgreSQL/model-cache data; add consistent
-  dumps/quiescing for valuable application state; schedule sampled-data
-  `restic check`; move the unattended reboot outside the backup window.
-  **Verify:** forced dump failures preserve the previous dumps, still snapshot
-  other data and alert; both repositories pass checks; `make restore-test`
-  passes.
-- [ ] **P0 — Close monitoring and capacity blind spots.** Add an external
-  dead-man check, hypervisor metrics and PVE failure notifications; add OOM
-  alerts and remove the observed cAdvisor/Grafana memory pressure. **Verify:** a
-  stopped heartbeat and test OOM alert fire externally, cAdvisor stays stable for
-  24 h, and hypervisor memory has an actionable alert.
-- [ ] **P0 on site — Finish the disk retirement.** Pull retired `sdc` and the
+- [ ] **Activate external dead-man monitoring.** The VPS heartbeat client is
+  installed and tested against a local endpoint. Create a Healthchecks-style
+  check with a 5-minute period and 15-minute grace, then put
+  `HEARTBEAT_URL=<push-url>` in `/etc/homelab-heartbeat.env` on the VPS (mode
+  0600). **Verify:** `systemctl start homelab-edge-heartbeat.service` succeeds,
+  stopping public service withholds pings, and the external provider alerts
+  after its grace period.
+- [ ] **Finish the disk retirement on site.** Pull retired `sdc` and the
   staged-backup disk `sda` only after verifying the `/mnt/pool/.diskmove` copies
-  and current mounts; do not pull the vault disk. Complete the replacement/staging
-  plan before changing backup destinations. **Verify:** VMs, mounts, public checks
-  and one manual backup pass after reboot; restic snapshots remain readable.
-- [ ] **P1 — Remove remaining orchestration drift.** Scope the storage role to
-  the takeover bind with a source assertion and Docker mount requirements; make
-  deploy require a clean commit and record the deployed revision. **Verify:**
-  missing/wrong storage blocks Docker and deploy, a second `make host` is
-  unchanged, and deployment records the exact commit.
+  and current mounts; do not pull the vault disk. **Verify:** VMs, mounts, public
+  checks and one manual backup pass after reboot; restic snapshots remain
+  readable.
+
+### completed 2026-11-17
+
+- [x] Persisted `DOCKER-USER` isolation through a boot service and deploy hook;
+  removed the broad `wg0` UFW rule.
+- [x] Codified the VPS firewall, removed broad forwarding, moved private admin
+  traffic to the internal `homelab-edge` network, and removed admin ports from
+  `10.44.0.2`.
+- [x] Made PostgreSQL, SQLite, Filebrowser Bolt and Suwayomi backups atomic;
+  added sampled-data checks, moved the reboot window, and passed the expanded
+  restore drill (21 SQLite dumps, 3 Bolt snapshots, 1.63 GiB).
+- [x] Added hypervisor metrics, OOM alerts, PVE Gotify notifications and larger
+  cAdvisor/Grafana limits.
+- [x] Added storage identity assertions, Docker mount ordering, exact-commit
+  deploy archives and `/opt/stacks/.deployed-commit`.
+- [x] Verified host idempotence (`changed=0`), VPS policy syntax/runtime, all
+  public/private routes, and the full restore path.
 
 ## historical investigation backlog (not the active queue; last old update 2026-10-21)
 
