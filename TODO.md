@@ -2,15 +2,8 @@
 
 ## immediate (updated 2026-11-17)
 
-### blocked or on-site
+### on-site
 
-- [ ] **Activate external dead-man monitoring.** The VPS heartbeat client is
-  installed and tested against a local endpoint. Create a Healthchecks-style
-  check with a 5-minute period and 15-minute grace, then put
-  `HEARTBEAT_URL=<push-url>` in `/etc/homelab-heartbeat.env` on the VPS (mode
-  0600). **Verify:** `systemctl start homelab-edge-heartbeat.service` succeeds,
-  stopping public service withholds pings, and the external provider alerts
-  after its grace period.
 - [ ] **Finish the disk retirement on site.** Pull retired `sdc` and the
   staged-backup disk `sda` only after verifying the `/mnt/pool/.diskmove` copies
   and current mounts; do not pull the vault disk. **Verify:** VMs, mounts, public
@@ -19,6 +12,8 @@
 
 ### completed 2026-11-17
 
+- [x] Activated external dead-man monitoring: the VPS sends 5-minute heartbeats
+  to the configured external check only while all public HTTP/TCP checks pass.
 - [x] Persisted `DOCKER-USER` isolation through a boot service and deploy hook;
   removed the broad `wg0` UFW rule.
 - [x] Codified the VPS firewall, removed broad forwarding, moved private admin

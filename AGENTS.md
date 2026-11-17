@@ -163,8 +163,8 @@ guests, snapshot, zstd, Sun 03:30, keep-last 8, writes
   and is scraped by Prometheus on `chill-01`.
 - `homelab-edge-heartbeat.timer` on the VPS checks public Caddy routes and
   TCP backends every five minutes. It sends a heartbeat only when all pass.
-  It remains skipped until `/etc/homelab-heartbeat.env` (0600) defines
-  `HEARTBEAT_URL`; configure the external check for 5m period / 15m grace.
+  `/etc/homelab-heartbeat.env` (0600, root-only) holds `HEARTBEAT_URL` and is
+  outside git. Configure the external check for a 5m period / 15m grace.
 
 ## access matrix
 | Target | Primary (Tailscale) | Fallback |

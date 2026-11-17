@@ -1011,7 +1011,10 @@ Do not test by deleting data.
 - Observability: cAdvisor and Grafana limits are 1 GiB; OOM/kernel-OOM alerts
   exist. `prometheus-node-exporter` on malice listens only on its Tailscale
   address and is up in Prometheus. PVE has a `gotify` endpoint and the default
-  matcher targets both `mail-to-root` and `gotify`; target test succeeded.
+  matcher targets both `mail-to-root` and `gotify`; target test succeeded. The
+  VPS heartbeat client checks public HTTP/TCP every five minutes and sends the
+  configured external heartbeat only on success; an immediate delivery
+  completed successfully.
 - Deploy/storage: `/mnt/data` source is asserted by device/inode identity,
   Docker requires `/mnt/data /mnt/pool /mnt/fast`, deploy archives HEAD instead
   of the working tree, applies isolation after compose, and records
@@ -1026,10 +1029,8 @@ Do not test by deleting data.
   cold 6m45s, warm 1m22s). A forced missing PostgreSQL container and missing
   SQLite source preserved old dumps and recorded failures. Hosted cloud/local
   and hypervisor 5% data checks both completed successfully.
-- Remaining: external dead-man needs a provider push URL in
-  `/etc/homelab-heartbeat.env` on the VPS (the client and 5-minute timer are
-  installed and tested). Physical removal of retired `sdc` and staged `sda`
-  remains on-site.
+- Remaining: physical removal of retired `sdc` and staged `sda` remains
+  on-site.
 - Rollback: restore the previous stack tree with a commit checkout, run
   `make host`, `make vps`, `make deploy`; validate any firewall rollback with
   `nft -c` before applying and never flush the ruleset.
