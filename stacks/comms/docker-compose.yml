@@ -61,7 +61,7 @@ services:
   # filtered by ufw (default deny; only 22/tcp + wg0 allowed). Do not add ufw allows.
   # Users file + secret copied from prod 2026-09-10 (prod untouched).
   screego:
-    image: ghcr.io/screego/server:1.12.6
+    image: ghcr.io/screego/server:386-1.12.6
     security_opt:
       - no-new-privileges:true
     cap_drop:
