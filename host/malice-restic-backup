@@ -51,4 +51,8 @@ restic forget --tag "$TAG" --keep-daily 7 --keep-weekly 4 --keep-monthly 6 --pru
 log "checking repo metadata"
 restic check
 
+# Success marker for the job guard (homelab-metrics reads it, and a timer that
+# silently stopped firing would otherwise look healthy).
+mkdir -p /var/lib && date -Is > /var/lib/malice-restic-backup.last-ok
+
 log "done"

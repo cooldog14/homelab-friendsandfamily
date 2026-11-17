@@ -23,7 +23,8 @@
 	@stirling host stirling.h.malice.biz
 	@gotify host gotify.h.malice.biz
 	@cockpit host cockpit.h.malice.biz
-	@home host home.h.malice.biz
+	# Admin dashboard: live container/host state for the whole homelab.
+	@dashboard host home.h.malice.biz
 	# Private Immich: uploads from own devices avoid hairpinning through
 	# the VPS (see the port comment in stacks/photos/docker-compose.yml).
 	@immich host immich.h.malice.biz
@@ -64,8 +65,7 @@
 		# No websocket config needed: Jellyfin WS is same-origin /socket on 8096,
 		# Caddy proxies Upgrade transparently.
 		reverse_proxy @jellyfin 10.44.0.2:8096
-		root @home /srv/home
-		file_server @home
+		reverse_proxy @dashboard dashboard:8080
 		respond "unknown private service" 404
 	}
 }

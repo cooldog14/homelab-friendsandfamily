@@ -52,18 +52,58 @@ groups:
         labels: {severity: warning}
         annotations:
           summary: "Disque > 85%: {{ $labels.mountpoint }}"
+      # Per host: a fresh malice marker must never mask a stale chill marker.
       - alert: BackupStale
-        expr: time() - max(homelab_backup_last_success_timestamp_seconds) > 48 * 3600
+        expr: time() - max by (host, source) (homelab_backup_last_success_timestamp_seconds) > 48 * 3600
         for: 10m
         labels: {severity: critical}
         annotations:
-          summary: "Sauvegarde restic > 48h"
+          summary: "Sauvegarde restic > 48h: {{ $labels.host }}"
+          description: "La source {{ $labels.source }} sur {{ $labels.host }} n'a pas reussi depuis plus de 48h."
       - alert: BackupMetricMissing
-        expr: absent(homelab_backup_last_success_timestamp_seconds)
+        expr: absent(homelab_backup_last_success_timestamp_seconds{host="chill-01"}) or absent(homelab_backup_last_success_timestamp_seconds{host="malice"})
         for: 1h
         labels: {severity: warning}
         annotations:
           summary: "Métrique de sauvegarde absente"
+          description: "homelab_backup_last_success_timestamp_seconds manque pour un hôte: le marqueur ou le collecteur textfile est cassé."
+      # Job guard: every timer homelab-metrics can see. A timer that stopped
+      # firing, a failed unit and a passed deadline are three different breaks.
+      - alert: HomelabJobFailed
+        expr: homelab_job_failed == 1
+        for: 5m
+        labels: {severity: critical}
+        annotations:
+          summary: "Tâche en échec: {{ $labels.task }} sur {{ $labels.host }}"
+          description: "Le dernier run de {{ $labels.task }} a échoué (code {{ $labels.exit_code }})."
+      - alert: HomelabJobMissed
+        expr: homelab_job_missed == 1
+        for: 5m
+        labels: {severity: critical}
+        annotations:
+          summary: "Tâche en retard: {{ $labels.task }} sur {{ $labels.host }}"
+          description: "Le timer est actif mais son échéance est passée de plus de 15 minutes."
+      - alert: HomelabJobTimerInactive
+        expr: homelab_job_timer_active == 0
+        for: 15m
+        labels: {severity: critical}
+        annotations:
+          summary: "Timer inactif: {{ $labels.task }} sur {{ $labels.host }}"
+          description: "Le timer n'est plus armé: la tâche ne tournera plus jusqu'à réactivation."
+      - alert: HomelabJobMetricsMissing
+        expr: absent(homelab_job_failed{host="chill-01"}) or absent(homelab_job_failed{host="malice"})
+        for: 1h
+        labels: {severity: critical}
+        annotations:
+          summary: "Métriques de tâches absentes"
+          description: "Aucun homelab_job_* pour un hôte: homelab-metrics.timer ou le textfile collector est cassé."
+      - alert: BackupRepositoryStale
+        expr: time() - max by (host, repository) (homelab_backup_latest_snapshot_timestamp_seconds) > 48 * 3600
+        for: 10m
+        labels: {severity: critical}
+        annotations:
+          summary: "Dépôt restic périmé: {{ $labels.repository }} sur {{ $labels.host }}"
+          description: "Le snapshot le plus récent du dépôt a plus de 48h."
       - alert: WireGuardHandshakeStale
         expr: time() - max(homelab_wireguard_latest_handshake_seconds) > 600
         for: 10m

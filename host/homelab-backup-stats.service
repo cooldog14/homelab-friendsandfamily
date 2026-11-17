@@ -1,0 +1,11 @@
+[Unit]
+Description=Sample restic repository size and freshness
+After=network-online.target
+OnFailure=notify@%n.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/homelab-backup-stats
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7

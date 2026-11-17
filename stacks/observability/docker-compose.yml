@@ -135,6 +135,63 @@ services:
       - ./blackbox/blackbox.yml:/etc/blackbox_exporter/config.yml:ro
     mem_limit: 128m
 
+  # Read-only admin view of the whole homelab. Joins the internal edge network
+  # so private Caddy can proxy home.h.malice.biz here; publishes nothing.
+  # It reads Docker/Tailscale/Prometheus/Compose and exposes one JSON snapshot.
+  # Root is required to open the Docker socket; the process issues GETs only.
+  dashboard:
+    build: ./dashboard
+    image: homelab-dashboard:local
+    init: true
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp
+    mem_limit: 256m
+    cpus: 0.5
+    environment:
+      TZ: Europe/Paris
+      PROMETHEUS_URL: http://prometheus:9090
+      DOCKER_SOCKET: /var/run/docker.sock
+      TAILSCALE_SOCKET: /var/run/tailscale/tailscaled.sock
+      STACKS_ROOT: /opt/stacks
+      PUBLIC_CADDY_DIR: /usr/local/share/homelab-public-sites
+      PRIVATE_EDGE: caddy:443
+      JELLYFIN_URL: http://10.44.0.2:8096
+      JELLYFIN_API_KEY: ${DASHBOARD_JELLYFIN_API_KEY:-}
+      JELLYSEERR_URL: http://10.44.0.2:5055
+      JELLYSEERR_API_KEY: ${DASHBOARD_JELLYSEERR_API_KEY:-}
+      PROWLARR_URL: http://172.17.0.1:9696
+      PROWLARR_API_KEY: ${DASHBOARD_PROWLARR_API_KEY:-}
+      SONARR_URL: http://sonarr:8989
+      SONARR_API_KEY: ${DASHBOARD_SONARR_API_KEY:-}
+      RADARR_URL: http://radarr:7878
+      RADARR_API_KEY: ${DASHBOARD_RADARR_API_KEY:-}
+    volumes:
+      # Read-only mounts; a stopped tailscaled leaves a directory, not a stale
+      # file, so the mount cannot wedge container start.
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /var/run/tailscale:/var/run/tailscale:ro
+      - /opt/stacks:/opt/stacks:ro
+      - /usr/local/share/homelab-public-sites:/usr/local/share/homelab-public-sites:ro
+    networks:
+      default:
+      homelab-edge:
+        aliases: [dashboard]
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/api/health', timeout=3)
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
   grafana:
     image: grafana/grafana:13.3.0
     restart: unless-stopped

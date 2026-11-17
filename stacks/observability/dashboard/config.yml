@@ -1,0 +1,77 @@
+# Dashboard catalogue. The Compose files stay the authority for what runs;
+# this file only adds the human labels, the hostnames each service owns, and
+# the handful of exceptions (hosts, DNAT ports, log opt-in).
+public_domain: malice.biz
+private_domain: h.malice.biz
+categories:
+  - {id: media, label: Media, order: 10}
+  - {id: photos, label: Photos, order: 20}
+  - {id: docs, label: Documents, order: 30}
+  - {id: apps, label: "Files & Apps", order: 40}
+  - {id: comms, label: Communications, order: 50}
+  - {id: games, label: Games, order: 60}
+  - {id: observability, label: Observability, order: 70}
+  - {id: edge, label: "Edge & Network", order: 80}
+  - {id: infra, label: Infrastructure, order: 90}
+stack_categories: {apps: apps, comms: comms, docs: docs, edge: edge,
+                  games: games, media: media, observability: observability,
+                  photos: photos}
+services:
+  apps/filebrowser: {label: Files, private_host: files}
+  apps/filebrowser-family: {label: "Family files", public_host: files}
+  apps/filebrowser-upload: {label: "Upload drop", public_host: upload}
+  comms/mumble: {label: Mumble, note: "64738/tcp+udp"}
+  comms/neko: {label: Neko, public_host: neko}
+  comms/screego: {label: Screego, public_host: screego}
+  docs/kavita: {label: Kavita, public_host: kavita}
+  docs/paperless: {label: Paperless, public_host: paperless, logs: true}
+  docs/stirling-pdf: {label: "Stirling PDF", private_host: stirling}
+  docs/paperless-db: {internal: true}
+  docs/paperless-redis: {internal: true}
+  docs/gotenberg: {internal: true}
+  docs/tika: {internal: true}
+  games/mc: {label: Minecraft, note: "25565"}
+  media/jellyfin: {label: Jellyfin, private_host: jellyfin, public_host: jellyfin,
+                   local: "http://192.168.1.200:8096", logs: true}
+  media/gluetun: {internal: true, logs: true}
+  media/qbittorrent: {label: qBittorrent, private_host: qbittorrent, logs: true}
+  media/prowlarr: {label: Prowlarr, private_host: prowlarr, logs: true}
+  media/flaresolverr: {internal: true}
+  media/radarr: {label: Radarr, private_host: radarr, logs: true}
+  media/sonarr: {label: Sonarr, private_host: sonarr, logs: true}
+  media/bazarr: {label: Bazarr, private_host: bazarr}
+  media/jellyseerr: {label: Requests, public_host: requests, logs: true}
+  media/navidrome: {label: Navidrome, public_host: nvdr}
+  media/wrtag: {label: wrtag, private_host: wrtag}
+  media/octo-fiesta: {label: Octo-Fiesta, public_host: fiesta}
+  media/feishin: {label: Feishin, public_host: player}
+  media/suwayomi: {label: Suwayomi, private_host: suwayomi, public_host: mg}
+  media/slskd: {label: slskd, private_host: slskd, logs: true}
+  photos/immich-server: {label: Immich, private_host: immich, public_host: photos,
+                         logs: true}
+  photos/immich-machine-learning: {internal: true}
+  photos/immich-db: {internal: true}
+  photos/immich-redis: {internal: true}
+  observability/gotify: {label: Gotify, private_host: gotify, logs: true}
+  observability/grafana: {label: Grafana, private_host: grafana}
+  observability/prometheus: {internal: true, note: "loopback 127.0.0.1:9091"}
+  observability/alertmanager: {internal: true}
+  observability/alertmanager-gotify-bridge: {internal: true}
+  observability/node-exporter: {internal: true}
+  observability/cadvisor: {internal: true}
+  observability/blackbox-exporter: {internal: true}
+  observability/dashboard: {label: Home, private_host: home}
+  edge/caddy: {internal: true, logs: true}
+extra_services:
+  - {id: host/malice, label: "malice · Proxmox", category: infra,
+     link: "https://cockpit.h.malice.biz", up_job: malice}
+  - {id: host/chill-01, label: "chill-01 · application VM", category: infra,
+     up_job: node}
+  - {id: host/vps, label: "debian-13 · edge VPS", category: infra,
+     health: "public-probes"}
+  - {id: host/debian-01, label: "debian-01 · remote site", category: infra}
+dnat:
+  - {port: 64738, label: Mumble, proto: "tcp+udp"}
+  - {port: 52000, label: "Neko WebRTC", proto: "tcp+udp"}
+  - {port: 3478, label: "Screego TURN", proto: "tcp+udp"}
+  - {port: 25565, label: Minecraft, proto: tcp}
