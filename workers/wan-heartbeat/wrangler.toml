@@ -1,0 +1,11 @@
+name = "homelab-wan-heartbeat"
+main = "src/index.js"
+compatibility_date = "2026-11-17"
+# No public *.workers.dev route: this only sends a heartbeat outward.
+workers_dev = false
+
+[observability]
+enabled = true
+
+[triggers]
+crons = ["*/5 * * * *"]
