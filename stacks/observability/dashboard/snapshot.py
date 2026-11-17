@@ -179,6 +179,7 @@ def _build_services(
             entry = compose[stack]["services"][service]
             meta = config.meta(service_id)
             container = containers.get(service_id) or {}
+            usage = (infra.get("containers") or {}).get(container.get("name") or "")
             state = container.get("state") or "absent"
             uptime = None
             if state == "running" and container.get("created"):
@@ -197,6 +198,7 @@ def _build_services(
                     "health": container.get("health"),
                     "status_text": container.get("status"),
                     "detail": container.get("detail"),
+                    "usage": usage,
                     "uptime_seconds": uptime,
                     "links": _service_links(config, service_id),
                     "probe": _probe_for(
@@ -686,6 +688,15 @@ def _derive_alerts(
                 "threshold 90% hard / 85% amber",
                 "#telemetry",
             )
+        fill_days = disk.get("fill_days")
+        if fill_days is not None and fill_days < 14:
+            add(
+                "alert" if fill_days < 7 else "warn",
+                f"disk-forecast:{disk.get('mountpoint')}",
+                f"{disk.get('mountpoint')} fills in {fill_days:.0f} d",
+                "6 h linear projection of the free space; threshold 7 d hard / 14 d amber",
+                "#telemetry",
+            )
 
     for service in services:
         if service["state"] in ("exited", "dead", "restarting", "created"):
@@ -945,6 +956,30 @@ def _derive_alerts(
     return alerts
 
 
+def _top_consumers(infra: dict, name_to_service: dict, config: DashboardConfig) -> dict:
+    """Five busiest containers by CPU and by resident memory."""
+
+    def rows(key: str, limit: int = 5) -> list[dict]:
+        candidates = [
+            {
+                "name": name,
+                "service": name_to_service.get(name),
+                "label": config.label(name_to_service[name])
+                if name in name_to_service
+                else name,
+                "cpu_pct": stats.get("cpu_pct"),
+                "mem_bytes": stats.get("mem_bytes"),
+                "restarts_24h": stats.get("restarts_24h"),
+            }
+            for name, stats in (infra.get("containers") or {}).items()
+            if isinstance(stats, dict) and stats.get(key) is not None
+        ]
+        candidates.sort(key=lambda row: row.get(key) or 0, reverse=True)
+        return candidates[:limit]
+
+    return {"cpu": rows("cpu_pct"), "mem": rows("mem_bytes")}
+
+
 def prometheus_alerts_section(infra: dict) -> list[dict]:
     """Firing/pending Prometheus alerts that no local check already covers."""
     rows: list[dict] = []
@@ -1037,6 +1072,14 @@ def build_snapshot(
         config, telemetry, services, backups, network, pipeline, media, errors, moment
     )
     prometheus_alerts = prometheus_alerts_section(infra_data)
+    name_to_service = {
+        str(row.get("name")): f"{row.get('stack')}/{row.get('service')}"
+        for row in (docker_data.get("containers") or [])
+        if row.get("name") and row.get("stack") and row.get("service")
+    }
+    top = _top_consumers(infra_data, name_to_service, config)
+    telemetry["top_cpu"] = top["cpu"]
+    telemetry["top_mem"] = top["mem"]
 
     return {
         "generated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(moment)),
@@ -1060,6 +1103,7 @@ def build_snapshot(
             "dirty": None,
             "deployed_at": None,
         },
+        "links": {"grafana": config.private_url("observability/grafana")},
         "inventory": inventory,
         "logs": collectors.logs.recent(250),
         "errors": {key: value for key, value in errors.items() if value},

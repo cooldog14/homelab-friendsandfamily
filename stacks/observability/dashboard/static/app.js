@@ -269,6 +269,14 @@
     return bits.join(' · ');
   }
 
+  function usageText(item) {
+    const usage = (item || {}).usage || {};
+    const bits = [];
+    if (num(usage.cpu_pct)) bits.push(usage.cpu_pct.toFixed(1) + '%');
+    if (num(usage.mem_bytes)) bits.push(fmtBytes(usage.mem_bytes));
+    return bits.join(' · ');
+  }
+
   function probeRest(item) {
     const probe = (item || {}).probe || {};
     const parts = [];
@@ -277,6 +285,11 @@
     const detail = detailText(item);
     if (detail) parts.push(detail);
     if (probe.status === 'fail' && probe.error) parts.push(String(probe.error).slice(0, 56));
+    const usage = (item || {}).usage || {};
+    if (num(usage.restarts_24h) && usage.restarts_24h > 0) {
+      parts.push(usage.restarts_24h + ' restarts/24h');
+    }
+    if (num(usage.oom_24h) && usage.oom_24h > 0) parts.push(usage.oom_24h + ' oom/24h');
     return parts.join(' · ');
   }
 
@@ -370,6 +383,12 @@
 
   // ----------------------------------------------------------- telemetry --
 
+  function fmtDays(days) {
+    if (!num(days)) return '—';
+    if (days < 1) return '<1 d';
+    return days.toFixed(days < 10 ? 1 : 0) + ' d';
+  }
+
   function metricCard(label, value, unit, series, sub, tone) {
     return h('div', { class: 'metric' },
       h('div', { class: 'label', text: label }),
@@ -377,6 +396,29 @@
       sub ? h('div', { class: 'sub', text: sub }) : null,
       sparkline(series, tone)
     );
+  }
+
+  function consumerTable(rows, kind) {
+    if (!rows || !rows.length) return h('div', { class: 'empty', text: 'no container metrics yet' });
+    const max = Math.max(...rows.map((row) => (kind === 'cpu' ? row.cpu_pct : row.mem_bytes) || 0), 1);
+    return h('div', { class: 'table-wrap' }, h('table', {},
+      h('thead', {}, h('tr', {},
+        h('th', { text: 'container' }),
+        h('th', { class: 'right', text: kind === 'cpu' ? 'cpu' : 'memory' }),
+        h('th', { text: '' }))),
+      h('tbody', {}, rows.map((row) => {
+        const value = kind === 'cpu' ? row.cpu_pct : row.mem_bytes;
+        return h('tr', {},
+          h('td', {},
+            h('div', { text: row.label || row.name }),
+            h('div', { class: 'faint mono', text: row.service || row.name })),
+          h('td', { class: 'right mono', text: kind === 'cpu' ? fmtPct(value, 1) + '%' : fmtBytes(value) }),
+          h('td', {}, h('progress', {
+            value: num(value) ? value : 0,
+            max: max,
+            attrs: { 'aria-label': 'share of the busiest container' },
+          })));
+      }))));
   }
 
   function renderTelemetry(data) {
@@ -408,6 +450,11 @@
         h('td', { class: 'right mono ' + (cls ? 'state-' + cls : '') }, fmtPct(disk.used_pct, 1) + '%'),
         h('td', { class: 'right mono muted', text: fmtBytes(disk.size_bytes) }),
         h('td', { class: 'right mono muted', text: fmtBytes(disk.avail_bytes) }),
+        h('td', {
+          class: 'right mono ' + (num(disk.fill_days) && disk.fill_days < 7 ? 'state-alert'
+            : num(disk.fill_days) && disk.fill_days < 14 ? 'state-warn' : 'muted'),
+          text: fmtDays(disk.fill_days),
+        }),
         h('td', {}, h('progress', {
           value: num(disk.used_pct) ? Math.min(100, disk.used_pct) : 0,
           max: 100,
@@ -425,7 +472,7 @@
             h('thead', {}, h('tr', {},
               h('th', { text: 'mount' }), h('th', { class: 'right', text: 'used' }),
               h('th', { class: 'right', text: 'size' }), h('th', { class: 'right', text: 'free' }),
-              h('th', { text: '' }))),
+              h('th', { class: 'right', text: 'fills' }), h('th', { text: '' }))),
             h('tbody', {}, diskRows)))
           : h('div', { class: 'empty', text: 'no filesystem metrics' })
       ),
@@ -443,6 +490,11 @@
               h('td', { class: 'right mono', text: fmtPct(node.cpu_pct, 1) + '%' }),
               h('td', { class: 'right mono', text: fmtPct(node.mem_pct, 1) + '%' })
             ))))))
+    ));
+
+    body.appendChild(h('div', { class: 'grid grid-2' },
+      h('div', {}, h('h3', { text: 'Top CPU' }), consumerTable(telemetry.top_cpu, 'cpu')),
+      h('div', {}, h('h3', { text: 'Top memory' }), consumerTable(telemetry.top_mem, 'mem'))
     ));
   }
 
@@ -485,10 +537,20 @@
         h('div', { class: 'id', text: item.id })),
       image,
       h('div', { class: 'uptime', text: kind === 'host' ? '' : fmtDuration(item.uptime_seconds) }),
+      h('div', { class: 'usage', text: kind === 'host' ? '' : (usageText(item) || '—') }),
       links,
       h('div', { class: 'probe ' + stateClass(item) },
         h('span', { class: 'sw', text: stateWord(item) }),
-        rest ? h('span', { class: 'rest', text: ' · ' + rest }) : null)
+        rest ? h('span', { class: 'rest', text: ' · ' + rest }) : null,
+        notNominal(item) && item.service
+          ? h('button', {
+            class: 'mini',
+            type: 'button',
+            text: 'logs',
+            attrs: { 'aria-label': 'show logs for ' + item.service },
+            on: { click: () => openLogs(item.service) },
+          })
+          : null)
     );
   }
 
@@ -891,7 +953,9 @@
     const select = $('log-service');
     const services = [...new Set(logs.map((event) => event.service).filter(Boolean))].sort();
     const current = state.filters.service;
-    const wanted = ['all'].concat(services);
+    const rest = [...new Set(services.concat(current === 'all' ? [] : [current]))]
+      .filter((name) => name && name !== 'all').sort();
+    const wanted = ['all'].concat(rest);
     const present = [...select.options].map((option) => option.value);
     if (wanted.length !== present.length || wanted.some((value, i) => present[i] !== value)) {
       clear(select);
@@ -913,7 +977,7 @@
         dataset: { search: [event.service, level, event.message].join(' ').toLowerCase() },
       },
         h('span', { class: 'ts', text: event.ts ? fmtDate(event.ts) : '—' }),
-        h('span', { class: 'svc', text: event.service || '—' }),
+        h('span', { class: 'log-svc', text: event.service || '—' }),
         h('span', { class: 'badge ' + (level === 'error' ? 'alert' : level === 'warn' ? 'warn' : ''), text: level.toUpperCase() }),
         h('span', { class: 'msg', text: event.message || '' })
       ));
@@ -1098,6 +1162,19 @@
     });
   }
 
+  function openLogs(service) {
+    state.filters.service = service;
+    state.filters.level = 'all';
+    for (const button of document.querySelectorAll('#logs .group-btns button')) {
+      button.setAttribute('aria-pressed', String(button.dataset.level === 'all'));
+    }
+    render();
+    const select = $('log-service');
+    if (select) select.value = service;
+    const panel = $('logs');
+    if (panel) panel.scrollIntoView({ block: 'start' });
+  }
+
   function wireServicesControls() {
     const toggle = $('problems-toggle');
     toggle.addEventListener('click', () => {
@@ -1144,6 +1221,16 @@
     applyFilter();
     const git = data.git || {};
     $('commit').textContent = 'commit ' + (git.short || 'unknown') + (git.dirty ? '+' : '');
+    const grafana = (data.links || {}).grafana;
+    const grafanaLink = $('grafana-link');
+    if (grafanaLink) {
+      if (isSafeUrl(grafana)) {
+        grafanaLink.href = grafana;
+        grafanaLink.classList.remove('hidden');
+      } else {
+        grafanaLink.classList.add('hidden');
+      }
+    }
   }
 
   // ------------------------------------------------------------------ poll --
