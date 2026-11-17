@@ -60,3 +60,15 @@
     name: ssh
     state: reloaded
   listen: Validate and reload ssh
+
+- name: Restart the CrowdSec engine
+  ansible.builtin.systemd_service:
+    name: crowdsec
+    state: restarted
+  listen: crowdsec config changed
+
+- name: Restart the CrowdSec firewall bouncer
+  ansible.builtin.systemd_service:
+    name: crowdsec-firewall-bouncer
+    state: restarted
+  listen: crowdsec config changed
