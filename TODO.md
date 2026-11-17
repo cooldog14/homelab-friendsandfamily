@@ -21,10 +21,26 @@ decision.
   `GET /fail` on any failure), but it cannot be deployed: there is no
   Workers-enabled token in `~/.config/homelab/cloudflare-workers.env`. The
   existing DNS token returns 403 for Workers and must not be reused.
-  **Next:** create an Account → Workers Scripts → Edit token, deploy, put
-  `HEARTBEAT_URL` as a secret, confirm a scheduled run in `wrangler tail`, then
-  remove `homelab-edge-heartbeat.{service,timer}` and
-  `.github/workflows/external-public-check.yml`. Until then both stay in place.
+  **Next, in order:**
+  1. Create a token with Account → Workers Scripts → Edit and write
+     `~/.config/homelab/cloudflare-workers.env` (0600) with
+     `CLOUDFLARE_API_TOKEN` and
+     `CLOUDFLARE_ACCOUNT_ID=e7a4dead1f068a3b82523e4b3e787ec2`.
+  2. `set -a; . ~/.config/homelab/cloudflare-workers.env; set +a` then
+     `cd workers/wan-heartbeat && npx --yes wrangler@4.164.0 deploy`.
+  3. Pipe the existing URL without printing it:
+     `ssh vps-ingress 'sudo cat /etc/homelab-heartbeat.env' | grep -o 'https[^"]*' |
+     npx --yes wrangler@4.164.0 secret put HEARTBEAT_URL`.
+  4. `npx --yes wrangler@4.164.0 tail homelab-wan-heartbeat --format pretty` for
+     one five-minute window and require a scheduled success.
+  5. Only then delete `host/edge-heartbeat.sh`,
+     `host/homelab-edge-heartbeat.{service,timer}`, the two install/restart tasks
+     in `ansible/roles/vps_edge/tasks/main.yml`, the shellcheck entry in the
+     `Makefile`, and `.github/workflows/external-public-check.yml`; add a
+     role cleanup for the old unit, timer, binary and
+     `/etc/homelab-heartbeat.env`, then run `make vps --forks 1` and confirm
+     the timer and env file are gone.
+  Until then both heartbeat paths stay in place.
 - [x] **Restore CrowdSec HTTP enforcement.** Caddy 2.11.9 and CrowdSec 1.8.2
   now come from their own repositories, the bouncer is 0.0.38 in nftables mode
   with input+forward hooks, and `/var/log/caddy/access.log` is acquired with the
