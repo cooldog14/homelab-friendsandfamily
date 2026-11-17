@@ -12,6 +12,7 @@
   const state = {
     snapshot: null,
     lastOk: 0,
+    lastAttempt: 0,
     error: null,
     filters: { text: '', level: 'all', service: 'all', problems: false },
     selection: -1,
@@ -1166,27 +1167,35 @@
       state.error = err && err.name === 'AbortError' ? 'request timed out' : String(err && err.message ? err.message : err);
     } finally {
       clearTimeout(timer);
+      state.lastAttempt = Date.now();
+      tick();
       setTimeout(poll, POLL_MS);
     }
   }
 
+  /* The banner reports a real outage only: a slow first load is not stale data. */
   function tick() {
     $('clock').textContent = fmtClock(new Date());
     const heartbeat = $('heartbeat');
     const banner = $('stale');
-    if (!state.lastOk) {
-      heartbeat.className = 'heartbeat';
-      banner.classList.remove('hidden');
-      document.body.classList.add('stale-on');
-      $('stale-age').textContent = '—';
-      return;
+    const kind = $('stale-kind');
+    const detail = $('stale-detail');
+    let stale = false;
+    if (state.lastOk) {
+      const age = (Date.now() - state.lastOk) / 1000;
+      stale = age * 1000 > STALE_MS;
+      if (stale) {
+        kind.textContent = 'DATA STALE';
+        detail.textContent = '— last update ' + fmtAge(age);
+      }
+    } else if (state.lastAttempt) {
+      stale = true;
+      kind.textContent = 'NO DATA';
+      detail.textContent = '— first snapshot failed: ' + (state.error || 'unknown error');
     }
-    const age = (Date.now() - state.lastOk) / 1000;
-    const stale = age * 1000 > STALE_MS;
-    heartbeat.className = 'heartbeat ' + (stale ? 'dead' : 'live');
+    heartbeat.className = 'heartbeat ' + (stale ? 'dead' : state.lastOk ? 'live' : '');
     banner.classList.toggle('hidden', !stale);
     document.body.classList.toggle('stale-on', stale);
-    if (stale) $('stale-age').textContent = String(Math.floor(age));
   }
 
   function boot() {
