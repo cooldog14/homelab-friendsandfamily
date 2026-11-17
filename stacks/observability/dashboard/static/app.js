@@ -595,7 +595,7 @@
             h('td', { class: 'mono', text: job.task || '—' }),
             h('td', { class: job.timer_active ? 'state-ok' : 'state-alert' },
               h('span', { class: 'dot' }), job.timer_active ? 'active' : 'inactive'),
-            h('td', { class: 'mono muted', text: job.last_run ? fmtDate(job.last_run * 1000) : '—' }),
+            h('td', { class: 'mono muted', text: job.last_run ? fmtDate(job.last_run) : '—' }),
             h('td', { class: 'mono muted', text: fmtIn(job.next_run_in) }),
             h('td', { class: 'right mono', text: num(job.exit_code) ? String(job.exit_code) : '—' }),
             h('td', { class: bad ? 'state-alert' : 'state-ok' },
