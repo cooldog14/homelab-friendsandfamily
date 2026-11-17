@@ -48,7 +48,7 @@ done
 bolts=0
 for f in "$dump_dir"/*.boltdb; do
   [ -e "$f" ] || continue
-  [ "$(od -An -tx1 -N4 "$f" | tr -d ' \n')" = "ed0cdaed" ] || {
+  [ "$(od -An -tx1 -j16 -N4 "$f" | tr -d ' \n')" = "edda0ced" ] || {
     echo "invalid Bolt snapshot: ${f##*/}" >&2
     exit 1
   }

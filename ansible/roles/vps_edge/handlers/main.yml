@@ -1,4 +1,8 @@
 ---
+- name: Reload systemd
+  ansible.builtin.systemd_service:
+    daemon_reload: true
+
 - name: Validate the NAT table
   ansible.builtin.command:
     cmd: nft -c -f /etc/nftables.d/homelab_nat.conf
