@@ -13,6 +13,7 @@
     - {src: metrics.sh, dest: homelab-metrics}
     - {src: firewall-neko.sh, dest: homelab-firewall-neko}
     - {src: restic-check.sh, dest: homelab-restic-check}
+    - {src: restic-retention.py, dest: homelab-restic-retention}
 
 - name: Install systemd units
   ansible.builtin.copy:

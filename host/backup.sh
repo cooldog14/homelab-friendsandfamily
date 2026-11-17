@@ -232,7 +232,10 @@ backup_and_prune() {
     --exclude /opt/stacks/photos/state/immich/model-cache \
     --exclude /opt/stacks/docs/state/paperless-db \
     --exclude /opt/stacks/observability/state/prometheus
-  case "${RESTIC_PRUNE:-1}" in 1) restic forget --prune --keep-daily 7 --keep-weekly 4 --keep-monthly 6 ;; esac
+  # Retention: the latest three snapshots, and only ones taken with this exact
+  # path set. The helper refuses to prune a changed layout unless explicitly
+  # told to, so a future backup-path edit cannot silently delete history.
+  if [ "${RESTIC_PRUNE:-1}" = 1 ]; then /usr/local/bin/homelab-restic-retention; fi
 }
 
 # DELIBERATE OMISSIONS: movies and TV are re-downloadable bulk media (and live
