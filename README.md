@@ -29,6 +29,7 @@ service inventories and known gaps are omitted. Render instructions are in
 | Public HTTPS vhosts | 13 |
 | Private (tailnet) vhosts | 16 |
 | Restore point objective | 24 h |
+| Backup retention | 3 snapshots per repository |
 | Full-platform recovery time | Not measured |
 | Managed machines | 1 application VM, 1 edge VPS |
 

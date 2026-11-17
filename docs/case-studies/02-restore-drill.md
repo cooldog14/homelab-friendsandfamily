@@ -22,6 +22,13 @@ restic writes to two repositories: an offsite S3 bucket and a local disk on the
 hypervisor. Both receive the same snapshot set, so the offsite copy survives the
 loss of the house and the local copy survives a slow or unavailable network.
 
+Each repository keeps the **latest three snapshots**, and only snapshots taken
+with the five current paths. `host/restic-retention.py` enforces both rules
+after every snapshot: it aborts when a snapshot carries a different path set
+instead of treating it as old history, so a future path edit cannot quietly
+delete the only snapshot of an earlier layout. Removing a legacy layout is a
+deliberate `--cleanup-legacy` run, one per repository.
+
 The snapshot covers:
 
 - `/opt` — the compose stacks and their application state.

@@ -139,6 +139,12 @@ guests, snapshot, zstd, Sun 03:30, keep-last 8, writes
   staging. Dumps fresh for Immich, Paperless and active SQLite databases;
   copies Filebrowser bbolt state and a Suwayomi archive consistently.
   Weekly hosted and hypervisor timers read 5% of pack data.
+- Retention is **the latest three snapshots per repository**, enforced by
+  `/usr/local/bin/homelab-restic-retention` (`host/restic-retention.py`)
+  after each snapshot. The helper refuses to prune a snapshot whose path
+  set differs from the five current paths, so changing the backup paths
+  fails the job instead of silently deleting history; a deliberate
+  layout change needs one `--cleanup-legacy` run.
 - `homelab-backup-watchdog` (48h), `homelab-public-check`, Gotify, and
   Prometheus are the alert path. Prometheus rules (host down, target
   down, public endpoint down, TLS expiring, disk above 85% for 5
