@@ -29,7 +29,17 @@ ssh "$host" 'set -e
   [ "$(stat -c %d:%i /mnt/data)" = "$(stat -c %d:%i /mnt/pool/takeover-primary/r1/mnt/data)" ]
   mountpoint -q /mnt/pool
   mountpoint -q /mnt/fast
-  sudo rsync -a --delete --exclude .env --exclude state/ --exclude docs/config/stirling/ --exclude media/suwayomi-auth-password /tmp/chill-stacks/ /opt/stacks/
+  obs_changed=0
+  for rel in \
+    observability/prometheus/prometheus.yml \
+    observability/prometheus/rules/homelab.yml \
+    observability/alertmanager/alertmanager.yml \
+    observability/blackbox/blackbox.yml; do
+    cmp -s "/tmp/chill-stacks/$rel" "/opt/stacks/$rel" || obs_changed=1
+  done
+  edge_changed=0
+  cmp -s /tmp/chill-stacks/edge/Caddyfile /opt/stacks/edge/Caddyfile || edge_changed=1
+  sudo rsync -a --delete --exclude .env --exclude state/ --exclude docs/config/ --exclude media/suwayomi-auth-password /tmp/chill-stacks/ /opt/stacks/
   sudo install -d -o 1000 -g 1000 \
     /opt/stacks/apps/state/filebrowser-quantum \
     /opt/stacks/apps/state/filebrowser-upload \
@@ -78,6 +88,12 @@ ssh "$host" 'set -e
   for s in apps comms docs edge games media observability photos; do
     (cd /opt/stacks/$s && sudo docker compose -p $s up -d --pull missing --remove-orphans)
   done
+  if [ "$obs_changed" = 1 ]; then
+    sudo docker restart observability-prometheus-1 observability-alertmanager-1 >/dev/null
+  fi
+  if [ "$edge_changed" = 1 ]; then
+    (cd /opt/stacks/edge && sudo docker compose -p edge restart caddy >/dev/null)
+  fi
   sudo /usr/local/bin/homelab-firewall-neko'
 
 printf '%s\n' "$commit" |

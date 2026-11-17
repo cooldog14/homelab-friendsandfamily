@@ -1,0 +1,10 @@
+[Unit]
+Description=Public edge check and external dead-man heartbeat
+Wants=network-online.target
+After=network-online.target caddy.service
+ConditionPathExists=/etc/homelab-heartbeat.env
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/homelab-edge-heartbeat
+Nice=10

@@ -232,3 +232,28 @@
     name: caddy
     enabled: true
     state: started
+
+- name: Install the external heartbeat client
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../host/edge-heartbeat.sh"
+    dest: /usr/local/bin/homelab-edge-heartbeat
+    mode: "0755"
+
+- name: Install the external heartbeat units
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../host/{{ item }}"
+    dest: "/etc/systemd/system/{{ item }}"
+    mode: "0644"
+  loop:
+    - homelab-edge-heartbeat.service
+    - homelab-edge-heartbeat.timer
+  notify: Reload systemd
+
+- name: Reload systemd before enabling the heartbeat timer
+  ansible.builtin.meta: flush_handlers
+
+- name: Enable the external heartbeat timer
+  ansible.builtin.systemd_service:
+    name: homelab-edge-heartbeat.timer
+    enabled: true
+    state: started

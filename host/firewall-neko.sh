@@ -10,6 +10,7 @@
 set -eu
 
 MARKER=homelab-neko-block
+MALICE_TAILNET_IP=100.99.204.109
 SAVED=/etc/iptables/rules.v4
 
 blocked_rules() {
@@ -59,6 +60,14 @@ for path in /sys/class/net/br-*; do
     iptables -I DOCKER-USER -i "$br" -o "$other" -m comment --comment "$MARKER" -j DROP 2>/dev/null || true
   done
 done
+
+# Prometheus must scrape the hypervisor exporter over Tailscale. This single
+# source/destination/port exception is inserted above the block rules.
+obs_br=$(docker network inspect observability_default --format '{{.Id}}' 2>/dev/null | cut -c1-12 | sed 's/^/br-/')
+if [ -n "$obs_br" ]; then
+  iptables -I DOCKER-USER 1 -i "$obs_br" -d "$MALICE_TAILNET_IP" -p tcp --dport 9100 \
+    -m comment --comment "$MARKER-allow-malice" -j ACCEPT
+fi
 
 # Persist the rules for emergency inspection. Boot persistence is provided by
 # homelab-firewall-neko.service, which re-runs after Docker and recreates bridge

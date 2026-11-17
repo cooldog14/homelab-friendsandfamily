@@ -118,7 +118,14 @@ fi
 QUIESCE_FAILED=
 MC_QUIESCED=
 SUWAYOMI_PAUSED=
+FB_PAUSED=
 cleanup_live_state() {
+  if [ "$FB_PAUSED" != "" ]; then
+    docker unpause "$FB_PAUSED" >/dev/null 2>&1 || {
+      log "FAILED to unpause $FB_PAUSED"
+      alert "$FB_PAUSED remains paused on $(hostname)"
+    }
+  fi
   if [ "$SUWAYOMI_PAUSED" = 1 ]; then
     docker unpause media-suwayomi-1 >/dev/null 2>&1 || {
       log "FAILED to unpause media-suwayomi-1"
@@ -133,6 +140,39 @@ cleanup_live_state() {
   fi
 }
 trap cleanup_live_state EXIT
+
+# bbolt cannot be dumped with sqlite3. Pause each Filebrowser just long enough
+# for a consistent copy, then resume it before the potentially long restic run.
+filebrowser_bolt_copy() {
+  container=$1
+  src=$2
+  out=$3
+  if docker inspect -f '{{.State.Running}}' "$container" 2>/dev/null | grep -qx true; then
+    if docker pause "$container" >/dev/null 2>&1; then
+      FB_PAUSED=$container
+    else
+      QUIESCE_FAILED="${QUIESCE_FAILED}${QUIESCE_FAILED:+, }${container}-pause"
+      return
+    fi
+  fi
+  if cp -a "$src" "$out.new" && [ -s "$out.new" ]; then
+    mv "$out.new" "$out"
+    log "filebrowser state copied: $out"
+  else
+    rm -f "$out.new"
+    QUIESCE_FAILED="${QUIESCE_FAILED}${QUIESCE_FAILED:+, }${container}-copy"
+  fi
+  if [ "$FB_PAUSED" = "$container" ]; then
+    if docker unpause "$container" >/dev/null 2>&1; then
+      FB_PAUSED=
+    else
+      QUIESCE_FAILED="${QUIESCE_FAILED}${QUIESCE_FAILED:+, }${container}-resume"
+    fi
+  fi
+}
+filebrowser_bolt_copy apps-filebrowser-1 /opt/stacks/apps/state/filebrowser-quantum/database.db "$DUMP_DIR/filebrowser-quantum.boltdb"
+filebrowser_bolt_copy apps-filebrowser-family-1 /opt/stacks/apps/state/filebrowser-family/database.db "$DUMP_DIR/filebrowser-family.boltdb"
+filebrowser_bolt_copy apps-filebrowser-upload-1 /opt/stacks/apps/state/filebrowser-upload/database.db "$DUMP_DIR/filebrowser-upload.boltdb"
 
 if docker inspect -f '{{.State.Running}}' games-mc-1 2>/dev/null | grep -qx true; then
   if docker exec games-mc-1 rcon-cli save-off >/dev/null 2>&1 \
@@ -180,6 +220,9 @@ backup_and_prune() {
   # /mnt/data covers the takeover tree; live database internals are excluded
   # because the consistent dumps above are the restore source.
   restic backup /opt "$DUMP_DIR" /mnt/data /etc /root/.ssh \
+    --exclude /opt/stacks/apps/state/filebrowser-quantum/database.db \
+    --exclude /opt/stacks/apps/state/filebrowser-family/database.db \
+    --exclude /opt/stacks/apps/state/filebrowser-upload/database.db \
     --exclude /mnt/data/apps/suwayomi \
     --exclude /mnt/data/downloads \
     --exclude /mnt/data/media/music/inbox/slskd/incomplete \
