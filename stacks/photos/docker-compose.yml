@@ -1,6 +1,10 @@
 services:
   immich-server:
-    image: ghcr.io/immich-app/immich-server:v3.3.5
+    image: ghcr.io/immich-app/immich-server:v3.4.1
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     restart: unless-stopped
     mem_limit: 2g
     mem_reservation: 1g
@@ -28,7 +32,11 @@ services:
         condition: service_healthy
 
   immich-machine-learning:
-    image: ghcr.io/immich-app/immich-machine-learning:v3.3.5
+    image: ghcr.io/immich-app/immich-machine-learning:v3.4.1
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     restart: unless-stopped
     mem_limit: 3g
     mem_reservation: 1g
@@ -38,6 +46,10 @@ services:
 
   immich-redis:
     image: redis:7-alpine
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
@@ -46,8 +58,20 @@ services:
       retries: 5
 
   immich-db:
-    # Immich >= 1.133 requires VectorChord (pgvecto.rs support dropped in 3.0).
-    image: ghcr.io/immich-app/postgres:14-vectorchord0.4.3-pgvectors0.2.0
+    # PostgreSQL 18: PG14 passed end of life on 2026-11-12. The cluster is
+    # migrated in place by the -upgrade variant of this image (pg_upgrade),
+    # which leaves the old cluster as ./state/immich/db/14.bak.
+    image: ghcr.io/immich-app/postgres:18-vectorchord1.1.1-pgvector0.8.5
+    security_opt:
+      - no-new-privileges:true
+    # initdb/pg_upgrade chown the cluster and drop to postgres.
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - SETUID
+      - SETGID
     restart: unless-stopped
     environment:
       POSTGRES_USER: immich

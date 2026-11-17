@@ -76,3 +76,22 @@ groups:
         labels: {severity: warning}
         annotations:
           summary: "Conteneur redémarré plusieurs fois: {{ $labels.name }}"
+      # The hypervisor has 32 GiB total; below ~3 GiB it starts reclaiming
+      # cache aggressively and the VMs on it get jittery. Alert before the
+      # host is forced to make the choice.
+      - alert: HypervisorMemoryLow
+        expr: (node_memory_MemAvailable_bytes{job="malice"} / node_memory_MemTotal_bytes{job="malice"}) < 0.10
+        for: 10m
+        labels: {severity: warning}
+        annotations:
+          summary: "Mémoire hyperviseur < 10%"
+          description: "Il reste {{ $value | humanizePercentage }} de mémoire disponible sur malice."
+      # Swap-in means the host is under real pressure: pages were already
+      # evicted, so latency is degrading even if MemAvailable looks fine.
+      - alert: HypervisorSwapIn
+        expr: rate(node_vmstat_pswpin{job="malice"}[5m]) > 0
+        for: 10m
+        labels: {severity: warning}
+        annotations:
+          summary: "Swap entrant actif sur malice"
+          description: "{{ $value | printf \"%.0f\" }} pages/s récupérées du swap depuis 10 minutes."
