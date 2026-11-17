@@ -85,6 +85,10 @@ body.stale-on .topbar{top:29px}
 .status-chip.state-alert{border-color:var(--alert-border);background:var(--alert-bg);color:var(--alert)}
 .status-chip.state-warn{border-color:var(--warn-border);background:var(--warn-bg);color:var(--warn)}
 .status-chip.state-ok{color:var(--muted)}
+.topbar-link{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);border-bottom:none}
+.topbar-link:hover{color:var(--fg)}
+.mini{padding:0 4px;font-size:10px;letter-spacing:.06em;text-transform:uppercase;background:transparent;color:var(--muted)}
+.mini:hover{color:var(--fg)}
 .filter-btn{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);background:transparent}
 .filter-btn[aria-pressed="true"]{color:var(--fg)}
 
@@ -159,7 +163,7 @@ td.wrap{white-space:normal;word-break:break-word}
 .group-head .count{font-size:11px;color:var(--faint);font-family:var(--font-mono)}
 .group-head .rollup{font-size:11px;font-family:var(--font-mono)}
 .group-head .bad{outline:1px solid var(--alert-border);outline-offset:2px}
-.svc{display:grid;grid-template-columns:14px minmax(180px,1.4fr) minmax(150px,1.2fr) 78px minmax(120px,1.2fr) minmax(120px,1fr);
+.svc{display:grid;grid-template-columns:14px minmax(170px,1.3fr) minmax(140px,1.1fr) 70px 108px minmax(110px,1.1fr) minmax(110px,1fr);
   gap:var(--space-2);align-items:baseline;padding:5px 0;border-bottom:1px solid var(--border);font-size:12px}
 .svc:last-child{border-bottom:none}
 .svc .name{font-weight:600}
@@ -169,20 +173,22 @@ td.wrap{white-space:normal;word-break:break-word}
 .svc .links{display:flex;flex-wrap:wrap;gap:var(--space-1) 6px}
 .svc .links a{font-size:11px}
 .svc .probe{font-family:var(--font-mono);font-size:11px}
+.svc .usage{font-family:var(--font-mono);font-size:11px;color:var(--muted);white-space:nowrap}
 .svc.internal{color:var(--muted)}
 .svc.internal .name{font-weight:400;color:var(--muted)}
 .svc.bad{box-shadow:inset 2px 0 0 var(--alert);background:var(--alert-bg)}
 .svc.warn-row{box-shadow:inset 2px 0 0 var(--warn)}
 .svc .sw{font-family:var(--font-mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase}
 .svc .probe .rest{color:var(--muted)}
+.svc .probe .mini{margin-left:6px}
 .svc.kb{background:var(--surface-3)}
 @media (max-width:1100px){
-  .svc{grid-template-columns:14px minmax(150px,1.4fr) 78px minmax(110px,1fr)}
-  .svc .image,.svc .uptime{display:none}
+  .svc{grid-template-columns:14px minmax(150px,1.6fr) 108px minmax(110px,1fr)}
+  .svc .image,.svc .uptime,.svc .links{display:none}
 }
 @media (max-width:760px){
-  .svc{grid-template-columns:14px minmax(0,1fr) 78px}
-  .svc .links{display:none}
+  .svc{grid-template-columns:14px minmax(0,1fr) minmax(110px,1fr)}
+  .svc .usage{display:none}
 }
 
 /* media / pipeline ----------------------------------------------------- */
@@ -203,13 +209,13 @@ td.wrap{white-space:normal;word-break:break-word}
   padding:2px var(--space-2);border-bottom:1px solid var(--border);font-size:12px;align-items:baseline}
 .log:last-child{border-bottom:none}
 .log .ts{font-family:var(--font-mono);font-size:11px;color:var(--faint);white-space:nowrap}
-.log .svc{font-family:var(--font-mono);font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.log .log-svc{font-family:var(--font-mono);font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .log .msg{font-family:var(--font-mono);font-size:11px;word-break:break-word;white-space:pre-wrap}
 .log.level-warn .msg{color:var(--warn)}
 .log.level-error .msg{color:var(--alert)}
 @media (max-width:760px){
   .log{grid-template-columns:minmax(0,1fr) 52px}
-  .log .ts,.log .svc{display:none}
+  .log .ts,.log .log-svc{display:none}
 }
 
 /* progress ------------------------------------------------------------- */

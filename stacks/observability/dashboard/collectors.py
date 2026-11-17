@@ -80,6 +80,21 @@ DISK_AVAIL_Q = (
     f'max by (mountpoint) (node_filesystem_avail_bytes{{job="node",{_FS_FILTER}}})'
 )
 
+# cAdvisor: what each container actually uses, and how often it restarted.
+CONTAINER_CPU_Q = (
+    'sum by (name) (rate(container_cpu_usage_seconds_total{name!=""}[2m])) * 100'
+)
+CONTAINER_MEM_Q = 'sum by (name) (container_memory_working_set_bytes{name!=""})'
+CONTAINER_RESTARTS_Q = (
+    'sum by (name) (changes(container_start_time_seconds{name!=""}[24h]))'
+)
+CONTAINER_OOM_Q = 'sum by (name) (increase(container_oom_events_total{name!=""}[24h]))'
+DISK_SLOPE_Q = (
+    'deriv(node_filesystem_avail_bytes'
+    f'{{job="node",{_FS_FILTER}}}[6h]'
+    ')'
+)
+
 SERIES = {
     "cpu": (_cpu_query("node"), "percent"),
     "mem": (_mem_query("node"), "percent"),
@@ -252,16 +267,25 @@ class Collectors:
         used = {row["metric"].get("mountpoint"): row["value"] for row in prom.query(DISK_USED_Q)}
         size = {row["metric"].get("mountpoint"): row["value"] for row in prom.query(DISK_SIZE_Q)}
         avail = {row["metric"].get("mountpoint"): row["value"] for row in prom.query(DISK_AVAIL_Q)}
-        disks = [
-            {
-                "mountpoint": mount,
-                "used_pct": used.get(mount),
-                "size_bytes": int(size.get(mount) or 0),
-                "avail_bytes": int(avail.get(mount) or 0),
-            }
-            for mount in DISK_MOUNTS
-            if mount in used
-        ]
+        slope = {
+            row["metric"].get("mountpoint"): row["value"]
+            for row in prom.query(DISK_SLOPE_Q)
+        }
+        disks = []
+        for mount in DISK_MOUNTS:
+            if mount not in used:
+                continue
+            free = int(avail.get(mount) or 0)
+            fill_days = parsers.days_until_full(free, slope.get(mount))
+            disks.append(
+                {
+                    "mountpoint": mount,
+                    "used_pct": used.get(mount),
+                    "size_bytes": int(size.get(mount) or 0),
+                    "avail_bytes": free,
+                    "fill_days": fill_days,
+                }
+            )
 
         series: dict[str, dict] = {}
         for key, (expression, unit) in SERIES.items():
@@ -379,7 +403,22 @@ class Collectors:
             for row in prom.query('up{job=~"node|malice"}')
         }
 
+        cpu = index(CONTAINER_CPU_Q, ("name",))
+        mem = index(CONTAINER_MEM_Q, ("name",))
+        restarts = index(CONTAINER_RESTARTS_Q, ("name",))
+        oom = index(CONTAINER_OOM_Q, ("name",))
+        containers = {
+            name[0]: {
+                "cpu_pct": cpu.get(name),
+                "mem_bytes": int(mem[name]) if name in mem else None,
+                "restarts_24h": int(restarts.get(name) or 0),
+                "oom_24h": int(oom.get(name) or 0),
+            }
+            for name in set(cpu) | set(mem) | set(restarts) | set(oom)
+            if name[0]
+        }
         return {
+            "containers": containers,
             "up": hosts_up,
             "jobs": jobs,
             "backup_markers": markers,

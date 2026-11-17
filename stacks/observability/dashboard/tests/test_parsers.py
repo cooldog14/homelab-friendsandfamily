@@ -479,6 +479,41 @@ class TriageTests(unittest.TestCase):
         self.assertEqual(by_state["pending"]["severity"], "warn")
         self.assertEqual(snapshot.prometheus_alerts_section({"prometheus_alerts": []}), [])
 
+    def test_days_until_full(self) -> None:
+        one_day = 86400
+        self.assertEqual(parsers.days_until_full(10 * one_day, -10), 1.0)
+        self.assertEqual(parsers.days_until_full(100 * one_day, -10), 10.0)
+        # Stable or growing filesystems never produce a forecast.
+        self.assertIsNone(parsers.days_until_full(10 * one_day, 0))
+        self.assertIsNone(parsers.days_until_full(10 * one_day, 5))
+        self.assertIsNone(parsers.days_until_full(0, -10))
+        self.assertIsNone(parsers.days_until_full(None, -10))
+        self.assertIsNone(parsers.days_until_full(10 * one_day, None))
+
+    def test_top_consumers(self) -> None:
+        infra = {
+            "containers": {
+                "media-jellyfin-1": {"cpu_pct": 3.5, "mem_bytes": 900, "restarts_24h": 0},
+                "media-sonarr-1": {"cpu_pct": 40.0, "mem_bytes": 100, "restarts_24h": 2},
+                "observability-dashboard-1": {"cpu_pct": 0.5, "mem_bytes": 50, "restarts_24h": 0},
+                "orphan-1": {"cpu_pct": 1.0, "mem_bytes": 10, "restarts_24h": 0},
+            }
+        }
+        mapping = {
+            "media-jellyfin-1": "media/jellyfin",
+            "media-sonarr-1": "media/sonarr",
+            "observability-dashboard-1": "observability/dashboard",
+        }
+        top = snapshot._top_consumers(infra, mapping, CONFIG)
+        self.assertEqual([row["name"] for row in top["cpu"]],
+                         ["media-sonarr-1", "media-jellyfin-1", "orphan-1", "observability-dashboard-1"])
+        self.assertEqual([row["name"] for row in top["mem"]],
+                         ["media-jellyfin-1", "media-sonarr-1", "observability-dashboard-1", "orphan-1"])
+        self.assertEqual(top["mem"][0]["label"], "Jellyfin")
+        # A container Prometheus knows but Docker does not keeps its raw name.
+        self.assertEqual(top["cpu"][2]["label"], "orphan-1")
+        self.assertIsNone(top["cpu"][2]["service"])
+
     def test_summary_counts_both_sources(self) -> None:
         counts = snapshot.summary_counts(
             [{"severity": "alert"}, {"severity": "warn"}],
@@ -778,6 +813,16 @@ class AlertTests(unittest.TestCase):
         self.assertEqual(identifiers.get("repo-empty:chill-01/cloud"), "alert")
         self.assertEqual(identifiers.get("repo-stats:chill-01/local"), "alert")
         self.assertEqual(identifiers.get("repo-stats-stale:chill-01/local"), "warn")
+
+    def test_disk_forecast_alert(self) -> None:
+        soon = derive(disks=[{"mountpoint": "/mnt/data", "used_pct": 50.0, "fill_days": 5.0}])
+        self.assertEqual(by_id(soon)["disk-forecast:/mnt/data"]["severity"], "alert")
+        later = derive(disks=[{"mountpoint": "/mnt/data", "used_pct": 50.0, "fill_days": 10.0}])
+        self.assertEqual(by_id(later)["disk-forecast:/mnt/data"]["severity"], "warn")
+        nominal = derive(disks=[{"mountpoint": "/mnt/data", "used_pct": 50.0, "fill_days": 400.0}])
+        self.assertNotIn("disk-forecast:/mnt/data", by_id(nominal))
+        flat = derive(disks=[{"mountpoint": "/mnt/data", "used_pct": 50.0, "fill_days": None}])
+        self.assertNotIn("disk-forecast:/mnt/data", by_id(flat))
 
     def test_disk_thresholds(self) -> None:
         self.assertIsNone(snapshot.disk_severity(84.9))

@@ -637,6 +637,18 @@ def normalize_arr_health(payload: Any) -> dict:
 _SAFE_SCHEMES = ("http://", "https://")
 
 
+def days_until_full(avail_bytes: Any, bytes_per_second: Any) -> float | None:
+    """Linear projection: free space divided by the shrink rate, in days."""
+    try:
+        free = float(avail_bytes)
+        rate = float(bytes_per_second)
+    except (TypeError, ValueError):
+        return None
+    if free <= 0 or rate >= 0:
+        return None
+    return round(free / (-rate) / 86400, 1)
+
+
 def safe_url(url: Any) -> bool:
     """Only absolute http(s) URLs may reach an href."""
     if not isinstance(url, str):
