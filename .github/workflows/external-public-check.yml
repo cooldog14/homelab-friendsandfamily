@@ -1,0 +1,63 @@
+name: external-public-check
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+    inputs:
+      force_failure:
+        description: "Force one failure to test outage notification"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: external-public-check
+  cancel-in-progress: true
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Probe public edge from GitHub
+        if: ${{ github.event_name != 'workflow_dispatch' || inputs.force_failure != true }}
+        env:
+          PUBLIC_CADDY_SITES_DIR: vps/sites
+        run: ./host/public-check.sh
+
+      - name: Force failure for alert-path test
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.force_failure == true }}
+        run: exit 1
+
+      - name: Open outage issue
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          existing=$(gh issue list --state open --limit 100 --json number,title \
+            --jq '.[] | select(.title == "External public availability check failed") | .number' | head -1)
+          if [ -z "$existing" ]; then
+            gh issue create \
+              --title "External public availability check failed" \
+              --assignee "$GITHUB_REPOSITORY_OWNER" \
+              --body "GitHub's external runner could not reach the public edge. Run: $RUN_URL"
+          fi
+
+      - name: Close recovered outage issue
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          gh issue list --state open --limit 100 --json number,title \
+            --jq '.[] | select(.title == "External public availability check failed") | .number' |
+            while read -r number; do
+              gh issue close "$number" --comment "External public check recovered: $RUN_URL"
+            done
