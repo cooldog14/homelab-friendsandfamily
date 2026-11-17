@@ -493,10 +493,10 @@ class TriageTests(unittest.TestCase):
     def test_top_consumers(self) -> None:
         infra = {
             "containers": {
-                "media-jellyfin-1": {"cpu_pct": 3.5, "mem_bytes": 900, "restarted_24h": False},
-                "media-sonarr-1": {"cpu_pct": 40.0, "mem_bytes": 100, "restarted_24h": True},
-                "observability-dashboard-1": {"cpu_pct": 0.5, "mem_bytes": 50, "restarted_24h": False},
-                "orphan-1": {"cpu_pct": 1.0, "mem_bytes": 10, "restarted_24h": False},
+                "media-jellyfin-1": {"cpu_pct": 3.5, "mem_bytes": 900},
+                "media-sonarr-1": {"cpu_pct": 40.0, "mem_bytes": 100},
+                "observability-dashboard-1": {"cpu_pct": 0.5, "mem_bytes": 50},
+                "orphan-1": {"cpu_pct": 1.0, "mem_bytes": 10},
             }
         }
         mapping = {
@@ -815,14 +815,17 @@ class AlertTests(unittest.TestCase):
         self.assertEqual(identifiers.get("repo-stats-stale:chill-01/local"), "warn")
 
     def test_disk_forecast_alert(self) -> None:
-        soon = derive(disks=[{"mountpoint": "/mnt/data", "used_pct": 50.0, "fill_days": 5.0}])
+        soon = derive(disks=[{"mountpoint": "/mnt/data", "used_pct": 70.0, "fill_days": 5.0}])
         self.assertEqual(by_id(soon)["disk-forecast:/mnt/data"]["severity"], "alert")
-        later = derive(disks=[{"mountpoint": "/mnt/data", "used_pct": 50.0, "fill_days": 10.0}])
+        later = derive(disks=[{"mountpoint": "/mnt/data", "used_pct": 70.0, "fill_days": 10.0}])
         self.assertEqual(by_id(later)["disk-forecast:/mnt/data"]["severity"], "warn")
-        nominal = derive(disks=[{"mountpoint": "/mnt/data", "used_pct": 50.0, "fill_days": 400.0}])
+        nominal = derive(disks=[{"mountpoint": "/mnt/data", "used_pct": 70.0, "fill_days": 400.0}])
         self.assertNotIn("disk-forecast:/mnt/data", by_id(nominal))
-        flat = derive(disks=[{"mountpoint": "/mnt/data", "used_pct": 50.0, "fill_days": None}])
+        flat = derive(disks=[{"mountpoint": "/mnt/data", "used_pct": 70.0, "fill_days": None}])
         self.assertNotIn("disk-forecast:/mnt/data", by_id(flat))
+        # A roomy filesystem with a noisy slope must not page anyone.
+        roomy = derive(disks=[{"mountpoint": "/mnt/fast", "used_pct": 11.0, "fill_days": 3.0}])
+        self.assertNotIn("disk-forecast:/mnt/fast", by_id(roomy))
 
     def test_disk_thresholds(self) -> None:
         self.assertIsNone(snapshot.disk_severity(84.9))
