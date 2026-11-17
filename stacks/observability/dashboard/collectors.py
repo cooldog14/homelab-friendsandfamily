@@ -85,13 +85,21 @@ CONTAINER_CPU_Q = (
     'sum by (name) (rate(container_cpu_usage_seconds_total{name!=""}[2m])) * 100'
 )
 CONTAINER_MEM_Q = 'sum by (name) (container_memory_working_set_bytes{name!=""})'
+# `changes()` counts sub-second jitter in cAdvisor's start timestamp, so a
+# quiet container reported restarts that never happened. A real restart moves
+# the start time by minutes; one second of drift is measurement noise.
 CONTAINER_RESTARTS_Q = (
-    'sum by (name) (changes(container_start_time_seconds{name!=""}[24h]))'
+    "max by (name) ("
+    "(max_over_time(container_start_time_seconds{name!=""}[24h])"
+    " - min_over_time(container_start_time_seconds{name!=""}[24h])) > 60"
+    ")"
 )
 CONTAINER_OOM_Q = 'sum by (name) (increase(container_oom_events_total{name!=""}[24h]))'
+# Six hours of a deploy-heavy evening projected a 12-day fill on a disk whose
+# 24 h trend is actually growing. Capacity needs the long window.
 DISK_SLOPE_Q = (
     'deriv(node_filesystem_avail_bytes'
-    f'{{job="node",{_FS_FILTER}}}[6h]'
+    f'{{job="node",{_FS_FILTER}}}[24h]'
     ')'
 )
 
@@ -411,7 +419,7 @@ class Collectors:
             name[0]: {
                 "cpu_pct": cpu.get(name),
                 "mem_bytes": int(mem[name]) if name in mem else None,
-                "restarts_24h": int(restarts.get(name) or 0),
+                "restarted_24h": restarts.get(name) == 1.0,
                 "oom_24h": int(oom.get(name) or 0),
             }
             for name in set(cpu) | set(mem) | set(restarts) | set(oom)

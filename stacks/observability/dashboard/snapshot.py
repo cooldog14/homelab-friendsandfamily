@@ -969,7 +969,7 @@ def _top_consumers(infra: dict, name_to_service: dict, config: DashboardConfig) 
                 else name,
                 "cpu_pct": stats.get("cpu_pct"),
                 "mem_bytes": stats.get("mem_bytes"),
-                "restarts_24h": stats.get("restarts_24h"),
+                "restarted_24h": stats.get("restarted_24h"),
             }
             for name, stats in (infra.get("containers") or {}).items()
             if isinstance(stats, dict) and stats.get(key) is not None

@@ -493,10 +493,10 @@ class TriageTests(unittest.TestCase):
     def test_top_consumers(self) -> None:
         infra = {
             "containers": {
-                "media-jellyfin-1": {"cpu_pct": 3.5, "mem_bytes": 900, "restarts_24h": 0},
-                "media-sonarr-1": {"cpu_pct": 40.0, "mem_bytes": 100, "restarts_24h": 2},
-                "observability-dashboard-1": {"cpu_pct": 0.5, "mem_bytes": 50, "restarts_24h": 0},
-                "orphan-1": {"cpu_pct": 1.0, "mem_bytes": 10, "restarts_24h": 0},
+                "media-jellyfin-1": {"cpu_pct": 3.5, "mem_bytes": 900, "restarted_24h": False},
+                "media-sonarr-1": {"cpu_pct": 40.0, "mem_bytes": 100, "restarted_24h": True},
+                "observability-dashboard-1": {"cpu_pct": 0.5, "mem_bytes": 50, "restarted_24h": False},
+                "orphan-1": {"cpu_pct": 1.0, "mem_bytes": 10, "restarted_24h": False},
             }
         }
         mapping = {
