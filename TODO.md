@@ -14,6 +14,12 @@
 
 - [x] Activated external dead-man monitoring: the VPS sends 5-minute heartbeats
   to the configured external check only while all public HTTP/TCP checks pass.
+  Failure and recovery pings were accepted.
+- [x] Rebooted the VPS and verified its persisted firewall/NAT, WireGuard,
+  gluetun egress, all public checks and the recovered heartbeat timer.
+- [x] Added a GitHub-hosted public-edge probe every 10 minutes. It opens an
+  assigned outage issue on failure and closes it on recovery; both paths were
+  exercised successfully.
 - [x] Persisted `DOCKER-USER` isolation through a boot service and deploy hook;
   removed the broad `wg0` UFW rule.
 - [x] Codified the VPS firewall, removed broad forwarding, moved private admin
