@@ -114,7 +114,7 @@ if [ -n "$PG_FAILED" ] || [ -n "$SQLITE_FAILED" ]; then
 fi
 
 # Minecraft: disable periodic saves and flush once. Suwayomi uses H2, which
-# cannot be hot-copied with sqlite3; freeze the process only for the read window.
+# cannot be hot-copied with sqlite3; pause only long enough for an atomic tar.
 QUIESCE_FAILED=
 MC_QUIESCED=
 SUWAYOMI_PAUSED=
@@ -149,10 +149,26 @@ fi
 if docker inspect -f '{{.State.Running}}' media-suwayomi-1 2>/dev/null | grep -qx true; then
   if docker pause media-suwayomi-1 >/dev/null 2>&1; then
     SUWAYOMI_PAUSED=1
-    log "suwayomi paused for the snapshot"
   else
-    QUIESCE_FAILED="${QUIESCE_FAILED}${QUIESCE_FAILED:+, }suwayomi"
-    log "suwayomi pause FAILED (raw snapshot may be inconsistent)"
+    QUIESCE_FAILED="${QUIESCE_FAILED}${QUIESCE_FAILED:+, }suwayomi-pause"
+  fi
+fi
+suwayomi_tar="$DUMP_DIR/suwayomi-state.tar"
+if tar -C /mnt/data/apps/suwayomi -cf "$suwayomi_tar.new" .; then
+  chmod 600 "$suwayomi_tar.new"
+  mv "$suwayomi_tar.new" "$suwayomi_tar"
+  log "suwayomi archive ok"
+else
+  rm -f "$suwayomi_tar.new"
+  QUIESCE_FAILED="${QUIESCE_FAILED}${QUIESCE_FAILED:+, }suwayomi-archive"
+  log "suwayomi archive FAILED (previous archive retained if present)"
+fi
+if [ "$SUWAYOMI_PAUSED" = 1 ]; then
+  if docker unpause media-suwayomi-1 >/dev/null 2>&1; then
+    SUWAYOMI_PAUSED=
+    log "suwayomi resumed"
+  else
+    log "suwayomi unpause FAILED"
   fi
 fi
 
@@ -164,6 +180,7 @@ backup_and_prune() {
   # /mnt/data covers the takeover tree; live database internals are excluded
   # because the consistent dumps above are the restore source.
   restic backup /opt "$DUMP_DIR" /mnt/data /etc /root/.ssh \
+    --exclude /mnt/data/apps/suwayomi \
     --exclude /mnt/data/downloads \
     --exclude /mnt/data/media/music/inbox/slskd/incomplete \
     --exclude /mnt/data/media/movies \

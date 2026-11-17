@@ -10,6 +10,7 @@
   ansible.builtin.apt:
     name: prometheus-node-exporter
     state: present
+    install_recommends: false
 
 - name: Bind the exporter to the tailnet only
   ansible.builtin.copy:
@@ -64,6 +65,9 @@
     - malice-restic-check.service
     - malice-restic-check.timer
   notify: Reload systemd
+
+- name: Reload systemd before enabling new units
+  ansible.builtin.meta: flush_handlers
 
 - name: Enable hypervisor backup and sampled check timers
   ansible.builtin.systemd_service:

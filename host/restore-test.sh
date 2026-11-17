@@ -45,6 +45,7 @@ for f in "$dump_dir"/*.db "$dump_dir"/*.sqlite "$dump_dir"/*.sqlite3; do
   dbs=$((dbs + 1))
 done
 [ "$dbs" -ge 18 ] || { echo "expected at least 18 SQLite dumps, got $dbs" >&2; exit 1; }
+tar -tf "$dump_dir/suwayomi-state.tar" >/dev/null
 
 test -s "$rt/etc/homelab.env"
 grep -Eq "^[A-Z0-9_]+=" "$rt/etc/homelab.env"
