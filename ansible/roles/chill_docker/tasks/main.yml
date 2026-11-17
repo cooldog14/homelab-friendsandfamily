@@ -40,5 +40,5 @@
 - name: Create the internal admin network
   ansible.builtin.command:
     cmd: docker network create --driver bridge --internal homelab-edge
-  when: chill_docker_edge_network.rc != 0 || chill_docker_edge_network.stdout == ''
+  when: chill_docker_edge_network.rc != 0
   changed_when: true

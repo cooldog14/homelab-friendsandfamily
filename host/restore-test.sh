@@ -45,6 +45,16 @@ for f in "$dump_dir"/*.db "$dump_dir"/*.sqlite "$dump_dir"/*.sqlite3; do
   dbs=$((dbs + 1))
 done
 [ "$dbs" -ge 18 ] || { echo "expected at least 18 SQLite dumps, got $dbs" >&2; exit 1; }
+bolts=0
+for f in "$dump_dir"/*.boltdb; do
+  [ -e "$f" ] || continue
+  [ "$(od -An -tx1 -N4 "$f" | tr -d ' \n')" = "ed0cdaed" ] || {
+    echo "invalid Bolt snapshot: ${f##*/}" >&2
+    exit 1
+  }
+  bolts=$((bolts + 1))
+done
+[ "$bolts" -eq 3 ] || { echo "expected 3 Bolt snapshots, got $bolts" >&2; exit 1; }
 tar -tf "$dump_dir/suwayomi-state.tar" >/dev/null
 
 test -s "$rt/etc/homelab.env"
