@@ -1,6 +1,10 @@
 services:
   mc:
-    image: itzg/minecraft-server:2026.9.2-java25
+    image: itzg/minecraft-server:2026.11.0-java25
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     restart: unless-stopped
     mem_limit: 5g
     mem_reservation: 3g

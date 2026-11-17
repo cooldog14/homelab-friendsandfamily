@@ -5,7 +5,15 @@
 # .env (0600, live-only, never in git): TS_IP, CF_API_TOKEN
 services:
   caddy:
-    image: ghcr.io/caddybuilds/caddy-cloudflare:2.11.4-alpine
+    image: ghcr.io/caddybuilds/caddy-cloudflare:2.11.9-alpine
+    security_opt:
+      - no-new-privileges:true
+    # Binds 443/80 on the tailnet address. Everything else comes from the
+    # process already being able to open low ports in its network namespace.
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
     restart: unless-stopped
     extra_hosts:
       # Lets private Caddy reach host services like Cockpit without exposing

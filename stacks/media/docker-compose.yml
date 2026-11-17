@@ -1,6 +1,10 @@
 services:
   jellyfin:
-    image: jellyfin/jellyfin:12.3
+    image: jellyfin/jellyfin:12.4
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     user: "1000:1000"
     mem_limit: 3g
     mem_reservation: 1536m
@@ -35,6 +39,11 @@ services:
   # IP instead of the VPS. Keys live in .env (never in git).
   gluetun:
     image: qmcgaw/gluetun:v3.41.1
+    security_opt:
+      - no-new-privileges:true
+    # The tunnel device and its firewall need NET_ADMIN; nothing else.
+    cap_drop:
+      - ALL
     cap_add:
       - NET_ADMIN
     devices:
@@ -63,6 +72,16 @@ services:
 
   qbittorrent:
     image: lscr.io/linuxserver/qbittorrent:5.2.2
+    security_opt:
+      - no-new-privileges:true
+    # LinuxServer images s6-chown their config and drop to PUID/PGID.
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - SETUID
+      - SETGID
     mem_limit: 1536m
     mem_reservation: 768m
     network_mode: "service:gluetun"
@@ -83,6 +102,15 @@ services:
 
   prowlarr:
     image: lscr.io/linuxserver/prowlarr:2.4.0
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - SETUID
+      - SETGID
     restart: unless-stopped
     network_mode: "service:gluetun"
     depends_on:
@@ -96,6 +124,10 @@ services:
 
   flaresolverr:
     image: ghcr.io/flaresolverr/flaresolverr:v3.5.0
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     network_mode: "service:gluetun"
     depends_on:
       - gluetun
@@ -109,6 +141,15 @@ services:
 
   radarr:
     image: lscr.io/linuxserver/radarr:6.2.1
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - SETUID
+      - SETGID
     restart: unless-stopped
     networks:
       default:
@@ -126,6 +167,15 @@ services:
 
   sonarr:
     image: lscr.io/linuxserver/sonarr:4.0.17
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - SETUID
+      - SETGID
     restart: unless-stopped
     networks:
       default:
@@ -143,6 +193,15 @@ services:
 
   bazarr:
     image: lscr.io/linuxserver/bazarr:1.6.2
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - SETUID
+      - SETGID
     restart: unless-stopped
     networks:
       default:
@@ -160,7 +219,7 @@ services:
       - /mnt/pool/media/tv:/pool/tv
 
   jellyseerr:
-    image: ghcr.io/seerr-team/seerr:v3.5.1
+    image: ghcr.io/seerr-team/seerr:v3.5.2
     init: true
     security_opt:
       - no-new-privileges:true
@@ -185,6 +244,10 @@ services:
 
   navidrome:
     image: deluan/navidrome:0.64.2
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     user: "1000:1000"
     ports:
       - "10.44.0.2:4533:4533"
@@ -202,6 +265,10 @@ services:
 
   wrtag:
     image: sentriz/wrtag:v0.30.0
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     user: "1000:1000"
     networks:
       default:
@@ -225,6 +292,10 @@ services:
 
   octo-fiesta:
     image: ghcr.io/v1ck3s/octo-fiesta:v0.11
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     user: "1000:1000"
     ports:
       - "10.44.0.2:5274:8080"
@@ -274,6 +345,10 @@ services:
 
   suwayomi:
     image: ghcr.io/suwayomi/suwayomi-server:v2.4.2422-preview
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     mem_limit: 1536m
     mem_reservation: 768m
     ports:
@@ -293,7 +368,11 @@ services:
     restart: unless-stopped
 
   slskd:
-    image: slskd/slskd:0.26.0
+    image: slskd/slskd:0.26.2
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     user: "1000:1000"
     network_mode: "service:gluetun"
     depends_on:

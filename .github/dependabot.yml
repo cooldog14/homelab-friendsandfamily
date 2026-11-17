@@ -1,0 +1,84 @@
+# Weekly update PRs. Docker only: every image is pinned in a stack compose file,
+# and a tag bump is exactly what a reviewed, CI-validated PR should carry.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+
+  - package-ecosystem: docker
+    directory: /stacks/apps
+    schedule:
+      interval: weekly
+    groups:
+      apps:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+
+  - package-ecosystem: docker
+    directory: /stacks/comms
+    schedule:
+      interval: weekly
+    groups:
+      comms:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+
+  - package-ecosystem: docker
+    directory: /stacks/docs
+    schedule:
+      interval: weekly
+    groups:
+      docs:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+
+  - package-ecosystem: docker
+    directory: /stacks/edge
+    schedule:
+      interval: weekly
+    groups:
+      edge:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+
+  - package-ecosystem: docker
+    directory: /stacks/games
+    schedule:
+      interval: weekly
+    groups:
+      games:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+
+  - package-ecosystem: docker
+    directory: /stacks/media
+    schedule:
+      interval: weekly
+    groups:
+      media:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+
+  - package-ecosystem: docker
+    directory: /stacks/observability
+    schedule:
+      interval: weekly
+    groups:
+      observability:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+
+  - package-ecosystem: docker
+    directory: /stacks/photos
+    schedule:
+      interval: weekly
+    groups:
+      photos:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
