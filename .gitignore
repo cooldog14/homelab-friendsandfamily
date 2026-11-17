@@ -12,3 +12,10 @@ tofu/*.tfstate
 tofu/*.tfstate.*
 tofu/*.tfvars
 tofu/.terraform.tfstate.lock.info
+
+# diagram: generated SVG and downloaded service icons are not tracked
+docs/diagram/__pycache__/
+docs/diagram/out/*.svg
+docs/diagram/out/homelab-unredacted.*
+docs/diagram/icons/*.svg
+!docs/diagram/icons/glyph-*.svg

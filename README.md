@@ -14,15 +14,10 @@ Playbooks, Compose files, Caddy routes, NAT rules and an import-only definition
 of `chill-01` live here. Secrets and application data do not. The VPS input
 firewall, CrowdSec setup and Caddy package source are not yet fully codified.
 
-```mermaid
-flowchart LR
-  U[Internet] --> E[VPS edge<br/>Caddy + nftables]
-  E -->|WireGuard| A[Debian app VM<br/>Docker Compose]
-  A --> P[Private Caddy<br/>wildcard TLS]
-  T[Tailscale] --> P
-  A --> R[restic<br/>offsite S3]
-  A --> O[Prometheus / Grafana / Alertmanager]
-```
+![Homelab diagram: internet to the VPS edge, WireGuard into the Proxmox host, and the 42 Compose services on chill-01](docs/diagram/out/homelab.png)
+
+The diagram is generated from [`docs/diagram/inventory.yaml`](docs/diagram/inventory.yaml);
+render instructions are in [`docs/diagram`](docs/diagram).
 
 ## Numbers
 
