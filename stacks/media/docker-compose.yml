@@ -221,6 +221,9 @@ services:
   jellyseerr:
     image: ghcr.io/seerr-team/seerr:v3.5.2
     init: true
+    # Missing until 2026-11-17: after the hypervisor reboot this container was
+    # the only one that did not come back, because it had no restart policy.
+    restart: unless-stopped
     security_opt:
       - no-new-privileges:true
     # Root-in-container over a 1000-owned bind needs DAC_OVERRIDE for
