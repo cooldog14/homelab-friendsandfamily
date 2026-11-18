@@ -1146,8 +1146,8 @@ Do not test by deleting data.
   admin instance; the public family instance mounts `/mnt/data/family`
   only. No execution evidence: chill is Linux and qbit autorun is off.
 - State-only (not git): those six Prowlarr indexers and tag 1; qbit
-  exclusions; Sonarr release profile id 1. Prowlarr v2.4.0 reports
-  v3.0.2 available; not upgraded here.
+  exclusions; Sonarr release profile id 1. The arrs were upgraded the
+  same day; see the EZTV maintenance note below.
 
 ## maintenance 2026-11-18: Octo-Fiesta stages music for wrtag
 
@@ -1165,4 +1165,23 @@ Do not test by deleting data.
   returns a wrtag job.
 - Rollback: restore `/mnt/data/media/music/clean:/app/downloads` in
   `stacks/media/docker-compose.yml` and run `make deploy`.
+
+## maintenance 2026-11-18: arr upgrade and EZTV mirror
+
+- Change: Prowlarr 2.4.0 -> 3.0.2, Sonarr 4.0.17 -> 4.0.20, Radarr
+  6.2.1 -> 7.0.3; tags pinned in `stacks/media/docker-compose.yml`.
+- EZTV: the definition tried `eztvx.to` first. From the VPS egress that
+  host returns Cloudflare 451 ("legal order ... within United Kingdom"),
+  which Prowlarr reported as `Indexer is disabled` 410 to Sonarr. The
+  other mirrors reject a plain fetch with a challenge but pass through
+  FlareSolverr. Fix: EZTV `baseUrl` -> `https://eztv.yt/`; the indexer
+  keeps tag 1 (`flaresolverr`). State only, not git.
+- Verify: Prowlarr `/api/v1/indexerstatus` is empty and an EZTV search
+  returns results; Sonarr and Radarr health are empty; both report the
+  new versions. Sonarr's single queue row is an Archer `delay` hold, not
+  a stalled download.
+- Rollback: extract
+  `/mnt/fast/scratch/pre-upgrade-arr-20261118T120435Z.tgz` into
+  `/opt/stacks/media/state/` and revert the image tags; clear the EZTV
+  base URL in the indexer UI.
 
