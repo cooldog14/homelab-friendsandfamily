@@ -11,8 +11,6 @@ import http.client
 import json
 import math
 import socket
-import ssl
-import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -113,34 +111,6 @@ class Prometheus:
         if not isinstance(rows, list):
             raise ClientError("prometheus: unexpected alerts payload")
         return [row for row in rows if isinstance(row, dict)]
-
-    def query_range(
-        self, expression: str, seconds: int = 1800, step: int = 30
-    ) -> list[dict]:
-        end = time.time()
-        data = self._api(
-            "/api/v1/query_range",
-            {
-                "query": expression,
-                "start": f"{end - seconds:.0f}",
-                "end": f"{end:.0f}",
-                "step": str(step),
-            },
-        )
-        series_rows: list[dict] = []
-        for series in data.get("result") or []:
-            points: list[list] = []
-            for stamp, raw in series.get("values") or []:
-                value = _finite(raw)
-                moment = _finite(stamp)
-                if value is None or moment is None:
-                    continue
-                points.append([int(moment), value])
-            if points:
-                series_rows.append(
-                    {"metric": dict(series.get("metric") or {}), "points": points}
-                )
-        return series_rows
 
 
 class _UnixConnection(http.client.HTTPConnection):
@@ -243,73 +213,6 @@ class Tailscale(_UnixClient):
         if not isinstance(payload, dict):
             raise ClientError("tailscale: unexpected ping payload")
         return payload
-
-
-def probe_tls(
-    edge: str,
-    server_hostname: str,
-    timeout: float = 8.0,
-    path: str = "/",
-) -> dict:
-    """HTTPS GET through the private Caddy, verified against the system CA."""
-    host, _, port = edge.rpartition(":")
-    if not host:
-        host, port = edge, "443"
-    started = time.perf_counter()
-    context = ssl.create_default_context()
-    tls: ssl.SSLSocket | None = None
-    try:
-        try:
-            raw = socket.create_connection((host, int(port or 443)), timeout=timeout)
-        except OSError as exc:
-            raise ClientError(f"connect: {exc}") from exc
-        try:
-            tls = context.wrap_socket(raw, server_hostname=server_hostname)
-        except ssl.SSLError as exc:
-            raw.close()
-            raise ClientError(f"tls: {exc}") from exc
-        except OSError:
-            raw.close()
-            raise
-        expires = None
-        try:
-            certificate = tls.getpeercert() or {}
-            not_after = certificate.get("notAfter")
-            if not_after:
-                expires = float(ssl.cert_time_to_seconds(not_after))
-        except (ValueError, KeyError):
-            expires = None
-        request = (
-            f"GET {path} HTTP/1.0\r\n"
-            f"Host: {server_hostname}\r\n"
-            f"User-Agent: {USER_AGENT}\r\n"
-            "Accept: */*\r\n"
-            "Connection: close\r\n\r\n"
-        )
-        tls.settimeout(timeout)
-        tls.sendall(request.encode("ascii", "replace"))
-        reader = tls.makefile("rb")
-        status_line = reader.readline(512).decode("latin-1", "replace").strip()
-        code = None
-        pieces = status_line.split()
-        if len(pieces) >= 2 and pieces[1].isdigit():
-            code = int(pieces[1])
-        latency_ms = round((time.perf_counter() - started) * 1000, 1)
-        if code is None:
-            raise ClientError("tls: no HTTP status line")
-        return {
-            "ok": code in range(200, 400) or code in (401, 403),
-            "code": code,
-            "latency_ms": latency_ms,
-            "expires_at": _iso(expires),
-            "expires_ts": expires,
-        }
-    finally:
-        if tls is not None:
-            try:
-                tls.close()
-            except OSError:
-                pass
 
 
 class Jellyfin:

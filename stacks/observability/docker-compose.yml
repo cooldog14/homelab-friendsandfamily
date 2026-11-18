@@ -160,7 +160,6 @@ services:
       TAILSCALE_SOCKET: /var/run/tailscale/tailscaled.sock
       STACKS_ROOT: /opt/stacks
       PUBLIC_CADDY_DIR: /usr/local/share/homelab-public-sites
-      PRIVATE_EDGE: caddy:443
       JELLYFIN_URL: http://jellyfin:8096
       JELLYFIN_API_KEY: ${DASHBOARD_JELLYFIN_API_KEY:-}
       JELLYSEERR_URL: http://jellyseerr:5055

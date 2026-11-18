@@ -13,40 +13,10 @@ import parsers
 from config import DashboardConfig, Settings
 from collectors import Collectors
 
-HOUR = 3600.0
-DAY = 24 * HOUR
-DISK_WARN = 85.0
-DISK_ALERT = 90.0
-TLS_WARN_DAYS = 14.0
-TLS_ALERT_DAYS = 7.0
-WIREGUARD_WARN_SECONDS = 600.0
-BACKUP_ALERT_SECONDS = 48 * HOUR
-BACKUP_WARN_SECONDS = 12 * HOUR
+DAY = 24 * 3600.0
 # One host: this dashboard is the chill-01 view. Everything else keeps its own
 # Prometheus rules and Gotify alerts.
 DASHBOARD_HOST = "chill-01"
-EXPECTED_HOSTS = ((DASHBOARD_HOST, "node"),)
-# Every rule below is already derived locally, so surfacing it twice would only
-# add noise. Anything not listed (OOM kills, restart loops, memory pressure)
-# reaches the page solely through Prometheus.
-MIRRORED_RULES = frozenset(
-    {
-        "HostDown",
-        "BackupStale",
-        "BackupMetricMissing",
-        "BackupRepositoryStale",
-        "HomelabJobFailed",
-        "HomelabJobMissed",
-        "HomelabJobTimerInactive",
-        "HomelabJobMetricsMissing",
-        "PublicEndpointDown",
-        "TLSCertExpiringSoon",
-        "TargetDown",
-        "DiskUsageHigh",
-        "WireGuardHandshakeStale",
-    }
-)
-EXPECTED_BACKUP_MARKERS = ((DASHBOARD_HOST, "homelab"),)
 
 
 def _data(store_snapshot: dict) -> Any:
@@ -64,31 +34,6 @@ def _days(now: float, stamp: float | None) -> float | None:
     if not stamp:
         return None
     return round((float(stamp) - now) / DAY, 2)
-
-
-def disk_severity(used_pct: float | None) -> str | None:
-    if used_pct is None:
-        return None
-    if used_pct > DISK_ALERT:
-        return "alert"
-    if used_pct >= DISK_WARN:
-        return "warn"
-    return None
-
-
-def tls_severity(days_left: float | None) -> str | None:
-    if days_left is None:
-        return None
-    if days_left < TLS_ALERT_DAYS:
-        return "alert"
-    if days_left < TLS_WARN_DAYS:
-        return "warn"
-    return None
-
-
-# --------------------------------------------------------------------------- #
-# Services
-# --------------------------------------------------------------------------- #
 
 
 def _service_links(config: DashboardConfig, service_id: str) -> dict:
@@ -117,25 +62,21 @@ def _probe_for(
 
     private_host = meta.get("private_host")
     if private_host:
-        route = private_routes.get(f"{private_host}.{config.private_domain}")
-        if route:
-            probe = route.get("probe") or {}
-            if probe.get("ok"):
-                return {
-                    "status": "ok",
-                    "source": "private",
-                    "code": probe.get("code"),
-                    "latency_ms": probe.get("latency_ms"),
-                    "tls_days": _days(now, probe.get("expires_ts")),
-                }
+        host = f"{private_host}.{config.private_domain}"
+        route = private_routes.get(host)
+        probe = http_probes.get(f"https://{host}")
+        if route and probe:
             return {
-                "status": "fail",
+                "status": "ok" if probe.get("success") else "fail",
                 "source": "private",
                 "code": probe.get("code"),
-                "latency_ms": probe.get("latency_ms"),
+                "latency_ms": round((probe.get("duration") or 0) * 1000, 1)
+                if probe.get("duration") is not None
+                else None,
                 "tls_days": _days(now, probe.get("expires_ts")),
-                "error": probe.get("error"),
             }
+        if route:
+            return {"status": "unknown", "source": "private"}
 
     public_host = meta.get("public_host")
     if public_host:
@@ -479,17 +420,22 @@ def _network_section(
     }
     private_routes = []
     for route in (routes or {}).get("private") or []:
-        probe = route.get("probe") or {}
+        host = route.get("host")
+        probe = http_probes.get(f"https://{host}")
         private_routes.append(
             {
                 "exposure": "private",
-                "host": route.get("host"),
+                "host": host,
                 "upstream": route.get("upstream"),
-                "status": "ok" if probe.get("ok") else "fail",
-                "code": probe.get("code"),
-                "latency_ms": probe.get("latency_ms"),
-                "tls_days": _days(now, probe.get("expires_ts")),
-                "error": probe.get("error"),
+                "status": "unknown"
+                if probe is None
+                else ("ok" if probe.get("success") else "fail"),
+                "code": (probe or {}).get("code"),
+                "latency_ms": round((probe.get("duration") or 0) * 1000, 1)
+                if probe and probe.get("duration") is not None
+                else None,
+                "tls_days": _days(now, (probe or {}).get("expires_ts")),
+                "error": None,
             }
         )
     public_routes = []
@@ -504,11 +450,11 @@ def _network_section(
                 "status": "unknown"
                 if probe is None
                 else ("ok" if probe.get("success") else "fail"),
-                "code": None,
+                "code": (probe or {}).get("code"),
                 "latency_ms": round((probe.get("duration") or 0) * 1000, 1)
                 if probe and probe.get("duration") is not None
                 else None,
-                "tls_days": _days(now, probe.get("expires_ts")) if probe else None,
+                "tls_days": _days(now, (probe or {}).get("expires_ts")),
                 "error": None,
             }
         )
@@ -604,16 +550,18 @@ def _inventory_section(inventory: dict, services: list[dict]) -> dict:
 
 
 def _derive_alerts(
-    config: DashboardConfig,
-    telemetry: dict,
     services: list[dict],
-    backups: dict,
-    network: dict,
     pipeline: dict,
     media: dict,
     errors: dict,
-    now: float,
 ) -> list[dict]:
+    """Checks that only this process can make.
+
+    Thresholds belong to Prometheus: one expression, one `for:` window and one
+    Gotify path. What remains here is state no metric exports (container
+    lifecycle and Docker health), authenticated app reachability, and the
+    dashboard's own source reads.
+    """
     alerts: list[dict] = []
 
     def add(severity: str, identifier: str, title: str, detail: str, href: str) -> None:
@@ -668,47 +616,6 @@ def _derive_alerts(
             "#network",
         )
 
-    for name, job in EXPECTED_HOSTS:
-        value = (telemetry.get("up") or {}).get(job)
-        if value is False:
-            add(
-                "alert",
-                f"host-down:{name}",
-                f"{name} is not reporting",
-                f'up{{job="{job}"}} == 0',
-                "#telemetry",
-            )
-        elif value is None:
-            add(
-                "warn",
-                f"host-missing:{name}",
-                f"no telemetry for {name}",
-                f'up{{job="{job}"}} has no series',
-                "#telemetry",
-            )
-
-    for disk in telemetry.get("disks") or []:
-        severity = disk_severity(disk.get("used_pct"))
-        if severity:
-            add(
-                severity,
-                f"disk:{disk.get('mountpoint')}",
-                f"disk {disk.get('mountpoint')} at {disk.get('used_pct'):.0f}%",
-                "threshold 90% hard / 85% amber",
-                "#telemetry",
-            )
-        fill_days = disk.get("fill_days")
-        # A projection only matters on a disk that has little room left: a
-        # nearly empty filesystem with a noisy slope must stay quiet.
-        if fill_days is not None and fill_days < 14 and (disk.get("used_pct") or 0) > 60:
-            add(
-                "alert" if fill_days < 7 else "warn",
-                f"disk-forecast:{disk.get('mountpoint')}",
-                f"{disk.get('mountpoint')} fills in {fill_days:.0f} d",
-                "6 h linear projection of the free space; threshold 7 d hard / 14 d amber",
-                "#telemetry",
-            )
-
     for service in services:
         if service["state"] in ("exited", "dead", "restarting", "created"):
             add(
@@ -741,167 +648,6 @@ def _derive_alerts(
                 f"{service['label']} is unhealthy",
                 f"{service['id']} healthcheck reports unhealthy",
                 "#services",
-            )
-        probe = service.get("probe") or {}
-        if probe.get("status") == "fail":
-            add(
-                "alert",
-                f"probe:{service['id']}",
-                f"{service['label']} probe failing",
-                f"{probe.get('source')} probe: {probe.get('error') or probe.get('code')}",
-                "#services",
-            )
-
-    # The private vhosts all share the DNS-01 wildcard: one certificate, one
-    # alert. Public vhosts each have their own certificate.
-    private_days = [
-        route["tls_days"]
-        for route in network.get("routes") or []
-        if route.get("exposure") == "private" and route.get("tls_days") is not None
-    ]
-    if private_days:
-        worst = min(private_days)
-        severity = tls_severity(worst)
-        if severity:
-            add(
-                severity,
-                "tls:private-edge",
-                f"private wildcard certificate expires in {worst:.0f} d",
-                "shared *.h.malice.biz certificate, threshold 7 d hard / 14 d amber",
-                "#network",
-            )
-
-    for route in network.get("routes") or []:
-        if route.get("status") == "fail":
-            add(
-                "alert",
-                f"route:{route.get('exposure')}:{route.get('host')}",
-                f"{route.get('host')} unreachable",
-                f"{route.get('exposure')} route -> {route.get('upstream')}: "
-                f"{route.get('error') or route.get('code')}",
-                "#network",
-            )
-        if route.get("exposure") != "public":
-            continue
-        severity = tls_severity(route.get("tls_days"))
-        if severity:
-            add(
-                severity,
-                f"tls:{route.get('host')}",
-                f"{route.get('host')} certificate expires in {route['tls_days']:.0f} d",
-                "threshold 7 d hard / 14 d amber",
-                "#network",
-            )
-
-    for probe in network.get("tcp_probes") or []:
-        if probe.get("success") is False:
-            add(
-                "alert",
-                f"tcp:{probe.get('instance')}",
-                f"TCP probe failing for {probe.get('label') or probe.get('instance')}",
-                f"{probe.get('instance')} ({probe.get('proto') or 'tcp'})",
-                "#network",
-            )
-
-    for job in backups.get("jobs") or []:
-        problems = []
-        if job.get("failed"):
-            problems.append(f"last exit {job.get('exit_code')}")
-        if job.get("missed"):
-            problems.append("timer missed its next run")
-        if job.get("timer_active") is False:
-            problems.append("timer inactive")
-        if problems:
-            add(
-                "alert",
-                f"job:{job.get('host')}:{job.get('task')}",
-                f"job {job.get('task')} on {job.get('host')}",
-                "; ".join(problems),
-                "#backups",
-            )
-    job_hosts = {job.get("host") for job in backups.get("jobs") or []}
-    for name, job in EXPECTED_HOSTS:
-        if (telemetry.get("up") or {}).get(job) and name not in job_hosts:
-            add(
-                "alert",
-                f"job-metrics-missing:{name}",
-                f"no job metrics from {name}",
-                "homelab_job_* series absent while the host exporter is up",
-                "#backups",
-            )
-
-    markers = {
-        (marker.get("host"), marker.get("source")): marker
-        for marker in backups.get("markers") or []
-    }
-    for host, source in EXPECTED_BACKUP_MARKERS:
-        marker = markers.get((host, source))
-        if not marker:
-            add(
-                "alert",
-                f"backup-missing:{host}",
-                f"no successful backup recorded for {host}",
-                f"source={source} marker absent",
-                "#backups",
-            )
-            continue
-        age = marker.get("age")
-        if age is not None and age > BACKUP_ALERT_SECONDS:
-            add(
-                "alert",
-                f"backup-stale:{host}",
-                f"backup on {host} is {age / DAY:.1f} d old",
-                f"source={source}, threshold 48 h",
-                "#backups",
-            )
-
-    for repo in backups.get("repos") or []:
-        label = f"{repo.get('host')}/{repo.get('repository')}"
-        if repo.get("success") is False:
-            add(
-                "alert",
-                f"repo-stats:{label}",
-                f"repository stats failing for {label}",
-                "restic command failed; see homelab-backup-stats logs",
-                "#backups",
-            )
-        count = repo.get("snapshot_count")
-        latest_age = repo.get("latest_age")
-        if count == 0:
-            add(
-                "alert",
-                f"repo-empty:{label}",
-                f"repository {label} has no snapshots",
-                "snapshot_count == 0",
-                "#backups",
-            )
-        elif latest_age is not None and latest_age > BACKUP_ALERT_SECONDS:
-            add(
-                "alert",
-                f"repo-stale:{label}",
-                f"latest snapshot in {label} is {latest_age / DAY:.1f} d old",
-                "threshold 48 h",
-                "#backups",
-            )
-        stats_age = repo.get("stats_age")
-        if stats_age is not None and stats_age > BACKUP_WARN_SECONDS:
-            add(
-                "warn",
-                f"repo-stats-stale:{label}",
-                f"repository stats for {label} are {stats_age / HOUR:.1f} h old",
-                "threshold 12 h",
-                "#backups",
-            )
-
-    for peer in network.get("wireguard") or []:
-        age = peer.get("age")
-        if age is not None and age > WIREGUARD_WARN_SECONDS:
-            add(
-                "warn",
-                f"wireguard:{peer.get('peer')}",
-                f"WireGuard handshake {age / 60:.0f} min old",
-                f"peer {peer.get('peer')}",
-                "#network",
             )
 
     for name, label in (
@@ -965,12 +711,16 @@ def _top_consumers(infra: dict, name_to_service: dict, config: DashboardConfig) 
 
 
 def prometheus_alerts_section(infra: dict) -> list[dict]:
-    """Firing/pending Prometheus alerts that no local check already covers."""
+    """Firing/pending Prometheus alerts, verbatim.
+
+    Prometheus is the only threshold engine; this page must not hide a rule or
+    re-derive one.
+    """
     rows: list[dict] = []
     for alert in (infra or {}).get("prometheus_alerts") or []:
         name = alert.get("name")
         state = alert.get("state")
-        if name in MIRRORED_RULES or state not in ("firing", "pending"):
+        if state not in ("firing", "pending"):
             continue
         severity = "alert" if state == "firing" and alert.get("severity") == "critical" else "warn"
         rows.append(
@@ -1018,12 +768,6 @@ def build_snapshot(
 
     telemetry_data = _data(telemetry_store) or {}
     infra_data = _data(infra_store) or {}
-    # Capacity is projected from the 7 d slope computed in the infra group.
-    slope = (infra_data or {}).get("disk_slope") or {}
-    for disk in telemetry_data.get("disks") or []:
-        disk["fill_days"] = parsers.days_until_full(
-            disk.get("avail_bytes"), slope.get(disk.get("mountpoint"))
-        )
     docker_data = _data(docker_store) or {}
     routes_data = _data(routes_store) or {}
     integrations_data = _data(integrations_store) or {}
@@ -1032,9 +776,7 @@ def build_snapshot(
 
     telemetry = {
         "nodes": telemetry_data.get("nodes") or [],
-        "series": telemetry_data.get("series") or {},
         "disks": telemetry_data.get("disks") or [],
-        "up": infra_data.get("up") or {},
         "updated_at": telemetry_store.get("updated_at"),
         "error": telemetry_store.get("error"),
     }
@@ -1058,9 +800,7 @@ def build_snapshot(
         "tailscale": network_store.get("error"),
     }
 
-    alerts = _derive_alerts(
-        config, telemetry, services, backups, network, pipeline, media, errors, moment
-    )
+    alerts = _derive_alerts(services, pipeline, media, errors)
     prometheus_alerts = prometheus_alerts_section(infra_data)
     name_to_service = {
         str(row.get("name")): f"{row.get('stack')}/{row.get('service')}"

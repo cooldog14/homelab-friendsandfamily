@@ -1206,3 +1206,40 @@ Do not test by deleting data.
   `autoSave()` when it pauses, so this adds no unsaved-data window; world
   time, crops and furnaces still stop while nobody is online.
 
+
+## maintenance 2026-11-18: one metrics surface, one alert engine
+
+- Change: `home.h` stopped being a second monitoring system. It now renders
+  live state only (current CPU/mem/net/disk numbers, container state, Compose
+  inventory, Caddy routes, backups, logs, app APIs) and links to Grafana for
+  every time series. Grafana owns the charts, the 7 d capacity projection and
+  the per-host backup age; its backup stat now uses `min by (host)` so a fresh
+  malice marker cannot mask a stale chill-01 one.
+- Alerts: Prometheus is the only threshold engine. The dashboard stopped
+  re-deriving HostDown, DiskUsageHigh, TLS expiry, public/private route
+  failures, TCP probes, job timers, backup freshness and WireGuard handshake,
+  and now passes every firing/pending Prometheus alert through instead of
+  hiding rules it duplicated (`MIRRORED_RULES` is gone). New rules:
+  `PrivateEndpointDown`, `TLSCertExpiringSoonPrivate`, `TCPProbeDown`,
+  `DiskFillingSoon`, `BackupStatsFailing`, `BackupStatsStale`,
+  `BackupRepositoryEmpty`. Local checks that remain are only what no metric
+  exports: container lifecycle/health, authenticated app reachability, and
+  dashboard source-read failures.
+- Private edge: new `blackbox-private` Prometheus job probes all 16
+  `*.h.malice.biz` vhosts through the tailnet address. `home.h` reads those
+  `probe_*` series instead of making its own TLS handshakes; `clients.py`
+  lost `probe_tls` and `PRIVATE_EDGE` is no longer a dashboard setting.
+- Code removed: `_fetch_telemetry` range queries and sparklines,
+  `DISK_SLOPE_Q`/`SERIES`, `parsers.days_until_full`, `disk_severity`,
+  `tls_severity`, and the mirrored-rule filter. Dashboard runtime is narrower
+  by roughly 250 lines; the parser/alert tests were reduced to the surviving
+  contracts.
+- Verify: `promtool check config` and `check rules` (25 rules) passed on
+  chill-01; 41 dashboard unit tests passed; `node --check` and JSON/YAML
+  validation passed. From inside `observability-dashboard-1`,
+  `https://{home,grafana,cockpit}.h.malice.biz` returned 200 and
+  `{stirling,sonarr}.h.malice.biz` returned 401 (expected, allowed by the
+  blackbox module), so the new job's DNS/TLS path works from the container
+  network.
+- Rollback: revert the commit and `make deploy`; Prometheus restarts with the
+  previous rule set and `home.h` returns to its local derivations.

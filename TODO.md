@@ -73,8 +73,12 @@ Historical detail is retained separately:
   `/etc/smartd.conf`; all five disks run short tests daily and staggered long
   tests. Initial short tests completed without error on `sda`, `sdb`, `sdd`,
   `sde` and `sdf`; the Gotify notifier test returned 0.
-- [ ] Add private app health instrumentation where Docker has none (Caddy,
-  Jellyseerr, Navidrome, Radarr/Sonarr/Bazarr) and monitor the private edge.
+- [x] **Monitor the private edge.** `blackbox-private` probes all 16
+  `*.h.malice.biz` vhosts; `PrivateEndpointDown` and
+  `TLSCertExpiringSoonPrivate` page through Alertmanager/Gotify. The
+  dashboard reads the same series instead of making its own TLS probes.
+- [ ] Add app-level health instrumentation where Docker has none (Caddy
+  admin, Jellyseerr, Navidrome, Radarr/Sonarr/Bazarr).
 - [ ] Alert on arr queue rot: Sonarr/Radarr items stuck in
   `importBlocked`/`importPending` for more than 24h, and executable
   payloads under `/mnt/data/downloads`. The 2026-11-18 incident showed

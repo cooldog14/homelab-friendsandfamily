@@ -40,7 +40,6 @@ class Settings:
     tailscale_socket: str = "/var/run/tailscale/tailscaled.sock"
     stacks_root: str = "/opt/stacks"
     public_caddy_dir: str = "/usr/local/share/homelab-public-sites"
-    private_edge: str = "caddy:443"
     bind: str = "0.0.0.0"
     port: int = 8080
     timezone: str = "Europe/Paris"
@@ -76,7 +75,6 @@ class Settings:
             public_caddy_dir=get(
                 "PUBLIC_CADDY_DIR", "/usr/local/share/homelab-public-sites"
             ),
-            private_edge=get("PRIVATE_EDGE", "caddy:443"),
             bind=get("BIND", "0.0.0.0"),
             port=int(get("PORT", "8080") or 8080),
             timezone=get("TZ", "Europe/Paris"),

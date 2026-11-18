@@ -110,9 +110,14 @@ guests, snapshot, zstd, Sun 03:30, keep-last 8, writes
   prometheus (published only on `127.0.0.1:9091` — Cockpit owns
   `*:9090`), alertmanager, alertmanager-gotify-bridge, node-exporter,
   cadvisor (privileged — documented exception), blackbox-exporter,
-  grafana. Private admin UIs are reached by private Caddy over the
-  internal `homelab-edge` Docker network, not published on `10.44.0.2`.
-  Roughly 42 containers in total on the host.
+  grafana, and `home.h` (read-only status/inventory index). Private admin
+  UIs are reached by private Caddy over the internal `homelab-edge` Docker
+  network, not published on `10.44.0.2`. Grafana owns metrics, trends and
+  capacity projections; `home.h` owns live container state, Compose
+  inventory, Caddy routes, logs and authenticated app APIs. Prometheus is
+  the only alert engine; blackbox probes the public vhosts
+  (`blackbox-http`), the private `*.h` vhosts (`blackbox-private`) and the
+  DNAT ports (`blackbox-tcp`). Roughly 42 containers in total on the host.
 - Host admin: Cockpit (`cockpit.h.malice.biz` / `:9090`, includes web
   terminal) is Tailscale/private Caddy only; no public route and blocked
   from the VPS WireGuard tunnel.
