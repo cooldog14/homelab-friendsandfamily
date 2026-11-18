@@ -103,10 +103,11 @@ guests, snapshot, zstd, Sun 03:30, keep-last 8, writes
   queue them daily and show the review count on `home.h.malice.biz`.
   Jellyfin `/cache` -> `/mnt/fast/jellyfin-cache`;
   `/pool/movies|tv` ro. GPU `renderD128` present, QSV->VAAPI flip open.
-  slskd (`:5030`) and wrtag (`:7373`) web UIs require authentication.
-  They are reachable only through the private `*.h.malice.biz` Caddy over
-  Tailscale (`slskd.h` / `wrtag.h`), never public and never from the VPS
-  tunnel. The tailnet remains the outer auth boundary.
+  slskd (`:5030`) requires authentication; wrtag (`:7373`) deliberately
+  does not (`WRTAG_WEB_AUTH=disabled`), while its `/op/` API still needs the
+  key. Both are reachable only through the private `*.h.malice.biz` Caddy
+  over Tailscale (`slskd.h` / `wrtag.h`), never public and never from the
+  VPS tunnel. The tailnet remains the outer auth boundary.
 - `observability`: Gotify (`:8070`, private only),
   prometheus (published only on `127.0.0.1:9091` — Cockpit owns
   `*:9090`), alertmanager, alertmanager-gotify-bridge, node-exporter,
