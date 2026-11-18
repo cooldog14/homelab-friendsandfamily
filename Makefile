@@ -61,7 +61,7 @@ check:
 	PUBLIC_CADDY_SITES_DIR=vps/sites PRIVATE_CADDYFILE=stacks/edge/Caddyfile host/public-check.sh --config-lint
 	wide_binds=$$(grep -RInE '^[[:space:]]*-[[:space:]]*"?(:|0\.0\.0\.0:)' stacks/*/docker-compose.yml || true); test -z "$$wide_binds" || { echo "Undocumented wide port bind(s):" >&2; echo "$$wide_binds" >&2; exit 1; }
 	host_net=$$(grep -RInE '^[[:space:]]*network_mode:[[:space:]]*host' stacks/*/docker-compose.yml | grep -Ev 'stacks/comms/docker-compose.yml' || true); test -z "$$host_net" || { echo "Undocumented host network service(s):" >&2; echo "$$host_net" >&2; exit 1; }
-	$(SHELLCHECK) host/backup.sh host/backup-watchdog.sh host/public-check.sh host/metrics.sh host/firewall-neko.sh host/smartd-notify.sh host/restic-check.sh host/restore-test.sh host/deploy.sh stacks/media/config/slskd/autotag.sh
+	$(SHELLCHECK) host/backup.sh host/backup-watchdog.sh host/public-check.sh host/metrics.sh host/firewall-neko.sh host/smartd-notify.sh host/restic-check.sh host/restore-test.sh host/deploy.sh host/wrtag-import.sh stacks/media/config/slskd/autotag.sh
 	node --check workers/wan-heartbeat/src/index.js
 	PYTHONPYCACHEPREFIX=/tmp/homelab-pycache python3 -m py_compile \
 	  host/restic-retention.py host/backup-stats.py stacks/observability/dashboard/*.py

@@ -82,7 +82,8 @@ ssh "$host" 'set -e
     /mnt/data/media/music/inbox \
     /mnt/data/media/music/inbox/user \
     /mnt/data/media/music/inbox/slskd/complete \
-    /mnt/data/media/music/inbox/slskd/incomplete
+    /mnt/data/media/music/inbox/slskd/incomplete \
+    /mnt/data/media/downloads/octo-fiesta
   sudo install -d -m 0700 /mnt/fast/dumps
   sudo install -d -m 0755 -o 65534 -g 65534 /opt/stacks/observability/state/prometheus /opt/stacks/observability/state/alertmanager
   sudo install -d -m 0755 -o 472 -g 472 /opt/stacks/observability/state/grafana
