@@ -1185,3 +1185,24 @@ Do not test by deleting data.
   `/opt/stacks/media/state/` and revert the image tags; clear the EZTV
   base URL in the indexer UI.
 
+## maintenance 2026-11-18: minecraft pauses when empty
+
+- Change: `PAUSE_WHEN_EMPTY_SECONDS=60` in `stacks/games`
+  (commit `e4f6be4`). Paper was already in use; no server switch was needed.
+  Paper defaults this to `-1`, so it is opt-in, not a vanilla-default flip.
+- Verify: `logs/latest.log` shows `Server empty for 60 seconds, pausing`;
+  server-list ping still returns the MOTD; RCON still answers while paused
+  and the backup quiesce path (`save-off`, `save-all flush`, `save-on`)
+  succeeded. `homelab-public-check` TCP 25565 passed after the restart.
+- Measure: idle JVM CPU fell from ~0.79% of one core (pre-change, 22h
+  uptime) to ~0.34% after JIT settled (120s `/proc` delta; server thread
+  0.19%, spark monitors 0.08%). Ignore the first ~15 min after a restart:
+  C2 compilation transiently shows 1-2%. Absolute host saving is small
+  because the 19M world was already near-idle: TPS 20, MSPT 0.1ms.
+- Prevent: Paper calls this out as plugin-incompatible by default. The only
+  plugins here are Chunky, spark and bStats; do not add ticking plugins
+  without retesting pause. Chunky pregen stalls while paused, so temporarily
+  set `PAUSE_WHEN_EMPTY_SECONDS=-1` for a pregen run. Vanilla calls
+  `autoSave()` when it pauses, so this adds no unsaved-data window; world
+  time, crops and furnaces still stop while nobody is online.
+
