@@ -1253,3 +1253,19 @@ Do not test by deleting data.
   the pass-through instead of a local copy.
 - Rollback: revert the commit and `make deploy`; Prometheus restarts with the
   previous rule set and `home.h` returns to its local derivations.
+
+## maintenance 2026-11-18: wrtag web UI auth disabled behind the tailnet
+
+- Change: `WRTAG_WEB_AUTH` moved from `basic-auth-from-api-key` to
+  `disabled` in `stacks/media/docker-compose.yml`. `wrtag.h.malice.biz`
+  opens without a browser password prompt; the tailnet stays the outer
+  boundary, exactly as for the `*.h` vhosts generally.
+- Not changed: `/op/*` keeps `apiKeyMiddleware`, so `homelab-wrtag-import`
+  and slskd's `autotag.sh` still authenticate with `WRTAG_WEB_API_KEY`.
+  slskd's own UI auth is untouched.
+- Verify: deployed commit `f88c552610`; `media-wrtag-1` recreated and Up,
+  live env `WRTAG_WEB_AUTH=disabled`. `GET /` and `/jobs` return 200 with no
+  credentials; `POST /op/move` returns 401 without the key and 400 (unknown
+  operation, key accepted) with it.
+- Rollback: revert the commit and `make deploy`; the container recreates
+  with the previous auth mode and the browser prompt returns.
