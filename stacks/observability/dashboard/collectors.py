@@ -92,22 +92,6 @@ CONTAINER_OOM_Q = 'sum by (name) (increase(container_oom_events_total{name!=""}[
 # tell a crash from a recreated container, and cAdvisor's timestamp jitters by
 # fractions of a second. Docker's RestartCount is read for stopped containers;
 # the Prometheus restart-loop rule covers the rest.
-#
-# For capacity: 6 h caught one evening of image builds (a 12-day projection on a
-# disk that was growing), 24 h still followed the weekly vzdump sawtooth. A week
-# smooths both, and capacity is a 15 s question, not a 10 s one.
-DISK_SLOPE_Q = (
-    'deriv(node_filesystem_avail_bytes'
-    f'{{job="node",{_FS_FILTER}}}[7d]'
-    ')'
-)
-
-SERIES = {
-    "cpu": (_cpu_query("node"), "percent"),
-    "mem": (_mem_query("node"), "percent"),
-    "net_rx": (_net_query("receive"), "bytes_per_second"),
-    "net_tx": (_net_query("transmit"), "bytes_per_second"),
-}
 
 
 class Store:
@@ -268,6 +252,8 @@ class Collectors:
                 "up": (prom.value('up{job="node"}') or 0.0) == 1.0,
                 "cpu_pct": prom.value(_cpu_query("node")),
                 "mem_pct": prom.value(_mem_query("node")),
+                "net_rx": prom.value(_net_query("receive")),
+                "net_tx": prom.value(_net_query("transmit")),
             }
         ]
 
@@ -294,13 +280,9 @@ class Collectors:
         ]
         disks = parsers.dedupe_disks(rows, DISK_MOUNTS)
 
-        series: dict[str, dict] = {}
-        for key, (expression, unit) in SERIES.items():
-            rows = prom.query_range(expression)
-            points = rows[0]["points"] if rows else []
-            series[key] = {"unit": unit, "points": points}
+        return {"nodes": nodes, "disks": disks}
 
-        return {"nodes": nodes, "disks": disks, "series": series}
+    # -- Prometheus infrastructure ---------------------------------------- #
 
     def _fetch_infra(self) -> dict:
         prom = self.prometheus
@@ -350,20 +332,31 @@ class Collectors:
 
         durations = {
             row["metric"].get("instance"): row["value"]
-            for row in prom.query('probe_duration_seconds{job=~"blackbox-http|blackbox-tcp"}')
+            for row in prom.query(
+                'probe_duration_seconds{job=~"blackbox-http|blackbox-private|blackbox-tcp"}'
+            )
         }
         expiries = {
             row["metric"].get("instance"): row["value"]
-            for row in prom.query('probe_ssl_earliest_cert_expiry{job="blackbox-http"}')
+            for row in prom.query(
+                'probe_ssl_earliest_cert_expiry{job=~"blackbox-http|blackbox-private"}'
+            )
+        }
+        codes = {
+            row["metric"].get("instance"): int(row["value"])
+            for row in prom.query(
+                'probe_http_status_code{job=~"blackbox-http|blackbox-private"}'
+            )
         }
         http_probes = [
             {
                 "instance": row["metric"].get("instance"),
                 "success": row["value"] == 1.0,
                 "duration": durations.get(row["metric"].get("instance")),
+                "code": codes.get(row["metric"].get("instance")),
                 "expires_ts": expiries.get(row["metric"].get("instance")),
             }
-            for row in prom.query('probe_success{job="blackbox-http"}')
+            for row in prom.query('probe_success{job=~"blackbox-http|blackbox-private"}')
         ]
         tcp_probes = [
             {
@@ -424,10 +417,6 @@ class Collectors:
         }
         return {
             "containers": containers,
-            "disk_slope": {
-                row["metric"].get("mountpoint"): row["value"]
-                for row in prom.query(DISK_SLOPE_Q)
-            },
             "up": hosts_up,
             "jobs": jobs,
             "backup_markers": markers,
@@ -525,20 +514,6 @@ class Collectors:
                 )
         except OSError as exc:
             public_error = f"{public_dir}: {exc}"
-
-        for route in private_routes:
-            try:
-                probe = clients.probe_tls(self.settings.private_edge, route["host"])
-            except clients.ClientError as exc:
-                probe = {
-                    "ok": False,
-                    "code": None,
-                    "latency_ms": None,
-                    "expires_at": None,
-                    "expires_ts": None,
-                    "error": str(exc),
-                }
-            route["probe"] = probe
 
         return {
             "private": private_routes,

@@ -49,6 +49,37 @@ scrape_configs:
         target_label: instance
       - target_label: __address__
         replacement: blackbox-exporter:9115
+  # Same Caddy and certificate the tailnet sees, from inside the VM. Public
+  # vhosts keep their own job: a private failure and a public failure page
+  # differently.
+  - job_name: blackbox-private
+    metrics_path: /probe
+    params: {module: [http_2xx]}
+    static_configs:
+      - targets:
+          - https://bazarr.h.malice.biz
+          - https://cockpit.h.malice.biz
+          - https://files.h.malice.biz
+          - https://gotify.h.malice.biz
+          - https://grafana.h.malice.biz
+          - https://home.h.malice.biz
+          - https://immich.h.malice.biz
+          - https://jellyfin.h.malice.biz
+          - https://prowlarr.h.malice.biz
+          - https://qbittorrent.h.malice.biz
+          - https://radarr.h.malice.biz
+          - https://slskd.h.malice.biz
+          - https://sonarr.h.malice.biz
+          - https://stirling.h.malice.biz
+          - https://suwayomi.h.malice.biz
+          - https://wrtag.h.malice.biz
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox-exporter:9115
   - job_name: blackbox-tcp
     metrics_path: /probe
     params: {module: [tcp_connect]}

@@ -466,29 +466,18 @@ class TriageTests(unittest.TestCase):
         self.assertEqual(detail["restart_count"], 3)
         self.assertIsNone(detail["error"])
 
-    def test_mirrored_rules_are_not_repeated(self) -> None:
+    def test_prometheus_alerts_pass_through(self) -> None:
         infra = {"prometheus_alerts": parsers.normalize_prometheus_alerts(PROMETHEUS_ALERTS)}
         rows = snapshot.prometheus_alerts_section(infra)
+        # Every firing/pending rule is shown: Prometheus is the only engine.
+        self.assertEqual(len(rows), 3)
         names = {row["title"] for row in rows}
-        # BackupMetricMissing is already a dashboard check; the other two are not.
-        self.assertEqual(len(rows), 2)
-        self.assertFalse(any("sauvegarde" in name.lower() for name in names))
+        self.assertTrue(any("sauvegarde" in name.lower() for name in names))
         by_state = {row["state"]: row for row in rows}
         self.assertEqual(by_state["firing"]["severity"], "warn")
         # A pending critical is not firing yet: amber until it does.
         self.assertEqual(by_state["pending"]["severity"], "warn")
         self.assertEqual(snapshot.prometheus_alerts_section({"prometheus_alerts": []}), [])
-
-    def test_days_until_full(self) -> None:
-        one_day = 86400
-        self.assertEqual(parsers.days_until_full(10 * one_day, -10), 1.0)
-        self.assertEqual(parsers.days_until_full(100 * one_day, -10), 10.0)
-        # Stable or growing filesystems never produce a forecast.
-        self.assertIsNone(parsers.days_until_full(10 * one_day, 0))
-        self.assertIsNone(parsers.days_until_full(10 * one_day, 5))
-        self.assertIsNone(parsers.days_until_full(0, -10))
-        self.assertIsNone(parsers.days_until_full(None, -10))
-        self.assertIsNone(parsers.days_until_full(10 * one_day, None))
 
     def test_top_consumers(self) -> None:
         infra = {
@@ -662,70 +651,16 @@ def service(name: str, state: str = "running", probe: dict | None = None, health
     }
 
 
-NOMINAL_JOBS = [
-    {
-        "host": "chill-01",
-        "task": "backup",
-        "timer_active": True,
-        "failed": False,
-        "missed": False,
-        "exit_code": 0,
-    },
-    {
-        "host": "malice",
-        "task": "malice-backup",
-        "timer_active": True,
-        "failed": False,
-        "missed": False,
-        "exit_code": 0,
-    },
-]
-
-
 def by_id(alerts: list[dict]) -> dict[str, dict]:
     return {alert["id"]: alert for alert in alerts}
 
 
-def derive(
-    *,
-    services=None,
-    jobs=NOMINAL_JOBS,
-    markers=None,
-    repos=None,
-    routes=None,
-    disks=None,
-    up=None,
-    wireguard=None,
-    media=None,
-    pipeline=None,
-    errors=None,
-) -> list[dict]:
-    telemetry = {
-        "nodes": [],
-        "series": {},
-        "disks": disks or [{"mountpoint": "/", "used_pct": 50.0}],
-        "up": up if up is not None else {"node": True, "malice": True},
-        "error": None,
-    }
+def derive(*, services=None, media=None, pipeline=None, errors=None) -> list[dict]:
     return snapshot._derive_alerts(
-        CONFIG,
-        telemetry,
         services if services is not None else [service("jellyfin")],
-        {
-            "repos": repos or [],
-            "jobs": jobs,
-            "markers": markers
-            if markers is not None
-            else [
-                {"host": "chill-01", "source": "homelab", "last_success": NOW - 3600, "age": 3600},
-                {"host": "malice", "source": "malice", "last_success": NOW - 3600, "age": 3600},
-            ],
-        },
-        {"routes": routes or [], "tcp_probes": [], "wireguard": wireguard or []},
         pipeline or {},
         media or {},
         errors or {},
-        NOW,
     )
 
 
@@ -742,17 +677,6 @@ class AlertTests(unittest.TestCase):
         alerts = by_id(derive(services=[service("jellyfin", health="unhealthy")]))
         self.assertIn("health:media/jellyfin", alerts)
         self.assertEqual(alerts["health:media/jellyfin"]["severity"], "alert")
-
-    def test_probe_failure_is_hard(self) -> None:
-        alerts = derive(
-            services=[
-                service(
-                    "jellyfin",
-                    probe={"status": "fail", "source": "private", "error": "tls: x"},
-                )
-            ]
-        )
-        self.assertEqual(by_id(alerts)["probe:media/jellyfin"]["severity"], "alert")
 
     def test_exited_container_detail_is_carried(self) -> None:
         row = service("jellyfin", state="exited")
@@ -773,108 +697,6 @@ class AlertTests(unittest.TestCase):
         )
         self.assertEqual(alerts, [])
 
-    def test_host_down_is_hard(self) -> None:
-        alerts = by_id(derive(up={"node": False, "malice": True}))
-        self.assertEqual(alerts["host-down:chill-01"]["severity"], "alert")
-        self.assertIn("chill-01", alerts["host-down:chill-01"]["title"])
-
-    def test_job_failure_and_missed_are_hard(self) -> None:
-        jobs = [
-            {
-                "host": "chill-01",
-                "task": "backup",
-                "timer_active": True,
-                "failed": True,
-                "missed": False,
-                "exit_code": 2,
-            },
-            {
-                "host": "chill-01",
-                "task": "public-check",
-                "timer_active": False,
-                "failed": False,
-                "missed": True,
-                "exit_code": 0,
-            },
-        ]
-        alerts = derive(jobs=jobs)
-        identifiers = {alert["id"] for alert in alerts}
-        self.assertIn("job:chill-01:backup", identifiers)
-        self.assertIn("job:chill-01:public-check", identifiers)
-        self.assertTrue(all(alert["severity"] == "alert" for alert in alerts))
-
-    def test_job_metrics_missing_is_hard(self) -> None:
-        identifiers = by_id(derive(jobs=[]))
-        self.assertEqual(identifiers["job-metrics-missing:chill-01"]["severity"], "alert")
-
-    def test_other_hosts_are_not_reported(self) -> None:
-        """This dashboard is the chill-01 view; malice keeps its own alerting."""
-        alerts = by_id(derive(up={"node": True, "malice": False}, jobs=[]))
-        self.assertNotIn("host-down:malice", alerts)
-        self.assertNotIn("job-metrics-missing:malice", alerts)
-
-    def test_backup_marker_missing_and_stale(self) -> None:
-        missing = derive(markers=[])
-        self.assertIn("backup-missing:chill-01", {a["id"] for a in missing})
-        self.assertNotIn("backup-missing:malice", {a["id"] for a in missing})
-        stale = derive(
-            markers=[
-                {"host": "chill-01", "source": "homelab", "last_success": NOW - 3 * 86400, "age": 3 * 86400},
-                {"host": "malice", "source": "malice", "last_success": NOW - 60, "age": 60},
-            ]
-        )
-        self.assertIn("backup-stale:chill-01", {a["id"] for a in stale})
-        self.assertTrue(all(a["severity"] == "alert" for a in stale))
-
-    def test_repository_states(self) -> None:
-        alerts = derive(
-            repos=[
-                {
-                    "host": "chill-01",
-                    "repository": "cloud",
-                    "success": True,
-                    "snapshot_count": 0,
-                    "latest_snapshot": None,
-                    "latest_age": None,
-                    "stats_age": 60,
-                },
-                {
-                    "host": "chill-01",
-                    "repository": "local",
-                    "success": False,
-                    "snapshot_count": 3,
-                    "latest_snapshot": NOW - 10,
-                    "latest_age": 10,
-                    "stats_age": 13 * 3600,
-                },
-            ]
-        )
-        identifiers = {alert["id"]: alert["severity"] for alert in alerts}
-        self.assertEqual(identifiers.get("repo-empty:chill-01/cloud"), "alert")
-        self.assertEqual(identifiers.get("repo-stats:chill-01/local"), "alert")
-        self.assertEqual(identifiers.get("repo-stats-stale:chill-01/local"), "warn")
-
-    def test_disk_forecast_alert(self) -> None:
-        soon = derive(disks=[{"mountpoint": "/mnt/data", "used_pct": 70.0, "fill_days": 5.0}])
-        self.assertEqual(by_id(soon)["disk-forecast:/mnt/data"]["severity"], "alert")
-        later = derive(disks=[{"mountpoint": "/mnt/data", "used_pct": 70.0, "fill_days": 10.0}])
-        self.assertEqual(by_id(later)["disk-forecast:/mnt/data"]["severity"], "warn")
-        nominal = derive(disks=[{"mountpoint": "/mnt/data", "used_pct": 70.0, "fill_days": 400.0}])
-        self.assertNotIn("disk-forecast:/mnt/data", by_id(nominal))
-        flat = derive(disks=[{"mountpoint": "/mnt/data", "used_pct": 70.0, "fill_days": None}])
-        self.assertNotIn("disk-forecast:/mnt/data", by_id(flat))
-        # A roomy filesystem with a noisy slope must not page anyone.
-        roomy = derive(disks=[{"mountpoint": "/mnt/fast", "used_pct": 11.0, "fill_days": 3.0}])
-        self.assertNotIn("disk-forecast:/mnt/fast", by_id(roomy))
-
-    def test_disk_thresholds(self) -> None:
-        self.assertIsNone(snapshot.disk_severity(84.9))
-        self.assertEqual(snapshot.disk_severity(85.0), "warn")
-        self.assertEqual(snapshot.disk_severity(90.0), "warn")
-        self.assertEqual(snapshot.disk_severity(90.1), "alert")
-        alerts = by_id(derive(disks=[{"mountpoint": "/mnt/data", "used_pct": 91.0}]))
-        self.assertEqual(alerts["disk:/mnt/data"]["severity"], "alert")
-
     def test_certificate_days_are_positive_while_valid(self) -> None:
         """A future expiry must not collapse to 0 d and page someone."""
         self.assertEqual(snapshot._days(NOW, NOW + 30 * 86400), 30.0)
@@ -882,19 +704,13 @@ class AlertTests(unittest.TestCase):
         self.assertEqual(snapshot._days(NOW, NOW - 86400), -1.0)
         self.assertIsNone(snapshot._days(NOW, None))
 
-    def test_live_route_shape_yields_no_tls_alert(self) -> None:
+    def test_network_joins_both_probe_jobs(self) -> None:
         routes = {
             "private": [
                 {
                     "exposure": "private",
                     "host": "files.h.malice.biz",
                     "upstream": "filebrowser:80",
-                    "probe": {
-                        "ok": True,
-                        "code": 200,
-                        "latency_ms": 12.0,
-                        "expires_ts": NOW + 60 * 86400,
-                    },
                 }
             ],
             "public": [
@@ -908,66 +724,34 @@ class AlertTests(unittest.TestCase):
         infra = {
             "http_probes": [
                 {
+                    "instance": "https://files.h.malice.biz",
+                    "success": True,
+                    "duration": 0.012,
+                    "code": 200,
+                    "expires_ts": NOW + 60 * 86400,
+                },
+                {
                     "instance": "https://photos.malice.biz",
                     "success": True,
                     "duration": 0.1,
+                    "code": 200,
                     "expires_ts": NOW + 60 * 86400,
-                }
+                },
             ]
         }
         network = snapshot._network_section(
             CONFIG, routes, infra, {"available": True, "peers": []}, NOW
         )
-        self.assertEqual(network["routes"][0]["tls_days"], 60.0)
-        alerts = by_id(derive(routes=network["routes"]))
-        self.assertEqual(
-            [key for key in alerts if key.startswith("tls")], []
+        by_host = {row["host"]: row for row in network["routes"]}
+        self.assertEqual(by_host["files.h.malice.biz"]["status"], "ok")
+        self.assertEqual(by_host["files.h.malice.biz"]["latency_ms"], 12.0)
+        self.assertEqual(by_host["files.h.malice.biz"]["tls_days"], 60.0)
+        self.assertEqual(by_host["photos.malice.biz"]["code"], 200)
+        # No series yet (first scrape after a deploy): unknown, not fail.
+        network = snapshot._network_section(
+            CONFIG, routes, {"http_probes": []}, {"available": True, "peers": []}, NOW
         )
-
-    def test_tls_thresholds(self) -> None:
-        self.assertIsNone(snapshot.tls_severity(15.0))
-        self.assertEqual(snapshot.tls_severity(13.0), "warn")
-        self.assertEqual(snapshot.tls_severity(6.9), "alert")
-        routes = [
-            {
-                "exposure": "private",
-                "host": "files.h.malice.biz",
-                "upstream": "filebrowser:80",
-                "status": "ok",
-                "tls_days": 5.0,
-            },
-            {
-                "exposure": "public",
-                "host": "photos.malice.biz",
-                "upstream": "10.44.0.2:2283",
-                "status": "ok",
-                "tls_days": 60.0,
-            },
-        ]
-        alerts = derive(routes=routes)
-        self.assertIn("tls:private-edge", {alert["id"] for alert in alerts})
-        self.assertNotIn("tls:photos.malice.biz", {alert["id"] for alert in alerts})
-
-    def test_route_failure_is_hard(self) -> None:
-        routes = [
-            {
-                "exposure": "private",
-                "host": "gotify.h.malice.biz",
-                "upstream": "gotify:80",
-                "status": "fail",
-                "tls_days": 60.0,
-                "error": "connect refused",
-            }
-        ]
-        alerts = derive(routes=routes)
-        self.assertEqual(alerts[0]["severity"], "alert")
-        self.assertIn("unreachable", alerts[0]["title"])
-
-    def test_wireguard_stale_is_warn(self) -> None:
-        alerts = by_id(
-            derive(wireguard=[{"peer": "abc", "handshake": NOW - 3600, "age": 3600}])
-        )
-        self.assertEqual(alerts["wireguard:abc"]["severity"], "warn")
+        self.assertEqual({row["status"] for row in network["routes"]}, {"unknown"})
 
     def test_integration_errors_are_warn(self) -> None:
         media = {

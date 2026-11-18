@@ -43,6 +43,43 @@ groups:
         annotations:
           summary: "Certificat bientôt expiré: {{ $labels.instance }}"
           description: "Expire dans {{ $value | humanizeDuration }}."
+      - alert: PrivateEndpointDown
+        expr: probe_success{job="blackbox-private"} == 0
+        for: 5m
+        labels: {severity: warning}
+        annotations:
+          summary: "Vhost privé down: {{ $labels.instance }}"
+          description: "Le probe HTTPS privé échoue depuis 5 minutes (Caddy ou son upstream)."
+      - alert: TLSCertExpiringSoonPrivate
+        # One wildcard certificate serves every private vhost: aggregate so one
+        # expiring cert does not emit sixteen identical alerts.
+        expr: min(probe_ssl_earliest_cert_expiry{job="blackbox-private"}) > 0 and min(probe_ssl_earliest_cert_expiry{job="blackbox-private"}) - time() < 14 * 24 * 3600
+        for: 1h
+        labels: {severity: warning}
+        annotations:
+          summary: "Certificat privé bientôt expiré"
+          description: "Le wildcard *.h.malice.biz expire dans {{ $value | humanizeDuration }}."
+      - alert: TCPProbeDown
+        expr: probe_success{job="blackbox-tcp"} == 0
+        for: 2m
+        labels: {severity: critical}
+        annotations:
+          summary: "Probe TCP en échec: {{ $labels.instance }}"
+          description: "Le DNAT public ne répond plus depuis 2 minutes."
+      - alert: DiskFillingSoon
+        # The dashboard used to project this from a 7 d slope and keep it
+        # silent. Same window here, but with a paging path.
+        expr: |
+          predict_linear(node_filesystem_avail_bytes{fstype!~"tmpfs|overlay|squashfs|ramfs|autofs"}[7d], 7 * 24 * 3600) < 0
+          and on (instance, mountpoint, device)
+          max by (instance, mountpoint, device) (
+            100 * (1 - node_filesystem_avail_bytes{fstype!~"tmpfs|overlay|squashfs|ramfs|autofs"} / node_filesystem_size_bytes{fstype!~"tmpfs|overlay|squashfs|ramfs|autofs"})
+          ) > 60
+        for: 1h
+        labels: {severity: warning}
+        annotations:
+          summary: "Disque bientôt plein: {{ $labels.mountpoint }}"
+          description: "La projection à 7 jours de l'espace libre est négative."
       - alert: DiskUsageHigh
         expr: |
           max by (instance, mountpoint) (
@@ -104,6 +141,27 @@ groups:
         annotations:
           summary: "Dépôt restic périmé: {{ $labels.repository }} sur {{ $labels.host }}"
           description: "Le snapshot le plus récent du dépôt a plus de 48h."
+      - alert: BackupStatsFailing
+        expr: homelab_backup_stats_success == 0
+        for: 1h
+        labels: {severity: warning}
+        annotations:
+          summary: "Stats restic en échec: {{ $labels.repository }} sur {{ $labels.host }}"
+          description: "restic snapshots/stats échoue; le marqueur de sauvegarde peut rester frais."
+      - alert: BackupStatsStale
+        expr: time() - homelab_backup_stats_timestamp_seconds > 12 * 3600
+        for: 1h
+        labels: {severity: warning}
+        annotations:
+          summary: "Stats restic périmées: {{ $labels.repository }} sur {{ $labels.host }}"
+          description: "Aucun rafraîchissement depuis plus de 12h."
+      - alert: BackupRepositoryEmpty
+        expr: homelab_backup_snapshot_count == 0
+        for: 1h
+        labels: {severity: critical}
+        annotations:
+          summary: "Dépôt restic vide: {{ $labels.repository }} sur {{ $labels.host }}"
+          description: "Le dépôt ne contient aucun snapshot."
       - alert: WireGuardHandshakeStale
         expr: time() - max(homelab_wireguard_latest_handshake_seconds) > 600
         for: 10m

@@ -6,7 +6,6 @@
   const POLL_MS = 5000;
   const STALE_MS = 15000;
   const REQUEST_TIMEOUT_MS = 8000;
-  const MAX_POINTS = 80;
   const LEVEL_RANK = { info: 0, warn: 1, error: 2 };
 
   const state = {
@@ -146,62 +145,6 @@
     const trimmed = url.trim();
     if (!/^https?:\/\//i.test(trimmed)) return false;
     return !/[\s\u0000-\u001f]/.test(trimmed);
-  }
-
-  function unitSuffix(unit) {
-    if (unit === 'percent') return '%';
-    if (unit === 'bytes_per_second') return ' B/s';
-    return '';
-  }
-
-  // ------------------------------------------------------------ sparkline --
-
-  function sparkline(series, tone) {
-    const wrap = h('div', { class: 'spark' + (tone === 'alt' ? ' second' : '') });
-    const points = series && Array.isArray(series.points) ? series.points.filter((p) => num(p[1])) : [];
-    if (!points.length) {
-      wrap.appendChild(h('span', { class: 'nodata', text: 'no data' }));
-      return wrap;
-    }
-    const step = Math.max(1, Math.ceil(points.length / MAX_POINTS));
-    const sampled = [];
-    for (let i = 0; i < points.length; i += step) sampled.push(points[i][1]);
-    const last = points[points.length - 1][1];
-    if (sampled[sampled.length - 1] !== last) sampled.push(last);
-
-    const W = 240;
-    const H = 48;
-    const min = Math.min(...sampled);
-    const max = Math.max(...sampled);
-    const span = max - min;
-    const x = (i) => (sampled.length === 1 ? 0 : (i / (sampled.length - 1)) * W);
-    const y = (v) => (span === 0 ? H / 2 : H - 3 - ((v - min) / span) * (H - 6));
-    const line = sampled.map((v, i) => x(i).toFixed(1) + ',' + y(v).toFixed(1)).join(' ');
-    const area = '0,' + H + ' ' + line + ' ' + W + ',' + H;
-    const svg = s('svg', {
-      viewBox: '0 0 ' + W + ' ' + H,
-      preserveAspectRatio: 'none',
-      role: 'img',
-      'aria-label': 'last 30 minutes, current ' + (num(last) ? last.toFixed(1) : '?'),
-    },
-      s('polygon', { points: area, fill: 'currentColor', 'fill-opacity': '0.08', stroke: 'none' }),
-      s('polyline', {
-        points: line,
-        fill: 'none',
-        stroke: 'currentColor',
-        'stroke-width': '1',
-        'stroke-linecap': 'butt',
-        'stroke-linejoin': 'miter',
-        'vector-effect': 'non-scaling-stroke',
-      })
-    );
-    wrap.appendChild(svg);
-    return wrap;
-  }
-
-  function lastPoint(series) {
-    if (!series || !Array.isArray(series.points) || !series.points.length) return null;
-    return series.points[series.points.length - 1][1];
   }
 
   // --------------------------------------------------------------- status --
@@ -380,19 +323,11 @@
 
   // ----------------------------------------------------------- telemetry --
 
-  function fmtDays(days) {
-    // A projection decades out is noise, not information.
-    if (!num(days) || days > 365) return '—';
-    if (days < 1) return '<1 d';
-    return days.toFixed(days < 10 ? 1 : 0) + ' d';
-  }
-
-  function metricCard(label, value, unit, series, sub, tone) {
+  function metricCard(label, value, unit, sub) {
     return h('div', { class: 'metric' },
       h('div', { class: 'label', text: label }),
       h('div', { class: 'value' }, value, unit ? h('span', { class: 'unit', text: unit }) : null),
-      sub ? h('div', { class: 'sub', text: sub }) : null,
-      sparkline(series, tone)
+      sub ? h('div', { class: 'sub', text: sub }) : null
     );
   }
 
@@ -443,7 +378,6 @@
     clear(body);
     const telemetry = data.telemetry || {};
     const nodes = telemetry.nodes || [];
-    const series = telemetry.series || {};
     const chill = nodes.find((n) => n.name === 'chill-01') || {};
     $('telemetry-meta').textContent = telemetry.updated_at
       ? 'updated ' + fmtAge((Date.now() - new Date(telemetry.updated_at).getTime()) / 1000)
@@ -453,10 +387,10 @@
     }
 
     body.appendChild(h('div', { class: 'grid grid-4' },
-      metricCard('CPU', fmtPct(chill.cpu_pct, 1), '%', series.cpu, chill.up ? 'chill-01' : 'chill-01 down'),
-      metricCard('Memory', fmtPct(chill.mem_pct, 1), '%', series.mem, chill.up ? 'chill-01' : 'chill-01 down'),
-      metricCard('Network in', fmtBytes(lastPoint(series.net_rx), '/s'), '', series.net_rx, 'eth0', 'alt'),
-      metricCard('Network out', fmtBytes(lastPoint(series.net_tx), '/s'), '', series.net_tx, 'eth0', 'alt')
+      metricCard('CPU', fmtPct(chill.cpu_pct, 1), '%', chill.up ? 'chill-01' : 'chill-01 down'),
+      metricCard('Memory', fmtPct(chill.mem_pct, 1), '%', chill.up ? 'chill-01' : 'chill-01 down'),
+      metricCard('Network in', fmtBytes(chill.net_rx, '/s'), '', 'eth0'),
+      metricCard('Network out', fmtBytes(chill.net_tx, '/s'), '', 'eth0')
     ));
 
     const diskRows = (telemetry.disks || []).map((disk) => {
@@ -470,11 +404,6 @@
         h('td', { class: 'right mono ' + (cls ? 'state-' + cls : '') }, fmtPct(disk.used_pct, 1) + '%'),
         h('td', { class: 'right mono muted', text: fmtBytes(disk.size_bytes) }),
         h('td', { class: 'right mono muted', text: fmtBytes(disk.avail_bytes) }),
-        h('td', {
-          class: 'right mono ' + (num(disk.fill_days) && disk.fill_days < 7 ? 'state-alert'
-            : num(disk.fill_days) && disk.fill_days < 14 ? 'state-warn' : 'muted'),
-          text: fmtDays(disk.fill_days),
-        }),
         h('td', {}, h('progress', {
           value: num(disk.used_pct) ? Math.min(100, disk.used_pct) : 0,
           max: 100,
@@ -492,7 +421,7 @@
             h('thead', {}, h('tr', {},
               h('th', { text: 'mount' }), h('th', { class: 'right', text: 'used' }),
               h('th', { class: 'right', text: 'size' }), h('th', { class: 'right', text: 'free' }),
-              h('th', { class: 'right', text: 'fills' }), h('th', { text: '' }))),
+              h('th', { text: '' }))),
             h('tbody', {}, diskRows)))
           : h('div', { class: 'empty', text: 'no filesystem metrics' })
       ),
