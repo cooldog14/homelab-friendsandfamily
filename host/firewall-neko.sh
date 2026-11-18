@@ -69,6 +69,16 @@ if [ -n "$obs_br" ]; then
     -m comment --comment "$MARKER-allow-malice" -j ACCEPT
 fi
 
+# Jellyfin has a LAN-only bind for TVs. Docker bypasses UFW, so the container's
+# replies to LAN clients need this narrow established-only exception above the
+# bridge block rules. Do not widen it to new connections or other ports.
+media_br=$(docker network inspect media_default --format '{{.Id}}' 2>/dev/null | cut -c1-12 | sed 's/^/br-/')
+if [ -n "$media_br" ]; then
+  iptables -I DOCKER-USER 1 -i "$media_br" -o eth0 -d 192.168.1.0/24 \
+    -p tcp --sport 8096 -m conntrack --ctstate ESTABLISHED,RELATED \
+    -m comment --comment "$MARKER-allow-jellyfin-lan" -j ACCEPT
+fi
+
 # Persist the rules for emergency inspection. Boot persistence is provided by
 # homelab-firewall-neko.service, which re-runs after Docker and recreates bridge
 # names; nothing restores this file automatically.
