@@ -83,17 +83,17 @@ class Settings:
             integrations=(
                 Integration(
                     "jellyfin",
-                    get("JELLYFIN_URL", "http://10.44.0.2:8096"),
+                    get("JELLYFIN_URL", "http://jellyfin:8096"),
                     get("JELLYFIN_API_KEY"),
                 ),
                 Integration(
                     "jellyseerr",
-                    get("JELLYSEERR_URL", "http://10.44.0.2:5055"),
+                    get("JELLYSEERR_URL", "http://jellyseerr:5055"),
                     get("JELLYSEERR_API_KEY"),
                 ),
                 Integration(
                     "prowlarr",
-                    get("PROWLARR_URL", "http://172.17.0.1:9696"),
+                    get("PROWLARR_URL", "http://prowlarr:9696"),
                     get("PROWLARR_API_KEY"),
                 ),
                 Integration(
