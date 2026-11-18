@@ -975,7 +975,7 @@ class AlertTests(unittest.TestCase):
             "requests": {"configured": False, "error": None},
         }
         pipeline = {
-            "prowlarr": {"configured": True, "error": None, "errors": ["Indexer down"], "warnings": []},
+            "prowlarr": {"configured": True, "error": "timeout", "errors": ["Indexer down"], "warnings": ["update"]},
             "sonarr": {
                 "configured": True,
                 "error": None,
@@ -987,8 +987,12 @@ class AlertTests(unittest.TestCase):
         alerts = by_id(derive(media=media, pipeline=pipeline))
         self.assertEqual({alert["severity"] for alert in alerts.values()}, {"warn"})
         self.assertIn("integration:jellyfin", alerts)
-        self.assertIn("arr-error:prowlarr:Indexer down", alerts)
-        self.assertIn("queue:sonarr:Andor.S02E03", alerts)
+        self.assertIn("integration:prowlarr", alerts)
+        # Health notices and queue rows stay in the media panels: the top
+        # strip is reserved for urgent/important state.
+        self.assertNotIn("arr-error:prowlarr:Indexer down", alerts)
+        self.assertNotIn("arr-warn:prowlarr:update", alerts)
+        self.assertNotIn("queue:sonarr:Andor.S02E03", alerts)
 
     def test_unconfigured_integrations_are_muted(self) -> None:
         alerts = derive(
