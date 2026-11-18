@@ -26,10 +26,13 @@ per-channel cap, 128 kbit/s per client, 1k text / 64k image messages, no
 recording, no UDP ping responses, no version disclosure, and
 `channelname=.+` so emoji names are accepted.
 
-The root channel is named `MALICE`, but the stock Mumble client hardcodes
-the channel-tree root label to `Root`; renaming the server-side root does
-not change it. The visible server-level message is the welcome text
-(MOTD), currently `BIENVENUE CHEZ LA MALICE !`. The `all` group can
+The client renders the channel-tree root label from the server's
+`registerName` value (`Root` when unset), not from the root channel row.
+`registerName=MALICE` is set in the compose environment; it does not
+publish the server because no `registerPassword`/`registerUrl` are set and
+pings are disabled. The root channel row is also named `MALICE` for
+consistency. The visible server-level message is the welcome text (MOTD),
+currently `BIENVENUE CHEZ LA MALICE !`. The `all` group can
 traverse/enter/speak/whisper/text/listen and create **temporary** channels;
 it cannot create permanent channels, move or mute users, kick, ban,
 register users, or write ACLs. SuperUser bypasses ACLs. Do not add anyone
