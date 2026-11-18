@@ -1246,6 +1246,10 @@ Do not test by deleting data.
   `https://{home,grafana,cockpit}.h.malice.biz` returned 200 and
   `{stirling,sonarr}.h.malice.biz` returned 401 (expected, allowed by the
   blackbox module), so the new job's DNS/TLS path works from the container
-  network.
+  network. After deploy: all 16 `blackbox-private` targets up, 25 rules
+  loaded with the `fuse.*` forecast filter, Grafana serves 14 panels, and
+  `home.h` renders 43/43 running services with zero console errors. The
+  live `Mémoire hyperviseur < 10%` warning now reaches the strip through
+  the pass-through instead of a local copy.
 - Rollback: revert the commit and `make deploy`; Prometheus restarts with the
   previous rule set and `home.h` returns to its local derivations.
