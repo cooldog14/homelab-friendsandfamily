@@ -935,32 +935,6 @@ def _derive_alerts(
                 section["error"],
                 href,
             )
-        for message in section.get("errors") or []:
-            add(
-                "warn",
-                f"arr-error:{name}:{message[:40]}",
-                f"{label}: {message[:80]}",
-                "reported by the application health API",
-                href,
-            )
-        for message in section.get("warnings") or []:
-            add(
-                "warn",
-                f"arr-warn:{name}:{message[:40]}",
-                f"{label} warning: {message[:80]}",
-                "reported by the application health API",
-                href,
-            )
-        queue = section.get("queue") or {}
-        for row in queue.get("stalled") or []:
-            add(
-                "warn",
-                f"queue:{name}:{row.get('title')}",
-                f"{label} stalled: {row.get('title') or 'unknown'}",
-                f"{row.get('tracked_state') or row.get('status')} "
-                f"{row.get('error') or ''}".strip(),
-                href,
-            )
 
     severity_order = {"alert": 0, "warn": 1}
     alerts.sort(key=lambda item: (severity_order.get(item["severity"], 9), item["title"]))
