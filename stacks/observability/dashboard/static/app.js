@@ -1035,19 +1035,23 @@
         ]))
     ));
 
-    body.appendChild(h('h3', { text: 'Ports' }));
+    body.appendChild(h('h3', { class: 'alloc-title', text: 'Ports' }));
     const ports = inventory.ports || [];
     body.appendChild(ports.length
-      ? h('div', { class: 'table-wrap', dataset: { scroll: 'ports' } }, h('table', {},
+      ? h('div', { class: 'table-wrap', dataset: { scroll: 'ports' } }, h('table', { class: 'alloc-table' },
         h('thead', {}, h('tr', {},
-          h('th', { text: 'stack/service' }), h('th', { text: 'host ip' }),
+          h('th', { text: 'stack / service' }), h('th', { text: 'host ip' }),
           h('th', { class: 'right', text: 'host' }), h('th', { class: 'right', text: 'container' }),
           h('th', { text: 'proto' }), h('th', { text: 'note' }))),
         h('tbody', {}, ports.map((row) => {
           const search = [row.stack, row.service, row.host_ip, row.host_port, row.container_port, row.note]
             .filter((v) => v !== null && v !== undefined).join(' ').toLowerCase();
           return h('tr', { dataset: { search } },
-            h('td', { class: 'mono', text: row.stack + '/' + row.service }),
+            h('td', { class: 'mono' },
+              h('span', { class: 'alloc-id' },
+                h('span', { class: 'stack', text: row.stack }),
+                h('span', { class: 'sep', text: '/' }),
+                h('span', { class: 'service', text: row.service }))),
             h('td', { class: 'mono muted', text: row.host_ip || '—' }),
             h('td', { class: 'right mono', text: row.host_port === null || row.host_port === undefined ? '—' : String(row.host_port) }),
             h('td', { class: 'right mono', text: String(row.container_port) }),
@@ -1056,18 +1060,22 @@
         }))))
       : h('div', { class: 'empty', text: 'no declared ports' }));
 
-    body.appendChild(h('h3', { text: 'Volumes' }));
+    body.appendChild(h('h3', { class: 'alloc-title', text: 'Volumes' }));
     const volumes = inventory.volumes || [];
     body.appendChild(volumes.length
-      ? h('div', { class: 'table-wrap', dataset: { scroll: 'volumes' } }, h('table', {},
+      ? h('div', { class: 'table-wrap', dataset: { scroll: 'volumes' } }, h('table', { class: 'alloc-table' },
         h('thead', {}, h('tr', {},
-          h('th', { text: 'stack/service' }), h('th', { text: 'source' }),
+          h('th', { text: 'stack / service' }), h('th', { text: 'source' }),
           h('th', { text: 'target' }), h('th', { text: 'mode' }))),
         h('tbody', {}, volumes.map((row) => {
           const search = [row.stack, row.service, row.source, row.target, row.mode]
             .filter((v) => v !== null && v !== undefined).join(' ').toLowerCase();
           return h('tr', { dataset: { search } },
-            h('td', { class: 'mono', text: row.stack + '/' + row.service }),
+            h('td', { class: 'mono' },
+              h('span', { class: 'alloc-id' },
+                h('span', { class: 'stack', text: row.stack }),
+                h('span', { class: 'sep', text: '/' }),
+                h('span', { class: 'service', text: row.service }))),
             h('td', { class: 'mono muted wrap', text: row.source || 'anonymous' }),
             h('td', { class: 'mono wrap', text: row.target || '' }),
             h('td', { class: 'mono muted', text: row.mode || 'rw' }));
