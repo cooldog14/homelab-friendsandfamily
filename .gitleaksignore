@@ -1,0 +1,2 @@
+# Historical redaction test fixture; the current test uses a low-entropy value.
+1ea36c57e4ef8fef4d5f5098eae6b0a887932c84:stacks/observability/dashboard/tests/test_parsers.py:generic-api-key:298
