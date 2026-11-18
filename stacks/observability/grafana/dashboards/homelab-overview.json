@@ -240,7 +240,7 @@
           "refId": "A",
           "datasource": { "type": "prometheus", "uid": "prometheus" },
           "expr": "100 * (1 - node_filesystem_avail_bytes{fstype!~\"tmpfs|overlay|squashfs|ramfs|autofs\"} / node_filesystem_size_bytes{fstype!~\"tmpfs|overlay|squashfs|ramfs|autofs\"})",
-          "legendFormat": "{{mountpoint}}"
+          "legendFormat": "{{job}} {{mountpoint}}"
         }
       ],
       "fieldConfig": {
@@ -370,7 +370,7 @@
         {
           "refId": "A",
           "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "expr": "min by (mountpoint) (node_filesystem_avail_bytes{fstype!~\"tmpfs|overlay|squashfs|ramfs|autofs\"} / clamp_min(-deriv(node_filesystem_avail_bytes{fstype!~\"tmpfs|overlay|squashfs|ramfs|autofs\"}[7d]), 1) / 86400)",
+          "expr": "min by (job, mountpoint) (node_filesystem_avail_bytes{fstype!~\"tmpfs|overlay|squashfs|ramfs|autofs|fuse.*\"} / clamp_min(-deriv(node_filesystem_avail_bytes{fstype!~\"tmpfs|overlay|squashfs|ramfs|autofs|fuse.*\"}[7d]), 1) / 86400)",
           "instant": true,
           "format": "table"
         }
