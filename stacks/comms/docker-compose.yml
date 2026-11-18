@@ -21,16 +21,16 @@ services:
       - "10.44.0.2:64738:64738/udp"
     environment:
       MUMBLE_SUPERUSER_PASSWORD: ${MUMBLE_SUPERUSER_PASSWORD}
-      # DNS-01 certificate for mumble.malice.biz; users must connect by name.
-      ACME_DOMAIN: "mumble.malice.biz"
-      ACME_ACCOUNT_MAIL: "admin@malice.biz"
-      ACME_DNS: "cloudflare"
+      # DNS-01 certificate covers the apex and the Mumble name; either works.
+      # Upstream uses ACME_LEGO_ARGS verbatim when set, so it includes the
+      # account, names, server, state path, and DNS provider.
+      ACME_LEGO_ARGS: "--email admin@malice.biz --domains malice.biz --domains mumble.malice.biz --server https://acme-v02.api.letsencrypt.org/directory --path /etc/acme --accept-tos --dns cloudflare"
       CF_DNS_API_TOKEN: ${CF_DNS_API_TOKEN}
       # The entrypoint rewrites /data/mumble_server_config.ini on every
       # start from these MUMBLE_CONFIG_* values; never edit that file.
       # channelname must allow emoji because channels use emoji prefixes.
       MUMBLE_CONFIG_CHANNEL_NAME: ".+"
-      MUMBLE_CONFIG_WELCOME_TEXT: '"<br />Welcome to MALICE.<br />Be excellent to each other.<br />"'
+      MUMBLE_CONFIG_WELCOME_TEXT: '"<br />BIENVENUE CHEZ LA MALICE !<br />"'
       MUMBLE_CONFIG_ALLOW_PING: "false"
       MUMBLE_CONFIG_SEND_VERSION: "false"
       MUMBLE_CONFIG_USERS: "100"
