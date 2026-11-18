@@ -131,6 +131,9 @@ Historical detail is retained separately:
   GiB; cold 6m45s, warm 1m22s).
 - External alert failure/recovery accepted; PVE Gotify target tested; Worker
   scheduled runs verified.
+- Media pipeline: Prowlarr 3.0.2, Sonarr 4.0.20 and Radarr 7.0.3 deployed;
+  EZTV pinned to `eztv.yt` behind FlareSolverr; all three app health checks
+  are clean.
 - Closed/stale historical items: broad WireGuard exposure, admin-port exposure,
   Neko lateral movement, boot guard, backup dump atomicity, reboot/backup
   overlap, public-check independence, PVE notification absence, sdc NFS/virtiofs
