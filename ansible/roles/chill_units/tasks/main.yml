@@ -15,6 +15,7 @@
     - {src: restic-check.sh, dest: homelab-restic-check}
     - {src: restic-retention.py, dest: homelab-restic-retention}
     - {src: backup-stats.py, dest: homelab-backup-stats}
+    - {src: wrtag-import.sh, dest: homelab-wrtag-import}
 
 - name: Install systemd units
   ansible.builtin.copy:

@@ -335,7 +335,10 @@ services:
       Deezer__Arl: ${DEEZER_ARL}
       Deezer__Quality: "flac"
     volumes:
-      - /mnt/data/media/music/clean:/app/downloads
+      # Stage downloads for review. Music must not enter `clean` here:
+      # `homelab-wrtag-import` queues reviewed directories through wrtag,
+      # which is the only writer to the Navidrome library.
+      - /mnt/data/media/downloads/octo-fiesta:/app/downloads
       - ./state/octo-fiesta:/config
     depends_on:
       - navidrome

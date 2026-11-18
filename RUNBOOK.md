@@ -1149,3 +1149,20 @@ Do not test by deleting data.
   exclusions; Sonarr release profile id 1. Prowlarr v2.4.0 reports
   v3.0.2 available; not upgraded here.
 
+## maintenance 2026-11-18: Octo-Fiesta stages music for wrtag
+
+- Change: Octo-Fiesta's `/app/downloads` bind moved from
+  `music/clean` to `media/downloads/octo-fiesta`. It no longer writes
+  music into the Navidrome library; `homelab-wrtag-import <dir>` queues a
+  reviewed directory through wrtagweb, so wrtag is the only writer to
+  `clean`. Playlist exports also land under the staging tree; regenerate
+  them after the album is imported.
+- Review: admin Filebrowser (`files.h.malice.biz`) -> `media/downloads/
+  octo-fiesta`. The existing `media/downloads/_to-review` backlog is
+  untouched.
+- Verify: `docker inspect media-octo-fiesta-1` shows the staging bind as
+  `/app/downloads`; a test download lands there; `homelab-wrtag-import`
+  returns a wrtag job.
+- Rollback: restore `/mnt/data/media/music/clean:/app/downloads` in
+  `stacks/media/docker-compose.yml` and run `make deploy`.
+
