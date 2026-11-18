@@ -75,12 +75,15 @@ def album_dirs() -> list[Path]:
     for artist in sorted(STAGING.iterdir()):
         if not artist.is_dir() or artist.name.startswith(".") or artist.name == "playlists":
             continue
-        if has_audio(artist):
+        albums = [
+            child
+            for child in sorted(artist.iterdir())
+            if child.is_dir() and has_audio(child)
+        ]
+        if albums:
+            found.extend(albums)
+        elif has_audio(artist):
             found.append(artist)
-            continue
-        for album in sorted(artist.iterdir()):
-            if album.is_dir() and has_audio(album):
-                found.append(album)
     return found
 
 
