@@ -11,25 +11,29 @@ SQLite database in `./state/mumble` holds channels, ACLs, registered users
 and bans.
 
 The image is `v1.5.939-acme`: lego obtains and renews a Let's Encrypt
-certificate for `mumble.malice.biz` over Cloudflare DNS-01 and installs it
-under `./state/mumble/acme`; the let's-encrypt account data lives in
-`./state/mumble/acme-lego`. Clients must connect to `mumble.malice.biz`
-(the DNS wildcard points at the VPS), not the bare IP, or the certificate
-name check fails. `supervisord.conf` + `wait-for-cert.sh` delay Mumble on a
-fresh volume until the first certificate exists; the upstream `-acme` image
-otherwise exhausts its start retries before lego finishes.
+certificate for `malice.biz` and `mumble.malice.biz` over Cloudflare
+DNS-01 and installs it under `./state/mumble/acme`; the let's-encrypt
+account data lives in `./state/mumble/acme-lego`. Clients may connect to
+either name (the DNS wildcard/apex point at the VPS), not the bare IP, or
+the certificate name check fails. `supervisord.conf` + `wait-for-cert.sh`
+delay Mumble on a fresh volume until the first certificate exists; the
+upstream `-acme` image otherwise exhausts its start retries before lego
+finishes.
 
-Current channels are `🌐` and `👁️` under root `MALICE`. Mumble has no
-channel-icon field; the emoji is the channel name. Hardening defaults:
-100 users, no per-channel cap, 128 kbit/s per client, 1k text / 64k image
-messages, no recording, no UDP ping responses, no version disclosure, and
+Current channels are `🌐` and `👁️` under root. Mumble has no channel-icon
+field; the emoji is the channel name. Hardening defaults: 100 users, no
+per-channel cap, 128 kbit/s per client, 1k text / 64k image messages, no
+recording, no UDP ping responses, no version disclosure, and
 `channelname=.+` so emoji names are accepted.
 
-The root channel is the server name shown to clients (`MALICE`). The `all`
-group can traverse/enter/speak/whisper/text/listen and create **temporary**
-channels; it cannot create permanent channels, move or mute users, kick,
-ban, register users, or write ACLs. SuperUser bypasses ACLs. Do not add
-anyone to the `admin` group.
+The root channel is named `MALICE`, but the stock Mumble client hardcodes
+the channel-tree root label to `Root`; renaming the server-side root does
+not change it. The visible server-level message is the welcome text
+(MOTD), currently `BIENVENUE CHEZ LA MALICE !`. The `all` group can
+traverse/enter/speak/whisper/text/listen and create **temporary** channels;
+it cannot create permanent channels, move or mute users, kick, ban,
+register users, or write ACLs. SuperUser bypasses ACLs. Do not add anyone
+to the `admin` group.
 
 Secrets live only in `/opt/stacks/comms/.env` (root-only, never deployed
 from git). `CF_DNS_API_TOKEN` is the same Cloudflare DNS token used by the
