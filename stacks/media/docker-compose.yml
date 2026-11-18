@@ -31,6 +31,10 @@ services:
       - /mnt/pool/media/movies:/pool/movies:ro
       - /mnt/pool/media/tv:/pool/tv:ro
     restart: unless-stopped
+    networks:
+      default:
+      homelab-edge:
+        aliases: [jellyfin]
     environment:
       TZ: Europe/Paris
 
@@ -69,6 +73,12 @@ services:
       WIREGUARD_PUBLIC_KEY: ${VPS_WG_PUBKEY}
       TZ: Europe/Paris
     restart: unless-stopped
+    networks:
+      default:
+      homelab-edge:
+        # Prowlarr shares this network namespace; the alias lets the
+        # observability dashboard read :9696 without host-published ports.
+        aliases: [prowlarr]
 
   qbittorrent:
     image: lscr.io/linuxserver/qbittorrent:5.2.2
@@ -238,6 +248,10 @@ services:
       LOG_LEVEL: info
     ports:
       - "10.44.0.2:5055:5055"
+    networks:
+      default:
+      homelab-edge:
+        aliases: [jellyseerr]
     volumes:
       - ./state/jellyseerr:/app/config
     depends_on:
