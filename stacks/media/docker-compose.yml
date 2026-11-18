@@ -297,7 +297,10 @@ services:
       WRTAG_WEB_LISTEN_ADDR: ":7373"
       WRTAG_WEB_DB_PATH: /data/wrtag.db
       WRTAG_WEB_NUM_WORKERS: "4"
-      WRTAG_WEB_AUTH: "basic-auth-from-api-key"
+      # UI auth off on purpose: the only route is the private Caddy vhost over
+      # Tailscale, and the tailnet is the outer boundary. /op/ keeps its API
+      # key, so slskd and homelab-wrtag-import are unchanged.
+      WRTAG_WEB_AUTH: "disabled"
       WRTAG_LOG_LEVEL: "info"
       WRTAG_ADDON: "lyrics lrclib genius musixmatch"
       WRTAG_KEEP_FILE: "origin.yaml,*.cue,*.log"
