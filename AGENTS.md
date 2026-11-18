@@ -99,7 +99,8 @@ guests, snapshot, zstd, Sun 03:30, keep-last 8, writes
   Feishin/player (`:9180`), Octo-fiesta (`:5274`), Suwayomi (`:4567`,
   public `mg.malice.biz` + private), wrtag (`:7373`). Octo-Fiesta stages
   downloads in `/mnt/data/media/downloads/octo-fiesta`; review there and
-  import with `homelab-wrtag-import` so wrtag is the only writer to `clean`.
+  import with `homelab-wrtag-import`, or let `homelab-music-import.timer`
+  queue them daily and show the review count on `home.h.malice.biz`.
   Jellyfin `/cache` -> `/mnt/fast/jellyfin-cache`;
   `/pool/movies|tv` ro. GPU `renderD128` present, QSV->VAAPI flip open.
   slskd (`:5030`) and wrtag (`:7373`) web UIs require authentication.

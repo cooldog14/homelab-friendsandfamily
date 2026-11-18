@@ -1157,12 +1157,18 @@ Do not test by deleting data.
   reviewed directory through wrtagweb, so wrtag is the only writer to
   `clean`. Playlist exports also land under the staging tree; regenerate
   them after the album is imported.
+- Daily: `homelab-music-import.timer` runs at 06:15, queues staging
+  directories older than one hour, and writes
+  `/opt/stacks/observability/state/music-review.json`. The home dashboard
+  shows a warning with the number of albums needing input/retry and a
+  Music review block in Media activity.
 - Review: admin Filebrowser (`files.h.malice.biz`) -> `media/downloads/
   octo-fiesta`. The existing `media/downloads/_to-review` backlog is
   untouched.
 - Verify: `docker inspect media-octo-fiesta-1` shows the staging bind as
   `/app/downloads`; a test download lands there; `homelab-wrtag-import`
-  returns a wrtag job.
+  returns a wrtag job; `systemctl status homelab-music-import.timer`
+  shows the next run.
 - Rollback: restore `/mnt/data/media/music/clean:/app/downloads` in
   `stacks/media/docker-compose.yml` and run `make deploy`.
 

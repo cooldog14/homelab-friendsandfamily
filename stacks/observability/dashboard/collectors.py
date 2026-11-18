@@ -7,6 +7,7 @@ records the error, so a dead integration degrades one panel instead of the page.
 
 from __future__ import annotations
 
+import json
 import re
 import sys
 import threading
@@ -214,6 +215,7 @@ class Collectors:
         self.integrations = Store(60)
         self.network = Store(30)
         self.inventory = Store(60)
+        self.music_review = Store(30)
         self.logs = LogRing()
 
         self._title_cache: dict[tuple, tuple[str, float]] = {}
@@ -230,6 +232,7 @@ class Collectors:
             ("integrations", self.integrations, self._fetch_integrations),
             ("tailscale", self.network, self._fetch_tailscale),
             ("inventory", self.inventory, self._fetch_inventory),
+            ("music-review", self.music_review, self._fetch_music_review),
         )
         for name, store, fetch in groups:
             thread = Refresher(name, store, fetch)
@@ -595,6 +598,52 @@ class Collectors:
                 entry["error"] = "; ".join(errors)
             result[name] = entry
 
+        return result
+
+    def _fetch_music_review(self) -> dict:
+        path = (
+            Path(self.settings.stacks_root)
+            / "observability"
+            / "state"
+            / "music-review.json"
+        )
+        try:
+            raw = json.loads(path.read_text(encoding="utf-8"))
+        except FileNotFoundError:
+            return {"available": False, "error": None}
+        except (OSError, ValueError) as exc:
+            return {"available": False, "error": str(exc)}
+        if not isinstance(raw, dict):
+            return {"available": False, "error": "unexpected status payload"}
+
+        result: dict[str, Any] = {"available": True, "error": None}
+        for key in (
+            "staged",
+            "queued",
+            "imported",
+            "processing",
+            "needs_input",
+            "errors",
+            "too_new",
+            "unmanaged",
+            "needs_review",
+            "manual_backlog",
+        ):
+            try:
+                result[key] = max(0, int(raw.get(key) or 0))
+            except (TypeError, ValueError):
+                result[key] = 0
+        result["generated_at"] = raw.get("generated_at")
+        try:
+            result["generated_ts"] = float(raw.get("generated_ts"))
+        except (TypeError, ValueError):
+            result["generated_ts"] = None
+        job_url = raw.get("job_url")
+        result["job_url"] = (
+            job_url if isinstance(job_url, str) and job_url.startswith("https://") else None
+        )
+        if raw.get("error"):
+            result["error"] = str(raw["error"])
         return result
 
     def _seerr_titles(self, payloads: dict[str, Any]) -> dict[str, str]:
