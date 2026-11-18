@@ -1099,3 +1099,53 @@ Do not test by deleting data.
   clean). Stack state was archived to
   `/mnt/fast/scratch/pre-upgrade-20261117T125357Z` before recreation.
 
+## incident 2026-11-18: fake release payloads, partial packs, and indexer coverage
+
+- Queue: 29 Sonarr records, not a mount/VPN fault. Four `importPending`
+  were fake releases, not video: statusMessages showed `Invalid video
+  file, unsupported extension: '.7z'`, `Caution: Found executable file
+  with extension: '.exe'`, and `Caution: Found potentially dangerous file
+  with extension: .zipx`. `file(1)` confirmed two 0.9-1.0G PE32+ Windows
+  executables plus real 7z/ZIP archives, all from LimeTorrents/Nyaa.
+  Torrents and data were deleted; none was executed on chill.
+- Ten `importBlocked` S14 rows were one incomplete `MULTi` pack with
+  E01-E09 only. Sonarr refuses a partial season and keeps the completed
+  torrent queued; the library already had the nine files. The pack was
+  removed; S14E10 is re-downloading as `Waiting for Big Mo 1080p AMZN
+  WEB-DL DDP5.1 H.264-NTb` from the new Torrent Downloads indexer.
+- Thirteen `importBlocked` S04 rows were one valid DVDrip pack with scene
+  filenames `clue-sun401.avi`..`clue-sun413.avi`. With no `SxxExx`,
+  Sonarr's `FullSeasonSpecification` treats each file as the whole season.
+  The torrent was removed (data kept), files renamed to `S04E01..E13`,
+  and ManualImport moved 13/13 into `/pool/tv`.
+- S15E05 was a dead fake: qbit `stalledDL`, 0 complete peers, 97
+  leechers. Sonarr only warns on stalled downloads, so the queue never
+  clears. Replaced with `S15E05 PROPER 1080p HEVC x265-MeGusta` (387M);
+  the first 1080p and 720p picks had dead or near-dead swarms.
+- The four fake Traitors episodes were replaced with proper EZTV
+  `1080p HDTV H264-DARKFLiX` releases and imported; S02 is now 10/10.
+- Supply root cause: public-indexer quality, not Prowlarr/RSS wiring.
+  Prowlarr grew from 10 to 16 indexers: Anime Tosho, ExtraTorrent.st,
+  TorrentByte, Torrent Downloads, World-torrent, YTS. Cloudflare-protected
+  ones need FlareSolverr, which Prowlarr already runs; its proxy is
+  tag-gated (`flaresolverr`, tag 1), so the new indexers were tagged with
+  it. The first sync attempts hit the indexer backoff (`429 ... disabled
+  till 01:11Z`) and left stale `ApplicationIndexerMapping` rows pointing
+  at Sonarr ids 29-31 that did not exist. Later syncs tried to UPDATE
+  those ghosts and never ADDed the indexers. Deleting and re-adding
+  ExtraTorrent.st, TorrentByte and Torrent Downloads cleared the
+  mappings; Sonarr now has 15 indexers (the three new TV sources plus
+  Anime Tosho/World-torrent). YTS is movies-only and stays in Radarr.
+- Prevention: qbit `excluded_file_names` now blocks `.exe/.scr/.com/.bat/
+  .cmd/.ps1/.vbs/.js/.jse/.wsf/.hta/.msi/.lnk/.reg`; Sonarr release
+  profile `Reject archive wrappers` ignores `7z` and `zipx` titles.
+  Completed/failed removal was already enabled; it cannot clear a
+  *blocked import*, which is why the S04/S14 rows persisted for weeks.
+- Exposure: the payloads sat in `/mnt/data/downloads`, the main
+  Filebrowser root (`/mnt/data:/srv`), reachable only through the private
+  admin instance; the public family instance mounts `/mnt/data/family`
+  only. No execution evidence: chill is Linux and qbit autorun is off.
+- State-only (not git): those six Prowlarr indexers and tag 1; qbit
+  exclusions; Sonarr release profile id 1. Prowlarr v2.4.0 reports
+  v3.0.2 available; not upgraded here.
+

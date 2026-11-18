@@ -75,6 +75,11 @@ Historical detail is retained separately:
   `sde` and `sdf`; the Gotify notifier test returned 0.
 - [ ] Add private app health instrumentation where Docker has none (Caddy,
   Jellyseerr, Navidrome, Radarr/Sonarr/Bazarr) and monitor the private edge.
+- [ ] Alert on arr queue rot: Sonarr/Radarr items stuck in
+  `importBlocked`/`importPending` for more than 24h, and executable
+  payloads under `/mnt/data/downloads`. The 2026-11-18 incident showed
+  fake `.exe`/archive releases and incomplete packs can sit in the queue
+  for weeks without an alert.
 - [ ] Narrow the eight broad `/mnt/data` mounts; add Filebrowser proxy-header
   handling behind Caddy.
 - [x] **Clean the stale UFW rules.** Removed the retired Beszel `45876` IPv6
