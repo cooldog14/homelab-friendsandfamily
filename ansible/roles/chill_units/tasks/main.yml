@@ -16,6 +16,7 @@
     - {src: restic-retention.py, dest: homelab-restic-retention}
     - {src: backup-stats.py, dest: homelab-backup-stats}
     - {src: wrtag-import.sh, dest: homelab-wrtag-import}
+    - {src: music-import.py, dest: homelab-music-import}
 
 - name: Install systemd units
   ansible.builtin.copy:
@@ -38,6 +39,8 @@
     - homelab-backup-stats.service
     - homelab-backup-stats.timer
     - homelab-firewall-neko.service
+    - homelab-music-import.service
+    - homelab-music-import.timer
     - notify@.service
   notify: Reload systemd
 
@@ -103,3 +106,4 @@
     - homelab-restic-check.timer
     - homelab-backup-stats.timer
     - homelab-firewall-neko.service
+    - homelab-music-import.timer

@@ -64,7 +64,7 @@ check:
 	$(SHELLCHECK) host/backup.sh host/backup-watchdog.sh host/public-check.sh host/metrics.sh host/firewall-neko.sh host/smartd-notify.sh host/restic-check.sh host/restore-test.sh host/deploy.sh host/wrtag-import.sh stacks/media/config/slskd/autotag.sh
 	node --check workers/wan-heartbeat/src/index.js
 	PYTHONPYCACHEPREFIX=/tmp/homelab-pycache python3 -m py_compile \
-	  host/restic-retention.py host/backup-stats.py stacks/observability/dashboard/*.py
+	  host/restic-retention.py host/backup-stats.py host/music-import.py stacks/observability/dashboard/*.py
 	# Dashboard parsers are pure: the tests need no host, socket or fixture file.
 	PYTHONPATH=stacks/observability/dashboard PYTHONPYCACHEPREFIX=/tmp/homelab-pycache \
 	  python3 -m unittest discover -s stacks/observability/dashboard/tests -p 'test_*.py'

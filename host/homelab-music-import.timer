@@ -1,0 +1,10 @@
+[Unit]
+Description=Daily Octo-Fiesta import and music review count
+
+[Timer]
+OnCalendar=*-*-* 06:15:00
+RandomizedDelaySec=15m
+Persistent=true
+
+[Install]
+WantedBy=timers.target

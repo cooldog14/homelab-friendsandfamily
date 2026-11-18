@@ -655,18 +655,91 @@ def by_id(alerts: list[dict]) -> dict[str, dict]:
     return {alert["id"]: alert for alert in alerts}
 
 
-def derive(*, services=None, media=None, pipeline=None, errors=None) -> list[dict]:
+def derive(*, services=None, media=None, pipeline=None, errors=None, music_review=None) -> list[dict]:
     return snapshot._derive_alerts(
         services if services is not None else [service("jellyfin")],
         pipeline or {},
         media or {},
         errors or {},
+        music_review
+        if music_review is not None
+        else {
+            "available": True,
+            "needs_review": 0,
+            "needs_input": 0,
+            "errors": 0,
+            "unmanaged": 0,
+            "imported": 0,
+            "generated_ts": NOW,
+        },
+        NOW,
     )
 
 
 class AlertTests(unittest.TestCase):
     def test_nominal_yields_no_alerts(self) -> None:
         self.assertEqual(derive(), [])
+
+    def test_music_review_counts_are_warned(self) -> None:
+        alerts = by_id(
+            derive(
+                music_review={
+                    "available": True,
+                    "needs_review": 3,
+                    "needs_input": 1,
+                    "errors": 1,
+                    "unmanaged": 1,
+                    "imported": 2,
+                    "generated_ts": NOW,
+                }
+            )
+        )
+        self.assertEqual(alerts["music-review"]["severity"], "warn")
+        self.assertEqual(alerts["music-review"]["title"], "3 albums need review")
+        self.assertIn("1 need input", alerts["music-review"]["detail"])
+        self.assertIn("1 error(s)", alerts["music-review"]["detail"])
+
+    def test_music_review_singular(self) -> None:
+        alerts = by_id(
+            derive(
+                music_review={
+                    "available": True,
+                    "needs_review": 1,
+                    "needs_input": 1,
+                    "generated_ts": NOW,
+                }
+            )
+        )
+        self.assertEqual(alerts["music-review"]["title"], "1 album needs review")
+
+    def test_music_review_missing_is_warned(self) -> None:
+        alerts = by_id(derive(music_review={"available": False}))
+        self.assertEqual(alerts["music-review-missing"]["severity"], "warn")
+
+    def test_music_review_error_is_warned(self) -> None:
+        alerts = by_id(
+            derive(
+                music_review={
+                    "available": True,
+                    "error": "wrtag HTTP 401",
+                    "generated_ts": NOW,
+                }
+            )
+        )
+        self.assertEqual(alerts["music-review-error"]["severity"], "warn")
+        self.assertIn("wrtag HTTP 401", alerts["music-review-error"]["detail"])
+
+    def test_stale_music_review_is_warned(self) -> None:
+        alerts = by_id(
+            derive(
+                music_review={
+                    "available": True,
+                    "needs_review": 0,
+                    "generated_ts": NOW - 37 * 3600,
+                }
+            )
+        )
+        self.assertEqual(alerts["music-review-stale"]["severity"], "warn")
 
     def test_container_down_is_hard(self) -> None:
         alerts = by_id(derive(services=[service("jellyfin", state="exited")]))

@@ -554,6 +554,8 @@ def _derive_alerts(
     pipeline: dict,
     media: dict,
     errors: dict,
+    music_review: dict | None = None,
+    now: float | None = None,
 ) -> list[dict]:
     """Checks that only this process can make.
 
@@ -682,6 +684,62 @@ def _derive_alerts(
                 href,
             )
 
+    review = music_review or {}
+    moment = time.time() if now is None else now
+    if not review.get("available"):
+        add(
+            "warn",
+            "music-review-missing",
+            "Music review status missing",
+            review.get("error")
+            or "homelab-music-import has not written a status file yet",
+            "#media",
+        )
+    else:
+        if review.get("error"):
+            add(
+                "warn",
+                "music-review-error",
+                "Music review pass failed",
+                str(review["error"]),
+                "#media",
+            )
+        needs_review = int(review.get("needs_review") or 0)
+        if needs_review:
+            parts: list[str] = []
+            if review.get("needs_input"):
+                parts.append(f"{int(review['needs_input'])} need input")
+            if review.get("errors"):
+                parts.append(f"{int(review['errors'])} error(s)")
+            if review.get("unmanaged"):
+                parts.append(f"{int(review['unmanaged'])} not queued")
+            if review.get("imported"):
+                parts.append(f"{int(review['imported'])} imported")
+            add(
+                "warn",
+                "music-review",
+                f"{needs_review} {'album needs' if needs_review == 1 else 'albums need'} review",
+                ", ".join(parts) or "open wrtag to confirm",
+                "#media",
+            )
+        age = _age(moment, review.get("generated_ts"))
+        if age is None:
+            add(
+                "warn",
+                "music-review-stale",
+                "Music review status has no timestamp",
+                "homelab-music-import status is incomplete",
+                "#media",
+            )
+        elif age > 36 * 3600:
+            add(
+                "warn",
+                "music-review-stale",
+                "Music review status is stale",
+                f"last pass {int(age // 3600)}h ago",
+                "#media",
+            )
+
     severity_order = {"alert": 0, "warn": 1}
     alerts.sort(key=lambda item: (severity_order.get(item["severity"], 9), item["title"]))
     return alerts
@@ -765,6 +823,7 @@ def build_snapshot(
     integrations_store = collectors.integrations.snapshot()
     network_store = collectors.network.snapshot()
     inventory_store = collectors.inventory.snapshot()
+    music_review_store = collectors.music_review.snapshot()
 
     telemetry_data = _data(telemetry_store) or {}
     infra_data = _data(infra_store) or {}
@@ -773,6 +832,9 @@ def build_snapshot(
     integrations_data = _data(integrations_store) or {}
     network_data = _data(network_store) or {}
     inventory_data = _data(inventory_store) or {}
+    music_review = dict(_data(music_review_store) or {"available": False})
+    if music_review_store.get("error") and not music_review.get("error"):
+        music_review["error"] = music_review_store["error"]
 
     telemetry = {
         "nodes": telemetry_data.get("nodes") or [],
@@ -800,7 +862,7 @@ def build_snapshot(
         "tailscale": network_store.get("error"),
     }
 
-    alerts = _derive_alerts(services, pipeline, media, errors)
+    alerts = _derive_alerts(services, pipeline, media, errors, music_review, moment)
     prometheus_alerts = prometheus_alerts_section(infra_data)
     name_to_service = {
         str(row.get("name")): f"{row.get('stack')}/{row.get('service')}"
@@ -821,6 +883,7 @@ def build_snapshot(
         "services": services,
         "hosts": hosts,
         "media": media,
+        "music_review": music_review,
         "pipeline": pipeline,
         "backups": backups,
         "network": network,

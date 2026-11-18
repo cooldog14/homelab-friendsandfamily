@@ -1,0 +1,12 @@
+[Unit]
+Description=Import staged Octo-Fiesta albums through wrtag
+Wants=network-online.target
+After=network-online.target docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/homelab-music-import
+TimeoutStartSec=30min
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7

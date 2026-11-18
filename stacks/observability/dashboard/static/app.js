@@ -584,11 +584,15 @@
     const body = $('media-body');
     clear(body);
     const media = data.media || {};
+    const review = data.music_review || {};
     const jellyfin = media.jellyfin || {};
     const requests = media.requests || {};
     $('media-meta').textContent = jellyfin.configured
       ? (jellyfin.active || 0) + ' active stream(s)'
       : 'jellyfin not configured';
+    if (review.available && num(review.needs_review) && review.needs_review > 0) {
+      $('media-meta').textContent += ' · ' + review.needs_review + ' music review';
+    }
 
     const left = h('div', {});
     left.appendChild(h('h3', { text: 'Jellyfin' + (jellyfin.version ? ' · ' + jellyfin.version : '') }));
@@ -631,6 +635,34 @@
     }
 
     body.appendChild(h('div', { class: 'split' }, left, right));
+
+    const reviewBox = h('div', {});
+    reviewBox.appendChild(h('h3', { text: 'Music review' }));
+    if (!review.available) {
+      reviewBox.appendChild(h('div', { class: 'panel-note faint', text: review.error || 'status not generated yet' }));
+      body.appendChild(reviewBox);
+      return;
+    }
+    reviewBox.appendChild(h('div', { class: 'stat-row' },
+      h('span', { class: 'stat' }, 'needs review ', h('b', { text: String(review.needs_review || 0) })),
+      h('span', { class: 'stat' }, 'need input ', h('b', { text: String(review.needs_input || 0) })),
+      h('span', { class: 'stat' }, 'errors ', h('b', { text: String(review.errors || 0) })),
+      h('span', { class: 'stat' }, 'imported ', h('b', { text: String(review.imported || 0) })),
+      h('span', { class: 'stat' }, 'staged ', h('b', { text: String(review.staged || 0) }))
+    ));
+    if (review.error) {
+      reviewBox.appendChild(h('div', { class: 'panel-note state-warn', text: review.error }));
+    }
+    if (review.manual_backlog) {
+      reviewBox.appendChild(h('div', { class: 'faint mono', text: 'manual backlog: ' + review.manual_backlog + ' album(s)' }));
+    }
+    reviewBox.appendChild(h('div', { class: 'faint mono' },
+      'last pass ' + fmtDate(review.generated_at) + ' · ',
+      review.job_url
+        ? h('a', { href: review.job_url, target: '_blank', rel: 'noopener noreferrer', text: 'open wrtag' })
+        : h('span', { text: 'wrtag unavailable' })
+    ));
+    body.appendChild(reviewBox);
   }
 
   // ------------------------------------------------------------ pipeline --
