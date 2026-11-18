@@ -69,22 +69,30 @@ Historical detail is retained separately:
   gitignored `.venv` on Python 3.12 with ansible-core 2.20.7; the Make targets
   use it automatically. Full VPS playbook reports `changed=0`. Revisit when
   ansible-core supports Python 3.14; hosts keep Debian Python 3.13.
+- [x] **Schedule SMART tests and route alerts.** Ansible manages
+  `/etc/smartd.conf`; all five disks run short tests daily and staggered long
+  tests. Initial short tests completed without error on `sda`, `sdb`, `sdd`,
+  `sde` and `sdf`; the Gotify notifier test returned 0.
 - [ ] Add private app health instrumentation where Docker has none (Caddy,
   Jellyseerr, Navidrome, Radarr/Sonarr/Bazarr) and monitor the private edge.
 - [ ] Narrow the eight broad `/mnt/data` mounts; add Filebrowser proxy-header
   handling behind Caddy.
-- [ ] Remove the stale IPv6 UFW rule for retired Beszel port `45876` and the
-  duplicate LAN SSH/media rules.
-- [ ] Fix HTTP/3: Caddy advertises `h3`, but the VPS firewall does not allow
-  UDP/443. Either allow `udp 443` or disable h3.
+- [x] **Clean the stale UFW rules.** Removed the retired Beszel `45876` IPv6
+  rule and the duplicate no-proto LAN SSH/media rules; the canonical proto rules
+  remain. Jellyfin's LAN bind was already blocked by `DOCKER-USER`, so add the
+  narrow established-only return exception for TCP/8096; LAN test returns 302.
+- [x] **Enable HTTP/3.** Allow UDP/443 in `vps/firewall.nft`; an external curl
+  negotiates `http_version=3` and returns 200/302.
 - [ ] Add HSTS/baseline headers, CAA, DNSSEC and an explicit null MX; document
   IPv4-only public service.
-- [ ] Remove VPS `.bak` clutter safely, autoremove the old `6.12.116` kernel,
-  and remove idle Docker (no containers; one unused `wg-easy` image).
-- [ ] Clean remaining host images/cache and pin floating tags
-  (`postgres:16.15-alpine`, `redis:7.4.11-alpine`, `gotenberg:8.37.0`).
-  Live cleanup is ~260 MB build cache on `chill-01` plus ~185 MB old DB
-  backups; VPS root is 18%, not the old 76% claim.
+- [x] **Clean the VPS.** Removed `6.12.116`, archived older nftables/Caddy/SSH
+  backups under `/root/archive/2026-11-18`, and purged idle Docker plus the
+  unused `wg-easy` image. Root usage is now 14%; Caddy/CrowdSec/WireGuard stay
+  active.
+- [x] **Pin the floating image tags.** Paperless Postgres 16.15-alpine, both
+  Redis services 7.4.11-alpine, Gotenberg 8.37.0; deployed and healthy.
+- [ ] Prune `chill-01`’s ~260 MB build cache and the old DB `.bak` files
+  (~185 MB) after confirming the latest restic snapshot.
 - [ ] Disable Tailscale key expiry for `chill-01` and `malice` if they should
   remain infrastructure nodes beyond March 2027.
 - [ ] Fix current doc drift: `AGENTS.md` sde usage, `vps/README` missing
@@ -101,14 +109,16 @@ Historical detail is retained separately:
 - [ ] Keep the current offline tailnet devices registered unless explicitly
   revoked.
 
-### verified healthy / closed — 2026-11-17
+### verified healthy / closed — 2026-11-18
 
-- 42/42 containers up, health checks green, no failed systemd units, no active
+- 43/43 containers up, health checks green, no failed systemd units, no active
   Prometheus alerts, and no observed container restarts.
 - 3 VMs running; public edge 13 HTTP + 4 TCP green; all 16 private vhosts return
-  200/302/401.
-- Isolation: 89 `DOCKER-USER` rules restored after reboot; private admin ports
-  no longer bind `10.44.0.2`.
+  200/302/401; HTTP/3 returns 200/302.
+- Isolation: `DOCKER-USER` rules restored after reboot; private admin ports no
+  longer bind `10.44.0.2`; Jellyfin LAN playback returns 302.
+- SMART: `smartd` active on `malice`; all five disks passed an initial short
+  self-test; alerts route through the Gotify `ALERT_URL`.
 - VPS and `chill-01` rebooted cleanly; persisted firewall/NAT, WireGuard,
   gluetun egress, and the Worker heartbeat recovered.
 - Backups: last success 2026-11-17 04:26 UTC; 21 SQLite dumps, three Bolt
