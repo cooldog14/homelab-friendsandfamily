@@ -325,7 +325,10 @@ class Jellyfin:
     def _get(self, path: str) -> Any:
         return http_json(
             f"{self.url}{path}",
-            headers={"X-Emby-Token": self.key, "Accept": "application/json"},
+            headers={
+                "Authorization": f'MediaBrowser Token="{self.key}"',
+                "Accept": "application/json",
+            },
             timeout=self.timeout,
         )
 
