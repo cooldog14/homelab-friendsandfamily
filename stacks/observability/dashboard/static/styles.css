@@ -138,6 +138,20 @@ tr:last-child td{border-bottom:none}
 td.right,th.right{text-align:right}
 td.wrap{white-space:normal;word-break:break-word}
 
+/* allocation tables: keep Ports/Volumes from reading as one dense block */
+.alloc-title{margin:var(--space-5) 0 var(--space-2)}
+.alloc-table th{padding:8px var(--space-4)}
+.alloc-table td{padding:8px var(--space-4)}
+.alloc-table td:first-child,
+.alloc-table th:first-child{
+  min-width:190px;
+  white-space:nowrap;
+  padding-right:var(--space-5);
+}
+.alloc-id{display:inline-flex;align-items:baseline;gap:8px}
+.alloc-id .stack,.alloc-id .sep{color:var(--faint)}
+.alloc-id .service{color:var(--fg)}
+
 /* state markers -------------------------------------------------------- */
 .dot{display:inline-block;width:7px;height:7px;background:var(--faint);margin-right:6px;vertical-align:1px}
 .state-ok{color:var(--ok)}
