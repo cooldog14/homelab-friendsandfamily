@@ -1,15 +1,18 @@
 services:
   mumble:
-    image: mumblevoip/mumble-server:v1.5.634
+    image: mumblevoip/mumble-server:v1.5.939-acme
     security_opt:
       - no-new-privileges:true
     # Mumble entrypoint writes /data config as dropped user: needs CHOWN+
-    # DAC_OVERRIDE. cap_drop ALL restart-loops (proven 2026-11-03).
+    # DAC_OVERRIDE. The ACME deploy hook chowns certificates (FOWNER) and
+    # signals Mumble on renewal (KILL). cap_drop ALL restart-loops otherwise.
     cap_drop:
       - ALL
     cap_add:
       - CHOWN
       - DAC_OVERRIDE
+      - FOWNER
+      - KILL
       - SETUID
       - SETGID
     restart: unless-stopped
@@ -18,6 +21,11 @@ services:
       - "10.44.0.2:64738:64738/udp"
     environment:
       MUMBLE_SUPERUSER_PASSWORD: ${MUMBLE_SUPERUSER_PASSWORD}
+      # DNS-01 certificate for mumble.malice.biz; users must connect by name.
+      ACME_DOMAIN: "mumble.malice.biz"
+      ACME_ACCOUNT_MAIL: "admin@malice.biz"
+      ACME_DNS: "cloudflare"
+      CF_DNS_API_TOKEN: ${CF_DNS_API_TOKEN}
       # The entrypoint rewrites /data/mumble_server_config.ini on every
       # start from these MUMBLE_CONFIG_* values; never edit that file.
       # channelname must allow emoji because channels use emoji prefixes.
@@ -25,8 +33,7 @@ services:
       MUMBLE_CONFIG_WELCOME_TEXT: '"<br />Welcome to MALICE.<br />Be excellent to each other.<br />"'
       MUMBLE_CONFIG_ALLOW_PING: "false"
       MUMBLE_CONFIG_SEND_VERSION: "false"
-      MUMBLE_CONFIG_USERS: "25"
-      MUMBLE_CONFIG_USERS_PER_CHANNEL: "8"
+      MUMBLE_CONFIG_USERS: "100"
       MUMBLE_CONFIG_BANDWIDTH: "128000"
       MUMBLE_CONFIG_TEXT_MESSAGE_LENGTH: "1000"
       MUMBLE_CONFIG_IMAGE_MESSAGE_LENGTH: "65536"
@@ -37,6 +44,9 @@ services:
       MUMBLE_CONFIG_ICE_SECRET_WRITE: ${MUMBLE_ICE_SECRET_WRITE}
     volumes:
       - ./state/mumble:/data
+      - ./state/mumble/acme-lego:/etc/acme
+      - ./supervisord.conf:/etc/supervisor/conf.d/supervisord.conf:ro
+      - ./wait-for-cert.sh:/usr/local/bin/wait-for-cert.sh:ro
 
   # Watch together. Profile copied from prod 2026-09-10 (prod untouched).
   # WebRTC: VPS DNATs 52000/tcp+udp (eth0 + wg0) to 10.44.0.2; ufw passes wg0.
