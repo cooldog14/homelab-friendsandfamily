@@ -295,7 +295,7 @@ class DockerLogTests(unittest.TestCase):
             )
 
     def test_secret_redaction(self) -> None:
-        secret = "0123456789abcdef"
+        secret = "test-secret-value"
         events = parsers.parse_docker_logs(
             f"2026-11-17T20:00:00Z INFO key={secret} reused\n".encode(),
             "sonarr",
