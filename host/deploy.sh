@@ -61,6 +61,9 @@ ssh "$host" 'set -e
     /mnt/fast/jellyfin-cache \
     /mnt/fast/scratch \
     /mnt/fast/imports \
+    /mnt/pool/downloads/tv \
+    /mnt/pool/downloads/movies \
+    /mnt/pool/downloads/incomplete \
     /mnt/data/family \
     /mnt/data/photos \
     /mnt/data/apps/minecraft \
