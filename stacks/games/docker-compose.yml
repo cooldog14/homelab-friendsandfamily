@@ -19,6 +19,9 @@ services:
       VERSION: "26.2"
       TYPE: PAPER
       MEMORY: 4G
+      # Stop ticking the world after 60s with no players; join resumes it.
+      # Cuts idle CPU/autosave churn, but Chunky pregen stalls while paused.
+      PAUSE_WHEN_EMPTY_SECONDS: "60"
       TZ: Europe/Paris
       ENABLE_RCON: "true"
       RCON_PASSWORD: ${RCON_PASSWORD}
