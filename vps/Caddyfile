@@ -1,11 +1,34 @@
 {
 	email admin@malice.biz
+	# QUIC/UDP is unreliable or blocked on some client networks (the
+	# workstation's Tailscale falls back to a DERP relay). Large HTTP/3
+	# responses then die with "writing: deadline exceeded" mid-stream while
+	# the same request over HTTP/2 succeeds; force HTTP/2 for streaming.
+	servers {
+		protocols h1 h2
+	}
+	# Error/runtime log. This also records the request URI on reverse-proxy
+	# errors, so it needs the same credential filter as the access log:
+	# Subsonic legacy auth puts the password in `p`.
 	log {
 		output file /var/log/caddy/caddy.log {
 			roll_size 50mb
 			roll_keep 5
 		}
-		format json
+		format filter {
+			request>uri query {
+				replace p REDACTED
+				replace t REDACTED
+				replace s REDACTED
+				replace api_key REDACTED
+				replace ApiKey REDACTED
+				replace token REDACTED
+			}
+			request>headers>X-Emby-Authorization delete
+			request>headers>X-Emby-Token delete
+			request>headers>X-Password delete
+			request>headers>X-Api-Key delete
+		}
 	}
 }
 
