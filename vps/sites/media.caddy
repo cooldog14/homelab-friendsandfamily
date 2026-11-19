@@ -24,14 +24,10 @@ fiesta.malice.biz {
 	# (200) responses. Two ACAO values make browsers reject player.malice.biz
 	# calls ("does not match 'https://player.malice.biz, *'"), so strip the
 	# backend header and keep only the single locked origin above.
-	# Inlined from public_proxy (same logging) to allow header_down.
-	log {
-		output file /var/log/caddy/access.log {
-			roll_size 50mb
-			roll_keep 5
-		}
-		format json
-	}
+	# Inlined from public_proxy (same redacted logging) to allow header_down.
+	# Legacy Subsonic auth puts the password in `p`; without the filter it
+	# lands in access.log/caddy.log.
+	import log_redacted
 	reverse_proxy 10.44.0.2:5274 {
 		header_down -Access-Control-Allow-Origin
 	}
