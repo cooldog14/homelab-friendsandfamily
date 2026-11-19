@@ -1269,3 +1269,33 @@ Do not test by deleting data.
   operation, key accepted) with it.
 - Rollback: revert the commit and `make deploy`; the container recreates
   with the previous auth mode and the browser prompt returns.
+
+## incident 2026-11-19: Feishin streams stalled on broken HTTP/3/QUIC
+
+- Impact: playback on `player.malice.biz` (Feishin web) and the Octo-Fiesta
+  Subsonic endpoint stalled and re-buffered while the server was healthy.
+- Detect: Caddy `caddy.log` shows `fiesta.malice.biz` stream requests over
+  `HTTP/3.0` ending in `writing: deadline exceeded` after 20-500 ms. The same
+  track/range over HTTP/2 returns `206` and completes. The client network
+  also keeps Tailscale on a DERP relay instead of a direct UDP path.
+- Cause: QUIC/UDP is unreliable on the client network; HTTP/3 large
+  responses die mid-stream. Feishin then re-issues `Range` requests from
+  the buffered offset, which looks like stutter/seeking. Storage
+  (76-430 MB/s reads), Navidrome/Octo-Fiesta (44 MB FLAC in 11.8 s public),
+  and bandwidth (~20 Mbit/s client, 1.5 Mbit/s FLAC) were not the limit.
+- Repair: `vps/Caddyfile` sets `servers { protocols h1 h2 }`; commit
+  `25cb9af3`. Live VPS copied/validated/reloaded directly because the
+  Ansible SFTP connection hung; run `make vps` again when SSH is stable.
+- Redaction: `fiesta.malice.biz` uses `import log_redacted`; the global
+  `caddy.log` format also filters `p`/`t`/`s`/api keys. New access and error
+  entries show `p=REDACTED`.
+- Verify: no `Alt-Svc` on `player`/`fiesta`; live config protocols are
+  `h1,h2`; a 1 MB range over HTTP/2 returns `206` in 1.34 s and the access
+  log records `HTTP/2.0` with a redacted URI. Clear the browser Alt-Svc
+  cache if an existing session keeps trying QUIC.
+- Follow-up: rotate the `francis` Navidrome password and update Feishin/
+  Subsonic clients; old Caddy logs still contain the pre-redaction `p=`
+  value. Purge/rotate those logs after the password change. If playback
+  still buffers, address Feishin's raw-FLAC next-track preload (use
+  Navidrome directly/transcode, not Octo-Fiesta's chunked transcode).
+- Rollback: remove the `servers` block and redeploy; HTTP/3 returns.
