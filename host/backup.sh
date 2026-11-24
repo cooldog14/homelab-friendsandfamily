@@ -18,7 +18,8 @@ chmod 700 "$DUMP_DIR"
 
 log() { printf '[%s] %s\n' "$(date -Is)" "$*"; }
 alert() {
-  curl -fsS -X POST -F "message=$1" -F "priority=5" "${ALERT_URL:-}" > /dev/null 2>&1 || true
+  curl -fsS -X POST -F "message=$1" -F "priority=5" "${ALERT_URL:-}" > /dev/null 2>&1 ||
+    logger -p user.err "homelab alert delivery failed: $1"
 }
 
 # VPS pull (Caddy, nftables, WireGuard identity) so restic carries it to cloud.
