@@ -24,15 +24,6 @@ shares:
     storage_mode: memory
     retention: 10080
 
-transfers:
-  global:
-    upload:
-      slots: 20
-      speed_limit: ~
-    download:
-      slots: 500
-      speed_limit: ~
-
 filters:
   search:
     request:
