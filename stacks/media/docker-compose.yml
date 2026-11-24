@@ -328,7 +328,9 @@ services:
       Subsonic__AdminPassword: ${SUBSONIC_ADMIN_PASSWORD}
       Subsonic__MusicService: Deezer
       Subsonic__StorageMode: Permanent
-      Subsonic__DownloadMode: Track
+      # Fill the whole album when one missing track is played; owned tracks are
+      # skipped via the Navidrome library search, so this only completes gaps.
+      Subsonic__DownloadMode: Album
       Subsonic__AutoUpgradeQuality: "false"
       Subsonic__DisableLibraryScan: "false"
       Subsonic__EnableExternalPlaylists: "true"
@@ -408,6 +410,7 @@ services:
       SLSKD_SLSK_USERNAME: ${SLSKD_SLSK_USERNAME}
       SLSKD_SLSK_PASSWORD: ${SLSKD_SLSK_PASSWORD}
       SLSKD_API_KEY: ${SLSKD_API_KEY}
+      SLSKD_WRTAG_API_KEY: ${WRTAG_WEB_API_KEY}
       SLSKD_USERNAME: ${SLSKD_USERNAME:?set SLSKD_USERNAME in media .env}
       SLSKD_PASSWORD: ${SLSKD_PASSWORD:?set SLSKD_PASSWORD in media .env}
       SLSKD_JWT_KEY: ${SLSKD_JWT_KEY:?set SLSKD_JWT_KEY in media .env}
