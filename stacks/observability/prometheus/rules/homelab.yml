@@ -1,3 +1,10 @@
+# Delivery contract for alertmanager-gotify-bridge:2.3.2 (see
+# stacks/observability/docker-compose.yml). The bridge builds a Gotify message
+# from the `summary` and `description` ANNOTATIONS and reads Gotify priority
+# from a numeric `priority` annotation (strconv.Atoi); it does NOT read the
+# `severity` label. Every rule therefore needs all three annotations, and
+# `host/check-alert-rules.py` enforces that contract in `make check`.
+# critical -> priority 8, warning -> priority 5 (the bridge default).
 groups:
   - name: homelab
     rules:
@@ -6,6 +13,7 @@ groups:
         for: 2m
         labels: {severity: critical}
         annotations:
+          priority: "8"
           summary: "Hôte ne répond plus: {{ $labels.instance }}"
           description: "L'exporter de l'hôte {{ $labels.instance }} est down depuis 2 minutes."
       - alert: ContainerOOMKilled
@@ -13,6 +21,7 @@ groups:
         for: 1m
         labels: {severity: warning}
         annotations:
+          priority: "5"
           summary: "Conteneur OOM: {{ $labels.name }}"
           description: "Le noyau a tué le conteneur au moins une fois pendant l'heure écoulée."
       - alert: KernelOOMKill
@@ -20,6 +29,7 @@ groups:
         for: 1m
         labels: {severity: warning}
         annotations:
+          priority: "5"
           summary: "OOM noyau sur {{ $labels.instance }}"
           description: "Le noyau a tué un processus pendant l'heure écoulée."
       - alert: TargetDown
@@ -27,6 +37,7 @@ groups:
         for: 5m
         labels: {severity: warning}
         annotations:
+          priority: "5"
           summary: "Cible Prometheus down: {{ $labels.job }}"
           description: "{{ $labels.instance }} ne répond plus."
       - alert: PublicEndpointDown
@@ -34,6 +45,7 @@ groups:
         for: 2m
         labels: {severity: critical}
         annotations:
+          priority: "8"
           summary: "Endpoint public down: {{ $labels.instance }}"
           description: "Le probe HTTP échoue depuis 2 minutes."
       - alert: TLSCertExpiringSoon
@@ -41,6 +53,7 @@ groups:
         for: 1h
         labels: {severity: warning}
         annotations:
+          priority: "5"
           summary: "Certificat bientôt expiré: {{ $labels.instance }}"
           description: "Expire dans {{ $value | humanizeDuration }}."
       - alert: PrivateEndpointDown
@@ -48,6 +61,7 @@ groups:
         for: 5m
         labels: {severity: warning}
         annotations:
+          priority: "5"
           summary: "Vhost privé down: {{ $labels.instance }}"
           description: "Le probe HTTPS privé échoue depuis 5 minutes (Caddy ou son upstream)."
       - alert: TLSCertExpiringSoonPrivate
@@ -57,6 +71,7 @@ groups:
         for: 1h
         labels: {severity: warning}
         annotations:
+          priority: "5"
           summary: "Certificat privé bientôt expiré"
           description: "Le wildcard *.h.malice.biz expire dans {{ $value | humanizeDuration }}."
       - alert: TCPProbeDown
@@ -64,6 +79,7 @@ groups:
         for: 2m
         labels: {severity: critical}
         annotations:
+          priority: "8"
           summary: "Probe TCP en échec: {{ $labels.instance }}"
           description: "Le DNAT public ne répond plus depuis 2 minutes."
       - alert: DiskFillingSoon
@@ -78,6 +94,7 @@ groups:
         for: 1h
         labels: {severity: warning}
         annotations:
+          priority: "5"
           summary: "Disque bientôt plein: {{ $labels.mountpoint }}"
           description: "La projection à 7 jours de l'espace libre est négative."
       - alert: DiskUsageHigh
@@ -88,13 +105,16 @@ groups:
         for: 10m
         labels: {severity: warning}
         annotations:
+          priority: "5"
           summary: "Disque > 85%: {{ $labels.mountpoint }}"
+          description: "Le filesystem {{ $labels.mountpoint }} sur {{ $labels.instance }} dépasse 85% depuis 10 minutes ({{ $value | humanizePercentage }} utilisés)."
       # Per host: a fresh malice marker must never mask a stale chill marker.
       - alert: BackupStale
         expr: time() - max by (host, source) (homelab_backup_last_success_timestamp_seconds) > 48 * 3600
         for: 10m
         labels: {severity: critical}
         annotations:
+          priority: "8"
           summary: "Sauvegarde restic > 48h: {{ $labels.host }}"
           description: "La source {{ $labels.source }} sur {{ $labels.host }} n'a pas reussi depuis plus de 48h."
       - alert: BackupMetricMissing
@@ -102,6 +122,7 @@ groups:
         for: 1h
         labels: {severity: warning}
         annotations:
+          priority: "5"
           summary: "Métrique de sauvegarde absente"
           description: "homelab_backup_last_success_timestamp_seconds manque pour un hôte: le marqueur ou le collecteur textfile est cassé."
       # Job guard: every timer homelab-metrics can see. A timer that stopped
@@ -111,6 +132,7 @@ groups:
         for: 5m
         labels: {severity: critical}
         annotations:
+          priority: "8"
           summary: "Tâche en échec: {{ $labels.task }} sur {{ $labels.host }}"
           description: "Le dernier run de {{ $labels.task }} a échoué (code {{ $labels.exit_code }})."
       - alert: HomelabJobMissed
@@ -118,6 +140,7 @@ groups:
         for: 5m
         labels: {severity: critical}
         annotations:
+          priority: "8"
           summary: "Tâche en retard: {{ $labels.task }} sur {{ $labels.host }}"
           description: "Le timer est actif mais son échéance est passée de plus de 15 minutes."
       - alert: HomelabJobTimerInactive
@@ -125,6 +148,7 @@ groups:
         for: 15m
         labels: {severity: critical}
         annotations:
+          priority: "8"
           summary: "Timer inactif: {{ $labels.task }} sur {{ $labels.host }}"
           description: "Le timer n'est plus armé: la tâche ne tournera plus jusqu'à réactivation."
       - alert: HomelabJobMetricsMissing
@@ -132,6 +156,7 @@ groups:
         for: 1h
         labels: {severity: critical}
         annotations:
+          priority: "8"
           summary: "Métriques de tâches absentes"
           description: "Aucun homelab_job_* pour un hôte: homelab-metrics.timer ou le textfile collector est cassé."
       - alert: BackupRepositoryStale
@@ -139,6 +164,7 @@ groups:
         for: 10m
         labels: {severity: critical}
         annotations:
+          priority: "8"
           summary: "Dépôt restic périmé: {{ $labels.repository }} sur {{ $labels.host }}"
           description: "Le snapshot le plus récent du dépôt a plus de 48h."
       - alert: BackupStatsFailing
@@ -146,6 +172,7 @@ groups:
         for: 1h
         labels: {severity: warning}
         annotations:
+          priority: "5"
           summary: "Stats restic en échec: {{ $labels.repository }} sur {{ $labels.host }}"
           description: "restic snapshots/stats échoue; le marqueur de sauvegarde peut rester frais."
       - alert: BackupStatsStale
@@ -153,6 +180,7 @@ groups:
         for: 1h
         labels: {severity: warning}
         annotations:
+          priority: "5"
           summary: "Stats restic périmées: {{ $labels.repository }} sur {{ $labels.host }}"
           description: "Aucun rafraîchissement depuis plus de 12h."
       - alert: BackupRepositoryEmpty
@@ -160,20 +188,25 @@ groups:
         for: 1h
         labels: {severity: critical}
         annotations:
+          priority: "8"
           summary: "Dépôt restic vide: {{ $labels.repository }} sur {{ $labels.host }}"
           description: "Le dépôt ne contient aucun snapshot."
       - alert: WireGuardHandshakeStale
-        expr: time() - max(homelab_wireguard_latest_handshake_seconds) > 600
+        expr: time() - homelab_wireguard_latest_handshake_seconds > 600
         for: 10m
         labels: {severity: warning}
         annotations:
+          priority: "5"
           summary: "Handshake WireGuard > 10 minutes"
+          description: "Le peer {{ $labels.peer }} n'a pas effectué de handshake WireGuard depuis {{ $value | humanizeDuration }}."
       - alert: ContainerRestartLoop
         expr: changes(container_start_time_seconds{name!=""}[15m]) > 2
         for: 5m
         labels: {severity: warning}
         annotations:
+          priority: "5"
           summary: "Conteneur redémarré plusieurs fois: {{ $labels.name }}"
+          description: "Le conteneur {{ $labels.name }} a redémarré {{ $value | printf \"%.0f\" }} fois en 15 minutes."
       # The hypervisor has 32 GiB total; below ~3 GiB it starts reclaiming
       # cache aggressively and the VMs on it get jittery. Alert before the
       # host is forced to make the choice.
@@ -182,6 +215,7 @@ groups:
         for: 10m
         labels: {severity: warning}
         annotations:
+          priority: "5"
           summary: "Mémoire hyperviseur < 10%"
           description: "Il reste {{ $value | humanizePercentage }} de mémoire disponible sur malice."
       # Swap-in means the host is under real pressure: pages were already
@@ -191,5 +225,49 @@ groups:
         for: 10m
         labels: {severity: warning}
         annotations:
+          priority: "5"
           summary: "Swap entrant actif sur malice"
           description: "{{ $value | printf \"%.0f\" }} pages/s récupérées du swap depuis 10 minutes."
+      # --- Delivery pipeline self-monitoring --------------------------------
+      # The bridge exports cumulative counters as GaugeValue. alerts_invalid is
+      # only incremented with --debug, so detect dropped alerts as the gap
+      # between received and (processed + failed) instead.
+      - alert: AlertmanagerBridgeDroppingAlerts
+        expr: |
+          increase(alertmanager_gotify_bridge_alerts_received[15m])
+            - increase(alertmanager_gotify_bridge_alerts_processed[15m])
+            - increase(alertmanager_gotify_bridge_alerts_failed[15m]) > 0
+        for: 5m
+        labels: {severity: critical}
+        annotations:
+          priority: "8"
+          summary: "Pont Alertmanager: alertes non livrées"
+          description: "{{ $value | printf \"%.0f\" }} alertes reçues n'ont été ni livrées à Gotify ni comptées en échec (annotations manquantes ou payload invalide)."
+      - alert: AlertmanagerBridgeDispatchFailing
+        expr: increase(alertmanager_gotify_bridge_alerts_failed[15m]) > 0
+        for: 5m
+        labels: {severity: critical}
+        annotations:
+          priority: "8"
+          summary: "Pont Alertmanager: échecs d'envoi vers Gotify"
+          description: "{{ $value | printf \"%.0f\" }} alertes n'ont pas pu être postées à Gotify ces 15 dernières minutes."
+      - alert: GotifyUnhealthy
+        expr: alertmanager_gotify_bridge_gotify_up == 0 or alertmanager_gotify_bridge_gotify_health_health == 0
+        for: 5m
+        labels: {severity: critical}
+        annotations:
+          priority: "8"
+          summary: "Gotify indisponible ou dégradé"
+          description: "Le bridge ne joint pas /health de Gotify, ou son état n'est pas green: aucune alerte ne peut être livrée."
+      # Local watchdog: host/alert-path-check.sh verifies the whole chain every
+      # five minutes independently of Prometheus and writes this textfile
+      # gauge. It also fails a systemd unit (OnFailure=notify@), so a dead
+      # pipeline is still reported through the direct Gotify path.
+      - alert: AlertPipelineDown
+        expr: homelab_alert_path_healthy == 0 or absent(homelab_alert_path_healthy)
+        for: 10m
+        labels: {severity: critical}
+        annotations:
+          priority: "8"
+          summary: "Chaîne de notification locale en échec"
+          description: "Le contrôle local signale un composant Prometheus/Alertmanager/bridge/Gotify en échec, ou le collecteur a disparu."

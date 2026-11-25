@@ -24,6 +24,9 @@ scrape_configs:
     static_configs: [{targets: ["blackbox-exporter:9115"]}]
   - job_name: gotify-bridge
     static_configs: [{targets: ["alertmanager-gotify-bridge:8080"]}]
+  # Public targets come from vps/sites/*.caddy; private targets from the
+  # @host matchers in stacks/edge/Caddyfile; TCP ports from public-check.sh.
+  # host/check-probe-targets.py fails `make check` if any list drifts.
   - job_name: blackbox-http
     metrics_path: /probe
     params: {module: [http_2xx]}
@@ -31,6 +34,7 @@ scrape_configs:
       - targets:
           - https://fiesta.malice.biz
           - https://files.malice.biz
+          - https://health.malice.biz
           - https://jellyfin.malice.biz
           - https://kavita.malice.biz
           - https://mg.malice.biz
