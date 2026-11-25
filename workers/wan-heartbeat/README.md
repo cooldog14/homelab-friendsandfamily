@@ -1,10 +1,16 @@
 # WAN heartbeat Worker
 
-Runs outside the homelab on a five-minute Cloudflare cron. It probes every
-public vhost and pings the external Healthchecks check only when all answer.
-On failure it sends the check's `/fail` endpoint. The Worker has no public
-route (`workers_dev = false`); the `workers.dev` subdomain only satisfies
-Cloudflare's cron requirement.
+Runs outside the homelab on a five-minute Cloudflare cron. It probes the 13
+public vhosts plus `health.malice.biz`, and pings the external Healthchecks
+check only when all answer. On failure it sends the check's `/fail` endpoint.
+The Worker has no public route (`workers_dev = false`); the `workers.dev`
+subdomain only satisfies Cloudflare's cron requirement.
+
+`health.malice.biz` is a status bit, not an application: it returns 200 with
+`{"ok": ...}` reflecting the local alert pipeline (`homelab-pipeline-check`).
+The Worker reads that body, so a dead Gotify/Alertmanager/bridge/Prometheus
+marks the check down even though all real public vhosts still answer. Ordinary
+vhosts are still status-only probes.
 
 ## Deploy or update
 
@@ -45,9 +51,13 @@ npx --yes wrangler@4.164.0 tail homelab-wan-heartbeat --format pretty
 Require a scheduled run with:
 
 ```text
-(log) all 13 public targets healthy
+(log) all 14 public targets healthy
 (log) heartbeat 200 ok
 ```
 
-If the public vhost list changes, update `DEFAULT_TARGETS` in
-`src/index.js` and redeploy.
+A pipeline outage logs `FAIL https://health.malice.biz: alert pipeline
+unhealthy` and `heartbeat 200 fail`.
+
+If the public vhost list changes, update `DEFAULT_TARGETS` in `src/index.js`
+and redeploy. `host/check-probe-targets.py` fails `make check` when the Worker
+list, `vps/sites/*.caddy` and Prometheus `blackbox-http` drift apart.

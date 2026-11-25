@@ -5,6 +5,8 @@
 //
 // HEARTBEAT_URL is a Worker secret (wrangler secret put). Never inline it here.
 
+// KEEP IN SYNC with the git-owned public vhosts in vps/sites/*.caddy.
+// host/check-probe-targets.py fails `make check` when this list drifts.
 const DEFAULT_TARGETS = [
   "https://photos.malice.biz",
   "https://files.malice.biz",
@@ -19,9 +21,13 @@ const DEFAULT_TARGETS = [
   "https://upload.malice.biz",
   "https://nvdr.malice.biz",
   "https://mg.malice.biz",
+  // Status bit for the local alert pipeline (vps/sites/health.caddy). It is
+  // not an application: see the special case in probe() below.
+  "https://health.malice.biz",
 ];
 
 const TIMEOUT_MS = 15000;
+const HEALTH_HOST = "health.malice.biz";
 
 function targets(env) {
   const override = env.PROBE_TARGETS;
@@ -42,12 +48,21 @@ async function probe(url) {
       redirect: "manual",
       signal: controller.signal,
     });
-    // Only the status matters; release the connection instead of buffering a
-    // page body we will never read.
-    if (response.body) await response.body.cancel();
     if (response.status < 200 || response.status >= 400) {
+      if (response.body) await response.body.cancel();
       return { ok: false, url, detail: `status ${response.status}` };
     }
+    // health.malice.biz always answers 200 with {"ok": ...} so public-check
+    // and blackbox-http never page on a deliberate "pipeline down" signal.
+    // The Worker is the only reader of that body, and the only pinger that
+    // can combine the internet view with the local pipeline view.
+    if (new URL(url).hostname === HEALTH_HOST) {
+      const state = await response.json();
+      return { ok: state && state.ok === true, url, detail: "alert pipeline unhealthy" };
+    }
+    // Only the status matters for a real vhost; release the connection instead
+    // of buffering a page body we will never read.
+    if (response.body) await response.body.cancel();
     return { ok: true, url };
   } catch (err) {
     return { ok: false, url, detail: err.name === "AbortError" ? "timeout" : String(err) };
