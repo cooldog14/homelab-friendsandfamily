@@ -133,6 +133,11 @@ guests, snapshot, zstd, Sun 03:30, keep-last 8, writes
 - `chill.caddy`: photos, files, paperless, kavita, neko, screego.
 - `media.caddy`: jellyfin, requests, player, fiesta, upload, nvdr, mg.
   All backends `reverse_proxy 10.44.0.2:<port>`.
+- `health.caddy`: `health.malice.biz` is a status bit, not an app. It proxies
+  to a read-only container published only on `10.44.0.2:8098`, which returns
+  `{"ok": ...}` from `homelab_alert_path_healthy`. The WAN Worker reads that
+  body so a dead Gotify/Alertmanager/bridge/Prometheus fails the external
+  Healthchecks check even when all real public vhosts still answer.
 - nftables NAT: Mumble `64738`, Neko `52000`, Screego `3478` +
   `52100-52200`, and Minecraft `25565` are forwarded to `10.44.0.2`.
   CrowdSec blacklist active. `vps/firewall.nft` is the effective
@@ -156,13 +161,20 @@ guests, snapshot, zstd, Sun 03:30, keep-last 8, writes
   layout change needs one `--cleanup-legacy` run.
 - `homelab-backup-watchdog` (48h), `homelab-public-check`, Gotify, and
   Prometheus are the alert path. Prometheus rules (host down, target
-  down, public endpoint down, TLS expiring, disk above 85% for 5
+  down, public endpoint down, TLS expiring, disk above 85% for 10
   minutes, stale/missing backup metric, stale WireGuard handshake,
-  container restart loop) route through Alertmanager and the
-  `alertmanager-gotify-bridge` into Gotify. Prometheus keeps 15 days
-  of metrics. The public check runs every 15 minutes;
+  container restart loop, bridge/Gotify delivery failures) route through
+  Alertmanager and the `alertmanager-gotify-bridge` into Gotify. Severity
+  is carried as a numeric `priority` annotation (critical 8 / warning 5)
+  because the bridge does not read the `severity` label. Prometheus keeps
+  15 days of metrics. The public check runs every 15 minutes;
   `notify@.service` logs delivery failures to the journal instead of
   failing silently when `ALERT_URL` is unset.
+- A daily `homelab-alert-check` proves `ALERT_URL` really delivers, and a
+  five-minute `homelab-pipeline-check` writes `homelab_alert_path_healthy`
+  and fails a unit (=> `notify@`) once per outage if Prometheus,
+  Alertmanager, the bridge or Gotify dies. Ansible asserts `ALERT_URL` on
+  both hosts and the PVE `gotify` notification target on malice.
   Weekly Docker prune keeps images of stopped containers (`prune -f`,
   no `-a`). Verify the live timers after host deploys.
 
@@ -177,11 +189,13 @@ guests, snapshot, zstd, Sun 03:30, keep-last 8, writes
   `prometheus-node-exporter` listens only on the malice Tailscale address
   and is scraped by Prometheus on `chill-01`.
 - `workers/wan-heartbeat` is a Cloudflare Worker on a five-minute cron. It
-  probes every public vhost from the internet and pings the Healthchecks check
-  only when all answer; the check is configured for a 5m period / 15m grace.
-  The Worker has no public route (`workers_dev = false`) and stores the ping URL
-  as a write-only Worker secret. Raw TCP DNAT is checked by
-  `homelab-public-check.timer` on `chill-01`.
+  probes the 13 public vhosts plus `health.malice.biz` from the internet and
+  pings the Healthchecks check only when all answer; the check is configured
+  for a 5m period / 15m grace. This is the only notification channel that
+  survives chill-01 or Gotify being down. The Worker has no public route
+  (`workers_dev = false`) and stores the ping URL as a write-only Worker
+  secret. Raw TCP DNAT is checked by `homelab-public-check.timer` on
+  chill-01.
 
 ## access matrix
 | Target | Primary (Tailscale) | Fallback |
