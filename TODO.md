@@ -7,6 +7,30 @@ Historical detail is retained separately:
 - [2026-10-25 audit](docs/history/2026-10-audit.md)
 - [pre-audit backlog](docs/history/2026-pre-audit-backlog.md)
 
+### 2026-11-25 — alert-path hardening (committed, deploy pending)
+
+Detail: `RUNBOOK.md` "maintenance 2026-11-25: harden the whole notification
+path"; commits `12fa7f6`..`09ed30b` are pushed.
+
+- [ ] **Deploy the five alert-path commits.** Nothing is live yet. Order:
+  `make deploy` → `make host` → `make hypervisor` → `make vps`, then
+  `wrangler deploy` from `workers/wan-heartbeat` (Cloudflare token in
+  `~/.config/homelab/cloudflare-workers.env`; `HEARTBEAT_URL` unchanged).
+  **Verify:** four new timers active, `homelab_alert_path_healthy` has all
+  four components at 1, `https://health.malice.biz` returns `{"ok": true}`
+  from the internet, `wrangler tail` logs `all 14 public targets healthy` /
+  `heartbeat 200 ok`, zero firing alerts, no failed systemd units. Expect one
+  Healthchecks down/up pair until `homelab-pipeline-check.timer` first writes
+  the gauge.
+- [ ] **Confirm the Healthchecks notification channel.** The check's delivery
+  channel (email/push/etc.) and the 5m/15m grace are external config, not in
+  git. Verify a real `/fail` produces a notification and a recovery ping
+  clears it.
+- [ ] **Re-test one real failure path.** Audit A1 only proved a synthetic
+  `notify@audit-test.service` POST. Break a harmless path (e.g. a planned VPS
+  restart that fails `homelab-public-check`) and confirm both chains deliver:
+  `notify@` → Gotify and `HomelabJobFailed` → bridge → Gotify.
+
 ### P0 — safety and security
 
 - [ ] **Complete the disk retirement (blocked: needs on-site access).** Nothing
