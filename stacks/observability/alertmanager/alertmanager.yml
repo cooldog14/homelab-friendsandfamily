@@ -1,9 +1,23 @@
+# Prometheus is the only threshold engine. Severity is carried to Gotify as a
+# numeric `priority` annotation (see prometheus/rules/homelab.yml), so routing
+# stays flat: one receiver, one webhook. Inhibition is the only place where one
+# alert changes how another is delivered.
 route:
   receiver: gotify
   group_by: [alertname]
   group_wait: 30s
   group_interval: 5m
   repeat_interval: 4h
+inhibit_rules:
+  # A failed backup job explains a stale marker: page once, not twice.
+  - source_matchers: [alertname = HomelabJobFailed, task = backup]
+    target_matchers: [alertname = BackupStale]
+    equal: [host]
+  # A dead delivery pipeline is the root cause of its own dispatch errors.
+  - source_matchers:
+      - alertname =~ "GotifyUnhealthy|AlertPipelineDown"
+    target_matchers:
+      - alertname =~ "AlertmanagerBridgeDroppingAlerts|AlertmanagerBridgeDispatchFailing"
 receivers:
   - name: gotify
     webhook_configs:

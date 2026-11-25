@@ -78,6 +78,10 @@ services:
       WEBHOOK_PATH: /gotify_webhook
       DEFAULT_PRIORITY: 5
       EXTENDED_DETAILS: "true"
+      # A rule missing summary/description is otherwise dropped silently
+      # (bridge returns 400, no Gotify message). Dispatch an error message
+      # instead; host/check-alert-rules.py prevents this in make check.
+      DISPATCH_ERRORS: "true"
     mem_limit: 64m
 
   node-exporter:
@@ -214,6 +218,41 @@ services:
       - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
       - ./state/grafana:/var/lib/grafana
     mem_limit: 1g
+
+  # Public, read-only status bit for the WAN Worker (vps/sites/health.caddy).
+  # The Worker probes https://health.malice.biz from the internet; this service
+  # answers {"ok": ...} and nothing else, so a broken pipeline fails the
+  # Healthchecks check without exposing any admin UI. Reuses the dashboard
+  # image (built by deploy.sh) so there is no second image to pin or build.
+  pipeline-health:
+    image: homelab-dashboard:local
+    command: ["python", "pipeline-health.py"]
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    user: "65534:65534"
+    read_only: true
+    tmpfs:
+      - /tmp
+    environment:
+      PIPELINE_GAUGE: /textfile/homelab-alert-path.prom
+    volumes:
+      - /var/lib/node_exporter/textfile:/textfile:ro
+    # Same WireGuard-only bind as every other public backend; never 0.0.0.0.
+    ports:
+      - "10.44.0.2:8098:8080"
+    mem_limit: 64m
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/', timeout=3)
+      interval: 30s
+      timeout: 5s
+      retries: 3
 
 networks:
   homelab-edge:
