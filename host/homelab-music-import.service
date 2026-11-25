@@ -2,6 +2,7 @@
 Description=Import staged Octo-Fiesta albums through wrtag
 Wants=network-online.target
 After=network-online.target docker.service
+OnFailure=notify@%n.service
 
 [Service]
 Type=oneshot

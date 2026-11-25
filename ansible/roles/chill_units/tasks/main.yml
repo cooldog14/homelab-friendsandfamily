@@ -17,6 +17,8 @@
     - {src: backup-stats.py, dest: homelab-backup-stats}
     - {src: wrtag-import.sh, dest: homelab-wrtag-import}
     - {src: music-import.py, dest: homelab-music-import}
+    - {src: alert-check.sh, dest: homelab-alert-check}
+    - {src: pipeline-check.sh, dest: homelab-pipeline-check}
 
 - name: Install systemd units
   ansible.builtin.copy:
@@ -42,6 +44,10 @@
     - homelab-music-import.service
     - homelab-music-import.timer
     - notify@.service
+    - homelab-alert-check.service
+    - homelab-alert-check.timer
+    - homelab-pipeline-check.service
+    - homelab-pipeline-check.timer
   notify: Reload systemd
 
 - name: Reload systemd before touching the timers
@@ -107,3 +113,17 @@
     - homelab-backup-stats.timer
     - homelab-firewall-neko.service
     - homelab-music-import.timer
+    - homelab-alert-check.timer
+    - homelab-pipeline-check.timer
+
+# /etc/homelab.env is deliberately live-only (0600), but a dead ALERT_URL
+# silences every systemd/script alert (audit A1). Fail the play instead of
+# shipping a host whose alert path cannot deliver. Never print the token.
+- name: Verify the Gotify alert URL exists and points at the private vhost
+  ansible.builtin.shell:
+    cmd: |
+      set -eu
+      test "$(stat -c %a /etc/homelab.env)" = 600
+      grep -Eq '^ALERT_URL=https://gotify\.h\.malice\.biz/message' /etc/homelab.env ||
+        { echo "ALERT_URL missing or not the private gotify.h/message endpoint" >&2; exit 1; }
+  changed_when: false

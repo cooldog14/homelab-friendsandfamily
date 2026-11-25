@@ -88,6 +88,25 @@
     - homelab-backup-stats.timer
   notify: Reload systemd
 
+# Both /etc/homelab.env and /etc/restic/malice.env exist on the hypervisor.
+# Without an explicit override homelab-backup-stats samples chill-01's repos
+# under host="malice", so the malice S3 repo is never watched.
+- name: Create the backup stats drop-in directory
+  ansible.builtin.file:
+    path: /etc/systemd/system/homelab-backup-stats.service.d
+    state: directory
+    mode: "0755"
+
+- name: Point hypervisor backup stats at the malice restic repository
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/homelab-backup-stats.service.d/env.conf
+    mode: "0644"
+    content: |
+      [Service]
+      Environment=BACKUP_STATS_ENV_FILE=/etc/restic/malice.env
+      Environment=BACKUP_STATS_SKIP_LOCAL=1
+  notify: Reload systemd
+
 - name: Reload systemd before enabling new units
   ansible.builtin.meta: flush_handlers
 
@@ -127,3 +146,29 @@
     name: prometheus-node-exporter
     enabled: true
     state: started
+
+# /etc/homelab.env is live-only (0600). A dead ALERT_URL silences malice's
+# notify@ and smartd alerts; fail the play instead of shipping that state.
+- name: Verify the Gotify alert URL exists and points at the private vhost
+  ansible.builtin.shell:
+    cmd: |
+      set -eu
+      test "$(stat -c %a /etc/homelab.env)" = 600
+      grep -Eq '^ALERT_URL=https://gotify\.h\.malice\.biz/message' /etc/homelab.env ||
+        { echo "ALERT_URL missing or not the private gotify.h/message endpoint" >&2; exit 1; }
+  changed_when: false
+
+# PVE's notification target is live-only too (notifications.cfg is cluster
+# config, not git). Verify the gotify endpoint and matcher survive a rebuild.
+- name: Verify PVE notifications target the Gotify endpoint
+  ansible.builtin.shell:
+    cmd: |
+      set -eu
+      cfg=/etc/pve/notifications.cfg
+      test -r "$cfg" || { echo "PVE notifications.cfg missing" >&2; exit 1; }
+      grep -Eq '^gotify:[[:space:]]' "$cfg" || { echo "PVE gotify endpoint missing" >&2; exit 1; }
+      grep -Eq '^[[:space:]]*server[[:space:]]+https://gotify\.h\.malice\.biz' "$cfg" ||
+        { echo "PVE gotify endpoint is not the private vhost" >&2; exit 1; }
+      grep -Eq '^[[:space:]]*target[[:space:]]+gotify' "$cfg" ||
+        { echo "PVE default matcher does not target gotify" >&2; exit 1; }
+  changed_when: false

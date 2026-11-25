@@ -107,5 +107,8 @@ job_metrics() {
   job_metrics homelab-backup-stats.timer homelab-backup-stats.service backup-stats
   job_metrics malice-restic-backup.timer malice-restic-backup.service malice-backup
   job_metrics malice-restic-check.timer malice-restic-check.service malice-restic-check
+  job_metrics homelab-music-import.timer homelab-music-import.service music-import
+  job_metrics homelab-alert-check.timer homelab-alert-check.service alert-check
+  job_metrics homelab-pipeline-check.timer homelab-pipeline-check.service pipeline-check
 } > "$tmp"
 mv "$tmp" "$DIR/homelab.prom"

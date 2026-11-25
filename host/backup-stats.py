@@ -18,7 +18,13 @@ from pathlib import Path
 
 TEXTFILE_DIR = Path(os.environ.get("TEXTFILE_DIR", "/var/lib/node_exporter/textfile"))
 OUTPUT = "homelab-backup-stats.prom"
+# Which env file describes THIS host's repository. On malice both
+# /etc/homelab.env and /etc/restic/malice.env exist, and the old "first file
+# wins" rule sampled chill's repos under host="malice". The malice unit sets
+# BACKUP_STATS_ENV_FILE explicitly (see the malice_monitoring Ansible role).
 ENV_CANDIDATES = ("/etc/homelab.env", "/etc/restic/malice.env")
+ENV_FILE_OVERRIDE = "BACKUP_STATS_ENV_FILE"
+SKIP_LOCAL = os.environ.get("BACKUP_STATS_SKIP_LOCAL", "") == "1"
 LOCAL_MOUNT = Path("/mnt/backup")
 LOCAL_REPO = Path("/mnt/backup/restic")
 SECRET_HINTS = ("KEY", "TOKEN", "PASSWORD", "SECRET", "PASS")
@@ -153,10 +159,17 @@ def repository_metrics(
 
 
 def main() -> int:
-    source = next((Path(path) for path in ENV_CANDIDATES if Path(path).is_file()), None)
-    if source is None:
-        print("homelab-backup-stats: no env file found", file=sys.stderr)
-        return 1
+    override = os.environ.get(ENV_FILE_OVERRIDE)
+    if override:
+        source = Path(override)
+        if not source.is_file():
+            print(f"homelab-backup-stats: {ENV_FILE_OVERRIDE} points at a missing file", file=sys.stderr)
+            return 1
+    else:
+        source = next((Path(path) for path in ENV_CANDIDATES if Path(path).is_file()), None)
+        if source is None:
+            print("homelab-backup-stats: no env file found", file=sys.stderr)
+            return 1
     try:
         values = load_environment(source)
     except RepositoryError as exc:
@@ -193,7 +206,7 @@ def main() -> int:
     if not ok:
         failed = True
 
-    if LOCAL_MOUNT.is_mount() and LOCAL_REPO.is_dir():
+    if not SKIP_LOCAL and LOCAL_MOUNT.is_mount() and LOCAL_REPO.is_dir():
         local_env = dict(base)
         local_env["RESTIC_REPOSITORY"] = str(LOCAL_REPO)
         lines, ok = repository_metrics("local", local_env, host, now)
