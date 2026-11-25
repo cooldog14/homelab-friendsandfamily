@@ -4,24 +4,21 @@ Read `AGENTS.md` first. Its hard rules apply to every session:
 git is source of truth, never print/commit secrets, Tailscale is the
 only people entry point, WireGuard is VPS<->chill-01 only, never touch
 `/etc/wireguard` contents, never flush VPS nftables, no `0.0.0.0`
-binds unless documented. Transient work lives in `TODO.md`,
-incidents in `RUNBOOK.md`.
+binds unless documented. Open work lives in `TODO.md`, procedures in
+`RUNBOOK.md`, dated incidents and maintenance in `docs/history/`.
 
 ## topology
 
-- `malice`: Proxmox VE 9.2.25 (kernel 7.0.14-26) bare metal, the only
-  hypervisor. PVE firewall disabled. No ZFS pools.
+- `malice`: Proxmox VE bare metal, the only hypervisor.
+  PVE firewall disabled. No ZFS pools.
 - VM 101 `chill-01` (running): 4 vCPU, 16G RAM, 80G `local-lvm` disk
   (`scsi0`, `virtio-scsi-single`, `iothread=1`),
   `hostpci0 00:02.0` Intel iGPU passthrough (UHD 630, vfio-pci).
-  Runs all Docker Compose apps (~45 containers). IP LAN `192.168.1.200`,
+  Runs all Docker Compose apps. IP LAN `192.168.1.200`,
   WG `10.44.0.2`, Tailscale `100.92.173.71`.
-- VM 103 `debian-01` (running, 16G+64G `scsi` disks). VM 102 `alpine-01` +
-  LXC 200 `friend` destroyed 2026-09-30 (final vzdumps
-  `vzdump-qemu-102-2026_09_30*`, `vzdump-lxc-200-2026_09_30*` on
-  `/mnt/vault/dump`, keep-last 8). LXC 204 `hermes-01` destroyed 2026-09-30
-  (persona/config saved to `/mnt/primary/users/francis/hermes`, final
-  `vzdump-lxc-204-2026_09_30*` 2.4G retained).
+- VM 103 `debian-01`: remote-site hub, 16G+64G `scsi` disks.
+  Retired guests and their final backups are recorded in operations history;
+  do not treat historical guests as live infrastructure.
 - VPS `debian-13` (`194.58.47.21:4522`): public edge, Caddy TLS +
   nftables NAT. No apps. SSH is key-only (`PermitRootLogin
   prohibit-password`, `PasswordAuthentication no` via
@@ -64,7 +61,7 @@ incidents in `RUNBOOK.md`.
   cloud-init host key, so verify the new fingerprint with
   `qm guest exec 101 -- ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub`
   before updating known_hosts.
-## storage (Proxmox paths stable; virtiofs tags renamed 2026-09-30)
+## storage
 | Host disk | Mount | Shared as | Guest sees | Holds |
 |---|---|---|---|---|
 | sdd 4TB | `/mnt/bulk` -> `/mnt/pool` (bind) | `pve1-pool` | `/mnt/pool` | movies, tv, downloads + `takeover-primary` (sole primary-data copy, backed up) |
@@ -72,7 +69,7 @@ incidents in `RUNBOOK.md`.
 | sdf 466G SSD | `/mnt/fast` | `pve1-fast` | `/mnt/fast` | jellyfin-cache, imports, scratch, DB dumps (disposable) |
 | sdb 466G | `/mnt/vault` | `pve1-vault` (was `pve1-archive`) | `/mnt/vault` | vzdump target + pre-migration keeps (backup-only) |
 | sda 1TB | `/mnt/backup` | `pve1-backup` | `/mnt/backup` | local restic repo (backup-only) |
-| sde SSD | Proxmox + `local-lvm` | — | VM disks | Data% ~36%, VFree ~16G |
+| sde SSD | Proxmox + `local-lvm` | — | VM disks | Measure live usage before capacity decisions |
 
 chill-01 root disk holds Docker images and `/opt/stacks/*/state`;
 keep bulk files off it.
@@ -82,44 +79,31 @@ device offlined); takeover `media/music` (301G) ro-bound over
 `/mnt/pool/media/music` (fstab-persisted; `/mnt/bulk/media/music` follows). `weekly-vault` vzdump job: all
 guests, snapshot, zstd, Sun 03:30, keep-last 8, writes
 `/mnt/vault/dump`.
-## app stacks (all on chill-01, `/opt/stacks`, `make deploy` ships git)
+## services
 
-- `apps`: Filebrowser Quantum (`:8085`), family (`:8086`,
-  public `files.malice.biz`), upload drop (`:8087`,
-  public `upload.malice.biz`).
-- `photos`: Immich (`:2283`, public + private); uploads land on mirror.
-- `docs`: Paperless (`:8092`), Stirling (`:8091`, private only),
-  Kavita (`:8094`), Gotenberg, Tika.
-- `comms`: Mumble (`:64738/tcp+udp`), Neko (`:8097` + `:52000`),
-  Screego (`:5050`, `network_mode: host` — documented exception).
-- `media`: Jellyfin (`:8096` WG + LAN bind for TVs),
-  qBittorrent/Prowlarr/FlareSolverr/slskd behind gluetun (egress via
-  VPS `wg0`, inbound `6881`/`50300` DNAT to `10.30.0.4`),
-  Radarr/Sonarr/Bazarr/Jellyseerr, Navidrome (`:4533` WG),
-  Feishin/player (`:9180`), Octo-fiesta (`:5274`), Suwayomi (`:4567`,
-  public `mg.malice.biz` + private), wrtag (`:7373`). Octo-Fiesta stages
-  downloads in `/mnt/data/media/downloads/octo-fiesta`; review there and
-  import with `homelab-wrtag-import`, or let `homelab-music-import.timer`
-  queue them daily and show the review count on `home.h.malice.biz`.
-  Jellyfin `/cache` -> `/mnt/fast/jellyfin-cache`;
-  `/pool/movies|tv` ro. GPU `renderD128` present, QSV->VAAPI flip open.
-  slskd (`:5030`) requires authentication; wrtag (`:7373`) deliberately
+Compose definitions in `stacks/*/docker-compose.yml` own the app inventory,
+ports and mounts; Caddy files own routes. Do not duplicate those inventories here.
+All stacks run on chill-01 under `/opt/stacks`; `make deploy` ships git.
+
+- `apps`, `photos`, `docs`, `comms`, `media`, `games`: user-facing services.
+  Screego uses host networking (documented exception).
+- Media P2P services share gluetun's VPS egress. Keep
+  `FIREWALL_OUTBOUND_SUBNETS=172.16.0.0/12`: Compose bridge subnets can change
+  after recreation. Jellyfin binds WG + LAN for TVs, with `/cache` on
+  `/mnt/fast/jellyfin-cache` and movies/TV read-only.
+- Octo-Fiesta stages in `/mnt/data/media/downloads/octo-fiesta`; review/import
+  with `homelab-wrtag-import` or the daily music-import timer.
+- slskd (`:5030`) requires authentication; wrtag (`:7373`) deliberately
   does not (`WRTAG_WEB_AUTH=disabled`), while its `/op/` API still needs the
   key. Both are reachable only through the private `*.h.malice.biz` Caddy
   over Tailscale (`slskd.h` / `wrtag.h`), never public and never from the
   VPS tunnel. The tailnet remains the outer auth boundary.
-- `observability`: Gotify (`:8070`, private only),
-  prometheus (published only on `127.0.0.1:9091` — Cockpit owns
-  `*:9090`), alertmanager, alertmanager-gotify-bridge, node-exporter,
-  cadvisor (privileged — documented exception), blackbox-exporter,
-  grafana, and `home.h` (read-only status/inventory index). Private admin
-  UIs are reached by private Caddy over the internal `homelab-edge` Docker
-  network, not published on `10.44.0.2`. Grafana owns metrics, trends and
-  capacity projections; `home.h` owns live container state, Compose
-  inventory, Caddy routes, logs and authenticated app APIs. Prometheus is
-  the only alert engine; blackbox probes the public vhosts
-  (`blackbox-http`), the private `*.h` vhosts (`blackbox-private`) and the
-  DNAT ports (`blackbox-tcp`). Roughly 42 containers in total on the host.
+- `observability`: Prometheus is the only alert engine; Grafana owns metrics,
+  trends and capacity, while `home.h` owns live state, inventory, routes, logs
+  and authenticated app APIs. Blackbox probes public/private HTTP and DNAT TCP.
+  Prometheus publishes only on `127.0.0.1:9091` (Cockpit owns `:9090`);
+  cAdvisor is privileged (documented exception). Private admin UIs use Caddy's
+  internal `homelab-edge` network, not published WireGuard ports.
 - Host admin: Cockpit (`cockpit.h.malice.biz` / `:9090`, includes web
   terminal) is Tailscale/private Caddy only; no public route and blocked
   from the VPS WireGuard tunnel.
@@ -128,16 +112,13 @@ guests, snapshot, zstd, Sun 03:30, keep-last 8, writes
   its config at start, so a route edit needs `make edge-reload` — a
   deploy of an unchanged compose file is a no-op.
 
-## public edge (VPS, git-owned `vps/sites/*.caddy`)
+## public edge
 
-- `chill.caddy`: photos, files, paperless, kavita, neko, screego.
-- `media.caddy`: jellyfin, requests, player, fiesta, upload, nvdr, mg.
-  All backends `reverse_proxy 10.44.0.2:<port>`.
-- `health.caddy`: `health.malice.biz` is a status bit, not an app. It proxies
-  to a read-only container published only on `10.44.0.2:8098`, which returns
-  `{"ok": ...}` from `homelab_alert_path_healthy`. The WAN Worker reads that
-  body so a dead Gotify/Alertmanager/bridge/Prometheus fails the external
-  Healthchecks check even when all real public vhosts still answer.
+Git-owned `vps/sites/*.caddy` defines public routes to `10.44.0.2:<port>`.
+`health.malice.biz` is a read-only status bit on `10.44.0.2:8098`, not an app;
+its `homelab_alert_path_healthy` result lets the WAN Worker detect a failed
+notification pipeline even when public applications still answer.
+
 - nftables NAT: Mumble `64738`, Neko `52000`, Screego `3478` +
   `52100-52200`, and Minecraft `25565` are forwarded to `10.44.0.2`.
   CrowdSec blacklist active. `vps/firewall.nft` is the effective
@@ -159,24 +140,16 @@ guests, snapshot, zstd, Sun 03:30, keep-last 8, writes
   set differs from the five current paths, so changing the backup paths
   fails the job instead of silently deleting history; a deliberate
   layout change needs one `--cleanup-legacy` run.
-- `homelab-backup-watchdog` (48h), `homelab-public-check`, Gotify, and
-  Prometheus are the alert path. Prometheus rules (host down, target
-  down, public endpoint down, TLS expiring, disk above 85% for 10
-  minutes, stale/missing backup metric, stale WireGuard handshake,
-  container restart loop, bridge/Gotify delivery failures) route through
-  Alertmanager and the `alertmanager-gotify-bridge` into Gotify. Severity
-  is carried as a numeric `priority` annotation (critical 8 / warning 5)
-  because the bridge does not read the `severity` label. Prometheus keeps
-  15 days of metrics. The public check runs every 15 minutes;
-  `notify@.service` logs delivery failures to the journal instead of
-  failing silently when `ALERT_URL` is unset.
-- A daily `homelab-alert-check` proves `ALERT_URL` really delivers, and a
-  five-minute `homelab-pipeline-check` writes `homelab_alert_path_healthy`
-  and fails a unit (=> `notify@`) once per outage if Prometheus,
-  Alertmanager, the bridge or Gotify dies. Ansible asserts `ALERT_URL` on
-  both hosts and the PVE `gotify` notification target on malice.
-  Weekly Docker prune keeps images of stopped containers (`prune -f`,
-  no `-a`). Verify the live timers after host deploys.
+- Prometheus → Alertmanager → bridge → Gotify is the alert pipeline.
+  Use numeric `priority` annotations (critical 8 / warning 5); the bridge
+  does not read `severity`. Prometheus retains 15 days.
+- `homelab-backup-watchdog` alerts after 48h. Public checks run every 15m;
+  `notify@` must log failed delivery, never silently accept missing `ALERT_URL`.
+- Daily `homelab-alert-check` tests delivery; five-minute
+  `homelab-pipeline-check` checks all four pipeline components and triggers
+  `notify@` once per outage. Ansible asserts `ALERT_URL` and PVE's Gotify target.
+  Verify live timers after host deployments.
+- Weekly Docker prune must keep stopped-container images: `prune -f`, never `-a`.
 
 - `malice-restic-backup` (git-owned `host/malice-restic-backup*`,
   nightly 04:45 → Hetzner S3, retention + `restic check`) covers the
