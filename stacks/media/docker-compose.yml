@@ -42,7 +42,7 @@ services:
   # slskd). Ported from the arr LXC: without this, P2P egresses via the home
   # IP instead of the VPS. Keys live in .env (never in git).
   gluetun:
-    image: qmcgaw/gluetun:v3.41.1
+    image: qmcgaw/gluetun:v3.41.3
     security_opt:
       - no-new-privileges:true
     # The tunnel device and its firewall need NET_ADMIN; nothing else.
@@ -81,7 +81,7 @@ services:
         aliases: [prowlarr]
 
   qbittorrent:
-    image: lscr.io/linuxserver/qbittorrent:5.2.2
+    image: lscr.io/linuxserver/qbittorrent:5.3.1
     security_opt:
       - no-new-privileges:true
     # LinuxServer images s6-chown their config and drop to PUID/PGID.
@@ -133,7 +133,7 @@ services:
       - ./state/prowlarr:/config
 
   flaresolverr:
-    image: ghcr.io/flaresolverr/flaresolverr:v3.5.0
+    image: ghcr.io/flaresolverr/flaresolverr:v3.5.2
     security_opt:
       - no-new-privileges:true
     cap_drop:
@@ -281,7 +281,7 @@ services:
     restart: unless-stopped
 
   wrtag:
-    image: sentriz/wrtag:v0.30.0
+    image: sentriz/wrtag:v0.34.0
     security_opt:
       - no-new-privileges:true
     cap_drop:
@@ -369,7 +369,7 @@ services:
     restart: unless-stopped
 
   suwayomi:
-    image: ghcr.io/suwayomi/suwayomi-server:v2.4.2422-preview
+    image: ghcr.io/suwayomi/suwayomi-server:v2.4.2512-preview
     security_opt:
       - no-new-privileges:true
     cap_drop:
