@@ -7,21 +7,28 @@ Historical detail is retained separately:
 - [2026-10-25 audit](docs/history/2026-10-audit.md)
 - [pre-audit backlog](docs/history/2026-pre-audit-backlog.md)
 
-### 2026-11-25 — alert-path hardening (committed, deploy pending)
+### 2026-11-25 — alert-path hardening (deployed)
 
 Detail: `RUNBOOK.md` "maintenance 2026-11-25: harden the whole notification
-path"; commits `12fa7f6`..`09ed30b` are pushed.
+path"; commits `12fa7f6`..`09ed30b` + `3a46e12` are pushed.
 
-- [ ] **Deploy the five alert-path commits.** Nothing is live yet. Order:
-  `make deploy` → `make host` → `make hypervisor` → `make vps`, then
-  `wrangler deploy` from `workers/wan-heartbeat` (Cloudflare token in
-  `~/.config/homelab/cloudflare-workers.env`; `HEARTBEAT_URL` unchanged).
-  **Verify:** four new timers active, `homelab_alert_path_healthy` has all
-  four components at 1, `https://health.malice.biz` returns `{"ok": true}`
-  from the internet, `wrangler tail` logs `all 14 public targets healthy` /
-  `heartbeat 200 ok`, zero firing alerts, no failed systemd units. Expect one
-  Healthchecks down/up pair until `homelab-pipeline-check.timer` first writes
-  the gauge.
+- [x] **Deploy the alert-path commits.** Done 2026-11-25. Order used:
+  `make vps` → `make hypervisor` → `host/deploy.sh chill-01` → `make host` →
+  start `homelab-pipeline-check`/`homelab-alert-check` once → `wrangler deploy`.
+  `host/deploy.sh` (what `make deploy` runs) was invoked directly because the
+  workstation has no Docker daemon for the `check` prerequisite; all checks
+  were run locally or on the live hosts. VPS-first ordering avoids a
+  `homelab-public-check` failure against the not-yet-published vhost.
+  **Verified:** 29 Prometheus rules loaded, 2 inhibit rules,
+  `DISPATCH_ERRORS=true`, `pipeline-health` healthy on `10.44.0.2:8098`,
+  all four `homelab_alert_path_healthy` components at 1,
+  `https://health.malice.biz` returns `{"ok": true}` from the internet,
+  14 public + 16 private + 4 TCP probes green, `homelab-public-check` exit 0
+  (14 HTTP + 4 TCP), `homelab-alert-check` POST 200, zero firing alerts,
+  zero failed units on all three hosts, `wrangler tail` logs
+  `all 14 public targets healthy` / `heartbeat 200 ok`, malice backup-stats
+  reports 15 snapshots on its own repo with no bogus `local` series,
+  `.deployed-commit` = `3a46e12`.
 - [ ] **Confirm the Healthchecks notification channel.** The check's delivery
   channel (email/push/etc.) and the 5m/15m grace are external config, not in
   git. Verify a real `/fail` produces a notification and a recovery ping

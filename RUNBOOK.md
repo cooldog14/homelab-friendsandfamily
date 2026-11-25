@@ -1394,13 +1394,17 @@ Changes, all in git (no live edits):
   returns 200 so `homelab-public-check` and `blackbox-http` do not page on a
   deliberate "pipeline down" signal. No new secret and no new Healthchecks
   check: the Worker's `HEARTBEAT_URL` is unchanged.
-- Deploy order for this change: `make deploy` (brings up `pipeline-health`),
-  `make host` (starts `homelab-pipeline-check.timer`, creating the gauge),
-  `make hypervisor`, `make vps` (publishes the vhost), then redeploy the
-  Worker from `workers/wan-heartbeat` (`wrangler deploy`, per its README).
-  Until the first pipeline-check run writes the gauge, expect one Healthchecks
-  down/up pair. The Worker deploy needs the Cloudflare token from
-  `~/.config/homelab/cloudflare-workers.env`; `HEARTBEAT_URL` is unchanged.
+- Deploy order used 2026-11-25: `make vps` (publishes `health.caddy`) →
+  `make hypervisor` → `host/deploy.sh chill-01` (brings up `pipeline-health`)
+  → `make host` (starts `homelab-pipeline-check.timer`, creating the gauge)
+  → start `homelab-pipeline-check`/`homelab-alert-check` once →
+  `wrangler deploy`. VPS-first avoids `homelab-public-check` probing a vhost
+  that does not exist yet; stack-first means the container is up before host
+  timers fire. `host/deploy.sh` was invoked directly because `make deploy`'s
+  `check` prerequisite needs a local Docker daemon the workstation lacks; all
+  checks were run locally or on the live hosts. The Worker deploy needs the
+  Cloudflare token from `~/.config/homelab/cloudflare-workers.env`;
+  `HEARTBEAT_URL` is unchanged.
 - Verify: `pipeline-health.py` logic (fresh/broken/missing-component/stale/
   missing gauge) and its HTTP 200 + JSON response, Worker `scheduled()` with
   a mocked fetch (healthy -> success ping, broken pipeline -> `/fail`),
@@ -1408,3 +1412,34 @@ Changes, all in git (no live edits):
   `check-probe-targets.py` (14 public / 16 private / 4 TCP agree), and
   `docker compose config` all pass. Healthchecks' own notification channel
   is external config, not in git, so it cannot be verified from here.
+
+## maintenance 2026-11-25: live verification after deploy
+
+All commits were deployed on 2026-11-25; no live config was hand-edited.
+`make vps` (ok=53 changed=5), `make hypervisor` (ok=22 changed=6),
+and `make host` (ok=54 changed=6) reported `failed=0`; `host/deploy.sh` completed successfully.
+`wrangler deploy` published version `1f1055b5` with the `*/5 * * * *` cron.
+
+- Observability: 29 Prometheus rules loaded, 2 inhibit rules,
+  `DISPATCH_ERRORS=true`, 10 observability containers up with
+  `pipeline-health` healthy on `10.44.0.2:8098`.
+- Alert path: `homelab_alert_path_healthy` = 1 for prometheus, alertmanager,
+  bridge and gotify; `https://health.malice.biz` returns `{"ok": true}` from
+  the public internet; `homelab-alert-check` POST returned 200 ("delivery OK");
+  `homelab-public-check` exit 0 with 14 HTTP + 4 TCP green; zero firing
+  alerts and zero failed units on chill-01, malice and the VPS.
+- Probes: `blackbox-http` 14, `blackbox-private` 16, `blackbox-tcp` 4,
+  `up{job="gotify-bridge"}` 1, `alertmanager_gotify_bridge_gotify_up` 1.
+- External heartbeat: `wrangler tail` captured a scheduled run logging
+  `all 14 public targets healthy` and `heartbeat 200 ok`. One transient
+  `fiesta.malice.biz` timeout from the workstation did not reproduce (200 on
+  three retries, from the VPS and from chill-01).
+- Hypervisor: smartd long tests staggered Mon/Tue/Wed/Sat/Thu; the
+  `homelab-backup-stats` drop-in is live and a manual run reports 15 snapshots
+  on `/backupbackup/malice-host` with no bogus `local` series.
+- Blast radius: Caddy config valid, CrowdSec + bouncer + `wg-quick@chill0`
+  active, WG handshake 17 s, backup markers fresh, `.deployed-commit` =
+  `3a46e12`, local git clean.
+- Still open (tracked in `TODO.md`): confirm Healthchecks' own notification
+  channel with a real `/fail` + recovery, and re-test one real failure path.
+  Healthchecks delivery config is external and was not readable from here.
