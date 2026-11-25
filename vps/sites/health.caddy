@@ -1,0 +1,8 @@
+# health.malice.biz is a status bit, not an application. The WAN Worker probes
+# it from the internet and reads {"ok": ...} to decide whether to fail the
+# Healthchecks check. The backend is a read-only, health-only container bound
+# to the WireGuard address; no admin UI and no secrets are exposed here.
+health.malice.biz {
+	import log_redacted
+	reverse_proxy 10.44.0.2:8098
+}
