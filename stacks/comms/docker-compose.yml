@@ -1,6 +1,6 @@
 services:
   mumble:
-    image: mumblevoip/mumble-server:v1.5.939-acme
+    image: mumblevoip/mumble-server:v1.6.1001-acme
     security_opt:
       - no-new-privileges:true
     # Mumble entrypoint writes /data config as dropped user: needs CHOWN+
