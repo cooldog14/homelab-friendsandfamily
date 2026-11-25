@@ -1,6 +1,8 @@
 #!/bin/sh
 # Nightly restic. Dump live DBs first, else a restore is a coin flip.
-# Says nothing when it works; systemd OnFailure handles the other case.
+# Success stays silent. A hard failure is owned by OnFailure=notify@; the
+# alert() helper below is only for fail-open, partial failures where the unit
+# still exits 0. Never alert twice for one event.
 set -eu
 # systemd oneshot has no HOME/XDG_CACHE_HOME; restic needs a cache dir.
 export HOME="${HOME:-/root}"
@@ -18,7 +20,7 @@ chmod 700 "$DUMP_DIR"
 
 log() { printf '[%s] %s\n' "$(date -Is)" "$*"; }
 alert() {
-  curl -fsS -X POST -F "message=$1" -F "priority=5" "${ALERT_URL:-}" > /dev/null 2>&1 ||
+  curl -fsS -X POST -F "message=$1" -F "priority=5" "${ALERT_URL:-}" > /dev/null ||
     logger -p user.err "homelab alert delivery failed: $1"
 }
 
@@ -111,7 +113,7 @@ sql_backup /opt/stacks/media/state/jellyfin-config/data/jellyfin.db "$DUMP_DIR/j
 sql_backup /opt/stacks/observability/state/gotify/gotify.db "$DUMP_DIR/gotify.db"
 sql_backup /opt/stacks/observability/state/grafana/grafana.db "$DUMP_DIR/grafana.db"
 if [ -n "$PG_FAILED" ] || [ -n "$SQLITE_FAILED" ]; then
-  alert "database dump incomplete on $(hostname): PG=[$PG_FAILED] SQLite=[$SQLITE_FAILED] (backup continuing)"
+  log "database dump incomplete: PG=[$PG_FAILED] SQLite=[$SQLITE_FAILED] (backup continuing; final status decides the alert)"
 fi
 
 # Minecraft: disable periodic saves and flush once. Suwayomi uses H2, which
@@ -214,7 +216,7 @@ if [ "$SUWAYOMI_PAUSED" = 1 ]; then
 fi
 
 if [ -n "$QUIESCE_FAILED" ]; then
-  alert "live-state quiesce incomplete on $(hostname): $QUIESCE_FAILED (backup continuing)"
+  log "live-state quiesce incomplete: $QUIESCE_FAILED (backup continuing; final status decides the alert)"
 fi
 
 backup_and_prune() {
@@ -254,7 +256,6 @@ backup_and_prune
 # Never mkdir past this point unguarded: a repo on the root disk would fill it.
 if ! mountpoint -q /mnt/backup; then
   log "local restic mount missing: /mnt/backup"
-  alert "local restic mount missing on $(hostname): /mnt/backup (cloud backup completed)"
   exit 1
 fi
 cloud_repo=$RESTIC_REPOSITORY
@@ -264,7 +265,7 @@ restic snapshots >/dev/null 2>&1 || restic init
 backup_and_prune
 export RESTIC_REPOSITORY="$cloud_repo"
 if [ -n "$PG_FAILED" ] || [ -n "$SQLITE_FAILED" ] || [ -n "$QUIESCE_FAILED" ]; then
-  alert "backup completed INCOMPLETE on $(hostname): PG=[$PG_FAILED] SQLite=[$SQLITE_FAILED] quiesce=[$QUIESCE_FAILED]"
+  log "backup completed INCOMPLETE: PG=[$PG_FAILED] SQLite=[$SQLITE_FAILED] quiesce=[$QUIESCE_FAILED] (OnFailure=notify@ owns the page)"
   exit 1
 fi
 # Success marker for the watchdog timer (a disabled timer fails silently otherwise).

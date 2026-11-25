@@ -3,6 +3,7 @@ Description=Enforce homelab DOCKER-USER isolation
 After=docker.service network-online.target
 Requires=docker.service
 Wants=network-online.target
+OnFailure=notify@%n.service
 
 [Service]
 Type=oneshot
