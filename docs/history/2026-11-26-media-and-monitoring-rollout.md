@@ -27,3 +27,10 @@ Only the Jellyfin and Bazarr mount batch went live. Follow the
 Filebrowser was not restarted. It still uses the
 [default of not trusting proxy headers](https://filebrowserquantum.com/en/docs/configuration/http/#trustproxyheaders-v200--trustedheaders-v14xv15x),
 which is now explicit in the config on disk. The WAN Worker was not deployed.
+
+## Alert wording
+
+Commit ca861555d4 put Prometheus alert messages and the Grafana overview in
+English. The live dashboard showed Sonarr imports as pending, with 24 hours
+stated as the condition for firing. The swap test showed 0.017 pages per
+second instead of zero. Alert thresholds and mounts did not change.
