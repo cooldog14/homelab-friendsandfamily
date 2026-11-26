@@ -1444,3 +1444,30 @@ left uncommitted.
   `.bak` files totaling 27,726,447 bytes. Neither was deleted; the latest
   restic snapshot was not checked for this cleanup. VM 100 remains at 8 GiB;
   no memory, kernel, ESP, reboot, disk, or tailnet-device change was made.
+
+## maintenance 2026-11-26: review fixes
+
+- `0267ca59ef` preserves full-precision observation timestamps in `/metrics`
+  and withholds failed Arr queue counts from the dashboard snapshot.
+- `8ccde7b56e` keeps Filebrowser proxy-header trust off on shared networks.
+  Password/passkey configuration and Caddy's public headers and log redaction
+  are unchanged.
+- Of the reviewed mount batches, only Jellyfin/Bazarr (`46b5858`) is enabled in
+  the committed manifests. Later batches are held in separate, mount-only commits:
+  - qBittorrent/Radarr/Sonarr: `2431903931`
+  - slskd: `2947ca7cbe`
+  - wrtag: `fede553c67` (activate with the coordinated Music Manager change)
+  - admin Filebrowser: `bd935a69f0`
+  Reverse each hold only when the preceding batch and this batch's
+  prerequisites pass. Use the [rollout procedure](../../RUNBOOK.md#mount-narrowing-rollout).
+- Corrected the boot and retirement procedures: no `grub-install`, keep the
+  signed boot chain and fallback kernel, and preserve `sda` and `sdb`. Only
+  the serial-verified `sdc` can be retired after the recovery, VM 100, console,
+  and on-site gates pass.
+- Checks: 27 dashboard metric/snapshot tests passed. A disposable local
+  browser fixture showed the Sonarr failure with no count and the successful
+  empty Radarr queue with count 0. Apps/media Compose config, private Caddy
+  adapt, public Caddy validate, and Filebrowser YAML checks passed.
+- No production changes. Owner Music Manager work was not committed or
+  deployed; its private-probe mismatch and absent dashboard Bazarr key
+  remain rollout gates.
