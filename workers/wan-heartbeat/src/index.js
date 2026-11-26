@@ -99,9 +99,14 @@ export default {
     try {
       const response = await fetch(url, { method: "GET" });
       if (response.body) await response.body.cancel();
-      console.log(`heartbeat ${response.status} ${failures.length > 0 ? "fail" : "ok"}`);
-    } catch (err) {
-      console.error(`heartbeat request failed: ${String(err)}`);
+      if (!response.ok) {
+        console.error(`heartbeat delivery failed: HTTP ${response.status}`);
+      } else {
+        console.log(`heartbeat ${response.status} ${failures.length > 0 ? "fail" : "ok"}`);
+      }
+    } catch {
+      // fetch exceptions can contain the complete secret ping URL.
+      console.error("heartbeat request failed");
     }
   },
 
