@@ -106,7 +106,7 @@ services:
       WEBUI_EXTERNAL_ACCESS: "true"
     volumes:
       - ./state/qbittorrent:/config
-      - /mnt/data:/data
+      - /mnt/data/downloads:/data/downloads:rw
       - /mnt/pool/downloads:/pool/downloads
     restart: unless-stopped
 
@@ -171,7 +171,7 @@ services:
       TZ: Europe/Paris
     volumes:
       - ./state/radarr:/config
-      - /mnt/data:/data
+      - /mnt/data/downloads:/data/downloads:rw
       - /mnt/pool/media/movies:/pool/movies
       - /mnt/pool/downloads:/pool/downloads
 
@@ -197,7 +197,7 @@ services:
       TZ: Europe/Paris
     volumes:
       - ./state/sonarr:/config
-      - /mnt/data:/data
+      - /mnt/data/downloads:/data/downloads:rw
       - /mnt/pool/media/tv:/pool/tv
       - /mnt/pool/downloads:/pool/downloads
 
@@ -310,7 +310,7 @@ services:
       WRTAG_COVER_UPGRADE: "true"
     volumes:
       - ./state/wrtag:/data
-      - /mnt/data:/mnt/data
+      - /mnt/data/media:/mnt/data/media:rw
     restart: unless-stopped
 
   octo-fiesta:
@@ -421,7 +421,8 @@ services:
       - ./state/slskd:/app
       - ./config/slskd/slskd.yml:/app/slskd.yml:ro
       - ./config/slskd/autotag.sh:/app/scripts/autotag.sh:ro
-      - /mnt/data:/data
+      - /mnt/data/media/music:/data/media/music:ro
+      - /mnt/data/media/music/inbox/slskd:/data/media/music/inbox/slskd:rw
     restart: unless-stopped
 
 networks:

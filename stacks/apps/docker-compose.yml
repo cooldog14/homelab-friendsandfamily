@@ -11,8 +11,16 @@ services:
       homelab-edge:
         aliases: [filebrowser]
     volumes:
-      - /mnt/data:/srv
-      - /mnt/pool:/srv/pool
+      - /mnt/data/archive:/srv/archive:rw
+      - /mnt/data/docs:/srv/docs:rw
+      - /mnt/data/family:/srv/family:rw
+      - /mnt/data/shared:/srv/shared:rw
+      - /mnt/data/users:/srv/users:rw
+      - /mnt/data/media:/srv/media:rw
+      - /mnt/data/photos:/srv/photos:rw
+      - /mnt/data/downloads:/srv/downloads:rw
+      - /mnt/pool/media:/srv/pool/media:rw
+      - /mnt/pool/downloads:/srv/pool/downloads:rw
       - ./state/filebrowser-quantum:/home/filebrowser/data
       - ./config/filebrowser/config.yaml:/home/filebrowser/data/config.yaml:ro
 
