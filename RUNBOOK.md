@@ -54,7 +54,7 @@ live mount paths. Stop on unexpected drift. Never move media on disk.
 
 Each activation commit changes only one mount batch. The Jellyfin/Bazarr
 change (`46b5858`) is first. The
-[review follow-up](docs/history/2026-09-11-operations.md#maintenance-2026-11-26-review-fixes)
+[November 26 follow-up](docs/history/2026-11-26-observability-and-mounts.md#maintenance-2026-11-26-review-fixes)
 lists the later holds. Reverse only the hold whose prerequisites have passed.
 Deploy with `make deploy`, inspect the changed services, and verify the workflow
 before activating another batch. If a batch fails, reverse just its activation
@@ -110,10 +110,11 @@ service. Record detection and recovery times.
 
 ## Private edge
 
-Fix the git-owned `stacks/edge/Caddyfile`, validate the configuration before
-restart, deploy the committed change, then run `make edge-reload`.
-Caddy reads the bind-mounted configuration at startup; unchanged Compose files
-do not trigger a restart. Check the actual route afterward.
+Fix the git-owned `stacks/edge/Caddyfile`, validate it, and deploy the committed
+change. `make deploy` restarts Caddy when the synced Caddyfile differs; if an
+explicit restart is needed, use `make edge-reload`. Running Compose `up -d`
+alone with an unchanged service definition does not reread the file. Check
+the actual route afterward.
 Use exact host matchers, never `map` for routing; unknown hosts must return 404.
 
 ## VPS Caddy
@@ -134,8 +135,8 @@ can kill the tunnel without WireGuard errors. Never edit `/etc/wireguard`.
 
 Inspect the backup unit's journal and latest successful snapshot. Repair the
 cause and run the backup; never refresh a success marker without a real success.
-`homelab-backup-watchdog` alerts after 48 hours. Retention keeps three snapshots
-per repository and refuses unexpected backup path sets; do not bypass that guard.
+`homelab-backup-watchdog` alerts after 48 hours. Chill-01 retention keeps three
+snapshots per repository and refuses unexpected path sets; do not bypass it.
 
 Check Prometheus → Alertmanager → bridge → Gotify, plus `notify@` delivery.
 After host deployment/reboot, verify backup/check timers and run
@@ -143,10 +144,25 @@ After host deployment/reboot, verify backup/check timers and run
 Healthchecks cover loss of chill-01/Gotify; a green public application alone
 does not prove notification delivery.
 
+## Notification drills
+
+Arrange receipt access and approval before changing anything. For the local
+paths, use a temporary `/bin/false` systemd oneshot with `OnFailure=notify@%n.service`,
+a companion timer armed beyond the drill, and an entry in the job collector.
+Wait for `HomelabJobFailed` and confirm separate direct and bridge Gotify
+receipts. Use cleanup to remove only the drill wiring, clear the unit's
+failed state, restore the collector, and verify alert recovery. Do not stop
+an app or exporter.
+
+Separately, use authorized Healthchecks access to confirm the 5-minute period,
+15-minute grace and independent recipient. Prove a failure receipt and
+recovery, then observe the next scheduled Worker success. Use a separate
+equivalent check if cron would mask the test. Never disable the production
+check. A successful HTTP response is not a delivery receipt.
+
 ## History
 
-Record dated incidents, maintenance and drill results in
-[operations history](docs/history/2026-09-11-operations.md), not in the procedures
-above. Historical commands and status are not current instructions.
-Completed work and prior verification are in the
-[2026-11-25 backlog snapshot](docs/history/2026-11-25-backlog.md).
+Record incidents, maintenance and drill results in [operations history](docs/history/README.md).
+Date new entries by the actual event, not the day they were transcribed.
+Keep older commands and checkboxes in their dated evidence, not in these
+procedures or the current [TODO](TODO.md).

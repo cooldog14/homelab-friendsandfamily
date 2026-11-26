@@ -30,16 +30,11 @@ the endpoint is reached over the private admin network, not the internet.
 `PVEAuditor` at `/` is the entire read-only policy, including `Mapping.Audit`.
 Do not grant VM configuration/power/allocation or `Mapping.Modify` privileges.
 Intentional infrastructure changes use existing root administration, not this
-token. For the previously observed grants, remove only these exact tuples:
-
-```sh
-ssh <hypervisor> 'pveum acl delete /vms/101 --users tofu@pve --roles PVEVMAdmin'
-ssh <hypervisor> 'pveum acl delete /mapping --users tofu@pve --roles TofuMapping'
-```
-
-Inspect effective user/token privileges afterward and run `make tofu-plan`
-with the private environment loaded. Never test authorization by attempting
-a destructive API operation. These instructions do not prove live ACL removal.
+token. The [November 26 review](../docs/history/2026-11-26-observability-and-mounts.md#maintenance-2026-11-26-continuation-gate-review)
+records the verified read-only grants and a no-change plan. If access drifts,
+inspect effective user/token privileges and run `make tofu-plan` with the
+private environment. Never test authorization by attempting a destructive API
+operation.
 
 ## Workflow
 

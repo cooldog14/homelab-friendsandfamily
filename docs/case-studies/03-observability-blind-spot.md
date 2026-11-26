@@ -41,6 +41,9 @@ anything.
 
 ## Repair
 
+These were the repairs for the now-retired Beszel setup; they are not
+instructions for the current Prometheus deployment.
+
 - Replace the pinned allowance with the whole Docker address range
   (`172.16.0.0/12`), because the bridge subnet is not stable.
 - Add a second, explicit rule for the hub's path to the agent's listen address.
@@ -72,12 +75,10 @@ so a stalled collector shows up as a missing series rather than a stale value.
 
 ## What this changed about the operating model
 
-- A dashboard without an alert is decoration. Every panel that matters has a
-  corresponding rule.
-- Alerts are tested by breaking the thing on purpose: stop the exporter, wait for
-  the rule to fire, confirm delivery, restore, confirm resolution.
-- The alert path is one hop: rule → alert router → webhook bridge → the
-  notification app the owner already reads. No second inbox.
-- Post-reboot checks are part of the runbook: after any host reboot, confirm the
-  system reports `up` and a metric younger than five minutes, and keep the
-  monitoring allowance scoped to the Docker range, never one bridge.
+- Prometheus owns alert rules. A dashboard that renders live data is not proof
+  of delivery.
+- Direct systemd notifications and Prometheus → Alertmanager → bridge are
+  configured to deliver to Gotify. The external Worker and Healthchecks form
+  a separate path for failures that take down the local chain.
+- Use the [receipt-backed drill](../../RUNBOOK.md#notification-drills) rather
+  than stopping production dependencies. Verify both the receipt and recovery.

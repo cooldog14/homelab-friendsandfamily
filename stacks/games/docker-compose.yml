@@ -29,5 +29,5 @@ services:
       PLUGINS: |
         https://cdn.modrinth.com/data/fALzjamp/versions/MdY6JATr/Chunky-Bukkit-1.5.3.jar
     volumes:
-      # World + config live on the mirror disk: covered by restic /mnt/data.
+      # World and config live on the takeover bind and are covered by restic.
       - /mnt/data/apps/minecraft:/data

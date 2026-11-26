@@ -1,5 +1,9 @@
 # Case study: the restore drill, not just the backup
 
+This is the sampled drill run on `chill-01` on 2026-11-17. For independent
+offsite recovery and application-level tests, use the
+[recovery runbook](../../RUNBOOK.md#recovery-expectations).
+
 ## Problem
 
 A nightly `restic backup` that exits 0 proves the client uploaded something. It
@@ -72,9 +76,9 @@ the success marker is not advanced.
 
 ### The drill
 
-`make restore-test` runs against the offsite repository, not the local one, so
-it also proves the remote copy is reachable and complete. It restores a curated
-set to a temporary directory — never over live data — and then asserts:
+`make restore-test` ran from `chill-01` against the offsite repository. It
+proved a curated set was retrievable, not that the entire repository could
+rebuild the lab. It restored to a separate directory, not over live data:
 
 - Both PostgreSQL dumps are non-empty and contain a real `pg_dump` header.
 - Every SQLite dump is non-empty and `PRAGMA integrity_check` returns `ok`.
@@ -104,22 +108,18 @@ cold run:   6m45s
 warm run:   1m22s
 ```
 
-A warm restore is fast enough to run after backup changes without a maintenance
-window. The first run after new large dumps is network-bound and took 6m45s.
-
 ## Limits
 
-- **RPO is 24 hours.** The job runs nightly. Up to a day of new documents,
-  photos and messages can be lost; that is accepted for this platform.
+- **Nightly backup is the target, not a guaranteed RPO.** Confirm the latest
+  successful snapshot before estimating how much data could be lost.
 - **There is no high availability.** A host failure means restoring to
   replacement hardware, not failing over. The drill duration is the sampled
   artifact restore, not the time to rebuild a host.
-- **One host, one repository chain.** The offsite copy protects against losing
-  the house, but both repositories are written by the same job from the same
-  host; a bug in the script affects both.
+- **Shared backup producer.** One application-host job writes both guest
+  repositories; its failures can affect both. The hypervisor has a separate backup.
 - **The drill restores critical artifacts, not the platform.** The full media
   tree is over 300 GiB and is intentionally out of scope for the drill. A real
   recovery would restore the dumps and configuration first, then let bulk media
   re-download in the background.
-- **A passing drill is a sample, not a proof.** It checks a fixed, curated set.
-  A path that is in the repository but not in the drill could still be broken.
+- **A passing sample is not application recovery.** It neither tests independent
+  access to escrow nor imports the databases into working applications.
