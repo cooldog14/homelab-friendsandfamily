@@ -65,9 +65,31 @@
     content: |
       PasswordAuthentication no
       PermitRootLogin no
+      X11Forwarding no
       Match Address 192.168.1.0/24
           PasswordAuthentication yes
   notify: Validate and reload ssh
+
+- name: Collect resolver service availability
+  ansible.builtin.service_facts:
+
+- name: Disable LLMNR when systemd-resolved is installed
+  when: "'systemd-resolved.service' in ansible_facts.services"
+  block:
+    - name: Create the resolved drop-in directory
+      ansible.builtin.file:
+        path: /etc/systemd/resolved.conf.d
+        state: directory
+        mode: "0755"
+
+    - name: Disable LLMNR without changing DNS or mDNS
+      ansible.builtin.copy:
+        dest: /etc/systemd/resolved.conf.d/90-homelab.conf
+        mode: "0644"
+        content: |
+          [Resolve]
+          LLMNR=no
+      notify: Restart systemd-resolved
 
 - name: Enable IPv4 forwarding
   ansible.posix.sysctl:

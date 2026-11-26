@@ -3,6 +3,7 @@
 # Healthchecks check. The backend is a read-only, health-only container bound
 # to the WireGuard address; no admin UI and no secrets are exposed here.
 health.malice.biz {
+	import public_headers
 	import log_redacted
 	reverse_proxy 10.44.0.2:8098
 }

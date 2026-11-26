@@ -26,8 +26,6 @@ table inet firewall {
 		udp dport { 51820, 51824 } accept
 
 		tcp dport { 80, 443 } accept
-		# Caddy advertises HTTP/3 on 443.
-		udp dport 443 accept
 	}
 
 	chain forward {

@@ -1,5 +1,22 @@
 ---
 # VPS public edge: Caddy + nftables + the static WireGuard tunnel into the app VM.
+- name: Collect installed packages before removing the obsolete Docker source
+  ansible.builtin.package_facts:
+    manager: apt
+
+- name: Assert Docker engine is absent on the edge
+  ansible.builtin.assert:
+    that:
+      - "'docker-ce' not in ansible_facts.packages"
+      - "'docker.io' not in ansible_facts.packages"
+      - "'moby-engine' not in ansible_facts.packages"
+    fail_msg: Refusing to remove Docker's apt source while an engine is installed
+
+- name: Remove only the obsolete Docker apt source
+  ansible.builtin.file:
+    path: /etc/apt/sources.list.d/docker.list
+    state: absent
+
 - name: Update apt cache
   ansible.builtin.apt:
     update_cache: true
