@@ -1,9 +1,8 @@
-# OpenTofu: Proxmox VM 101
+# Virtual machine plan
 
-Codifies the single application VM and its GPU passthrough mapping. The VM is
-**imported and never applied**: it is the only application host, and the
-provider cannot round-trip every field (see `lifecycle.ignore_changes` in
-`main.tf`).
+OpenTofu describes VM 101 and its GPU mapping. The VM was imported. The
+provider cannot read back every setting, so some fields are ignored in main.tf.
+Use this configuration only to plan. Never run tofu apply.
 
 ## Credentials
 
@@ -24,17 +23,14 @@ PROXMOX_VE_API_TOKEN=tofu@pve!homelab=<secret>
 PROXMOX_VE_INSECURE=true
 ```
 
-`PROXMOX_VE_INSECURE=true` accepts the hypervisor's self-signed certificate:
-the endpoint is reached over the private admin network, not the internet.
+The insecure setting accepts the Proxmox self-signed certificate. Use it
+only over the private admin network.
 
-`PVEAuditor` at `/` is the entire read-only policy, including `Mapping.Audit`.
-Do not grant VM configuration/power/allocation or `Mapping.Modify` privileges.
-Intentional infrastructure changes use existing root administration, not this
-token. The [November 26 review](../docs/history/2026-11-26-observability-and-mounts.md#maintenance-2026-11-26-continuation-gate-review)
-records the verified read-only grants and a no-change plan. If access drifts,
-inspect effective user/token privileges and run `make tofu-plan` with the
-private environment. Never test authorization by attempting a destructive API
-operation.
+Give the user only PVEAuditor at the root, which includes Mapping.Audit.
+Do not grant VM management or mapping changes. Use existing admin access for
+intentional changes. The [November 26 review](../docs/history/2026-11-26-observability-and-mounts.md#maintenance-2026-11-26-continuation-gate-review)
+records the read-only grants and a no-change plan. Check privileges directly;
+never test them by attempting a destructive action.
 
 ## Workflow
 
@@ -44,11 +40,10 @@ set -a; . ~/.config/homelab/tofu.env; set +a
 tofu -chdir=tofu init
 tofu -chdir=tofu fmt -check
 tofu -chdir=tofu validate
-tofu -chdir=tofu plan            # read-only, the normal command
+tofu -chdir=tofu plan -detailed-exitcode
 ```
 
-`make tofu-check` runs the offline subset (fmt + init -backend=false + validate)
-and is what CI runs; it needs no credentials.
+make tofu-check runs the offline checks in CI and needs no credentials.
 
 ## Import (one-off, already done)
 
@@ -58,25 +53,18 @@ tofu -chdir=tofu import proxmox_virtual_environment_vm.chill_01 <node>/101
 
 ## Plan-only policy
 
-`tofu plan` must exit 0 (`-detailed-exitcode`). If it reports drift:
+With the detailed exit code, 0 means no changes, 2 means changes, and 1
+means an error. If core VM settings differ, decide which values are right
+and correct Git or the VM on purpose. Leave fields the provider cannot read
+on the ignore list.
 
-- Core fields (`cpu`, `memory`, `disk`, `network_device`,
-  `initialization.ip_config`): fix the HCL to match reality, or fix reality on
-  purpose.
-- Fields the provider cannot read back on an imported VM (`smbios`, `vga`,
-  cloud-init `user_account`, provider-only flags) are ignored by
-  `lifecycle.ignore_changes` and stay documentation-only.
+The token must stay read-only. A destroy guard or the earlier GPU mapping
+setup does not authorize an apply.
 
-**Never run `tofu apply`.** `prevent_destroy` is not an authorization boundary;
-the token must also remain read-only. The PCI mapping's historical bootstrap
-does not authorize future targeted applies.
-
-The resource is spelled with the `proxmox_virtual_environment_` prefix on
-purpose: `proxmox_hardware_mapping_pci` is the v1 name, and this repository is
-pinned to provider `~> 0.121.0`. The deprecation warning is expected.
+The provider is pinned to the 0.121 series. Keep the old PCI mapping resource
+name until a provider upgrade. Its deprecation warning is expected.
 
 ## State
 
-`tofu.tfstate` stays local and untracked (`.gitignore`). The lock file
-`.terraform.lock.hcl` **is** committed so CI and the workstation resolve the
-same provider build.
+Keep the state file local and untracked. Commit the lock file so CI and the
+workstation use the same provider version.
