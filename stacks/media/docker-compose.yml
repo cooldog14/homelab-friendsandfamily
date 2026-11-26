@@ -310,7 +310,7 @@ services:
       WRTAG_COVER_UPGRADE: "true"
     volumes:
       - ./state/wrtag:/data
-      - /mnt/data/media:/mnt/data/media:rw
+      - /mnt/data:/mnt/data
     restart: unless-stopped
 
   octo-fiesta:
