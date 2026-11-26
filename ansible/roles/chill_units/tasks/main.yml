@@ -19,6 +19,7 @@
     - {src: music-import.py, dest: homelab-music-import}
     - {src: alert-check.sh, dest: homelab-alert-check}
     - {src: pipeline-check.sh, dest: homelab-pipeline-check}
+    - {src: download-payloads.py, dest: homelab-download-payloads}
 
 - name: Install systemd units
   ansible.builtin.copy:
@@ -48,6 +49,8 @@
     - homelab-alert-check.timer
     - homelab-pipeline-check.service
     - homelab-pipeline-check.timer
+    - homelab-download-payloads.service
+    - homelab-download-payloads.timer
   notify: Reload systemd
 
 - name: Reload systemd before touching the timers
@@ -98,6 +101,29 @@
     group: root
     mode: "0755"
 
+
+- name: Inspect download-payload scan directories without following symlinks
+  ansible.builtin.stat:
+    path: "{{ item }}"
+    follow: false
+  register: chill_units_download_payload_roots
+  loop:
+    - /mnt/data/downloads
+    - /mnt/pool/downloads
+    - /mnt/data/media/downloads
+  changed_when: false
+
+- name: Refuse scanner activation when a download root is not a real directory
+  ansible.builtin.assert:
+    that:
+      - item.stat.exists
+      - item.stat.isdir | default(false)
+      - not (item.stat.islnk | default(false))
+    fail_msg: "Download-payload root must already be a real directory: {{ item.item }}"
+  loop: "{{ chill_units_download_payload_roots.results }}"
+  loop_control:
+    label: "{{ item.item }}"
+
 - name: Ensure homelab timers and services are enabled and running
   ansible.builtin.systemd_service:
     name: "{{ item }}"
@@ -115,6 +141,7 @@
     - homelab-music-import.timer
     - homelab-alert-check.timer
     - homelab-pipeline-check.timer
+    - homelab-download-payloads.timer
 
 # /etc/homelab.env is deliberately live-only (0600), but a dead ALERT_URL
 # silences every systemd/script alert (audit A1). Fail the play instead of
