@@ -9,6 +9,7 @@ player.malice.biz {
 	import public_proxy 9180
 }
 fiesta.malice.biz {
+	import public_headers
 	@cors_preflight method OPTIONS
 	handle @cors_preflight {
 		header Access-Control-Allow-Origin "https://player.malice.biz"

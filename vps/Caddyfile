@@ -58,7 +58,16 @@
 	}
 }
 
+(public_headers) {
+	header {
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		Strict-Transport-Security "max-age=86400"
+	}
+}
+
 (public_proxy) {
+	import public_headers
 	import log_redacted
 	reverse_proxy 10.44.0.2:{args[0]}
 }

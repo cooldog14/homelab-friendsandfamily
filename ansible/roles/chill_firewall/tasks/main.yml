@@ -1,6 +1,15 @@
 ---
-# UFW parity with the old bootstrap script. Deliberately NOT a hardening pass:
-# the live rule set has extra allowances (wg0 broad, narrow 172.20/16) that stay.
+# Keep intentional tailscale0 access and narrowly sourced VPS tunnel access.
+- name: Remove old no-protocol LAN allowances by exact specification
+  community.general.ufw:
+    rule: allow
+    direction: in
+    interface: eth0
+    from_ip: 192.168.1.0/24
+    to_port: "{{ item }}"
+    delete: true
+  loop: ["22", "8096"]
+
 - name: Allow LAN SSH
   community.general.ufw:
     rule: allow
