@@ -37,11 +37,67 @@ Guest retention is three snapshots per repository; hypervisor retention is
 
 ## Deployment regression
 
-Redeploy the previous good commit: `git checkout <good-commit>`, then run only
-the affected target (`make deploy`, `make host`, `make vps` or `make hypervisor`).
-`make deploy` ships committed files, not the working tree. Restore application
-state only for a confirmed data-changing migration, not a bad container image.
-Record bad/good commits, affected stacks and any state restoration.
+Revert only the affected source/config on the integrated branch, commit, then
+run the affected target (`make deploy`, `make host`, `make vps` or
+`make hypervisor`). `make deploy` reconciles all stacks from committed `HEAD`;
+never use another checkout to bypass dirty or unresolved owner changes.
+Restore application state only after a confirmed data-changing migration.
+Record bad/good commits, affected services, and any state restoration.
+
+## Mount narrowing rollout
+
+Deploy only after owner stack changes are integrated, the private-probe
+contract and `make check` pass, and the dashboard keys are privately
+provisioned. Before each batch, compare the candidate with the effective
+deployed config, confirm no other pending mount batch is included, and verify
+live mount paths. Stop on unexpected drift. Never move media on disk.
+
+Each activation commit changes only one mount batch. The Jellyfin/Bazarr
+change (`46b5858`) is first. The
+[review follow-up](docs/history/2026-09-11-operations.md#maintenance-2026-11-26-review-fixes)
+lists the later holds. Reverse only the hold whose prerequisites have passed.
+Deploy with `make deploy`, inspect the changed services, and verify the workflow
+before activating another batch. If a batch fails, reverse just its activation
+commit and redeploy; do not restore databases for a mount rollback.
+
+1. **Jellyfin/Bazarr:** verify every Jellyfin library path is under
+   `/data/media/music`, `/pool/movies`, or `/pool/tv` and Bazarr paths/mappings
+   fit the pool binds. Verify playback and subtitle access.
+2. **qBittorrent/Arr:** verify live save paths fit `/data/downloads` or
+   `/pool/downloads`, every movie/series path fits the matching pool root, and
+   there are no incompatible remote mappings. Verify a disposable import.
+3. **slskd:** check the read-only share and writable inbox, then verify download
+   and tagging with disposable input.
+4. **Music Manager/wrtag:** wait for the owner's base commit and the coordinated
+   identity/rename change. Verify the takeover media source exists and matches
+   `/mnt/data/media` by device and inode before directory creation. Verify
+   rename and rollback with disposable input.
+5. **Filebrowser:** verify allowlisted bind sources and existing ownership.
+   Test intended access, password/passkey login, and moves across the new
+   binds with disposable files. Keep forwarded-header trust disabled while
+   container peers can reach Filebrowser without Caddy.
+
+## Malice boot and disk maintenance
+
+Require independent recovery proof, VM 100 verified at 4 GiB, tested console
+access, and an on-site operator. Do not change fstab, the kernel pin, or drives
+when any prerequisite is missing.
+
+Check Secure Boot and match `BootCurrent` to the ESP by partition GUID.
+Confirm the ESP filesystem UUID, that the pin selects `7.0.14-26-pve`, and
+that `7.0.14-29-pve` is installed. Stop on mismatch. Only then persist
+`UUID=14B4-0FF6 /boot/efi vfat umask=0077 0 2`, mount without formatting,
+and use `proxmox-boot-tool kernel unpin`. Confirm GRUB defaults to the installed
+`7.0.14-29-pve` before rebooting. Keep the signed shim/GRUB and
+`7.0.14-26-pve`; do not run `grub-install` or initialize systemd-boot. On
+failure select `7.0.14-26-pve` at the console and restore the pin. Verify the
+kernel, guest autostart, virtiofs, iGPU, and apps before touching disks.
+
+Confirm the retired disk is serial `ata-ST2000DX002-2DV164_Z4Z9F91S` and
+has no mounts, storage/guest references, or open files. Stop the guests
+gracefully and power off before removing only that disk. Label and shelf it
+unwiped. Preserve the local restic and vault disks. After boot verify both
+backup mounts, guest autostart, backups, apps, and alerts.
 
 ## Public service down
 
