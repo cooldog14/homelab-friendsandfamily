@@ -14,16 +14,16 @@ groups:
         labels: {severity: critical}
         annotations:
           priority: "8"
-          summary: "Hôte ne répond plus: {{ $labels.instance }}"
-          description: "L'exporter de l'hôte {{ $labels.instance }} est down depuis 2 minutes."
+          summary: "Host metrics unavailable: {{ $labels.instance }}"
+          description: "Prometheus cannot scrape the host's node exporter."
       - alert: ContainerOOMKilled
         expr: sum by (name) (increase(container_oom_events_total[1h])) > 0
         for: 1m
         labels: {severity: warning}
         annotations:
           priority: "5"
-          summary: "Conteneur OOM: {{ $labels.name }}"
-          description: "Le noyau a tué le conteneur au moins une fois pendant l'heure écoulée."
+          summary: "Container out of memory: {{ $labels.name }}"
+          description: "The kernel killed the container at least once in the past hour."
       - alert: ContainerOOMMetricsMissing
         expr: absent(container_oom_events_total)
         for: 10m
@@ -38,40 +38,40 @@ groups:
         labels: {severity: warning}
         annotations:
           priority: "5"
-          summary: "OOM noyau sur {{ $labels.instance }}"
-          description: "Le noyau a tué un processus pendant l'heure écoulée."
+          summary: "Kernel out-of-memory kill: {{ $labels.instance }}"
+          description: "The kernel recorded at least one out-of-memory kill in the past hour."
       - alert: TargetDown
         expr: up{job=~"prometheus|alertmanager|grafana|cadvisor|blackbox|gotify-bridge|dashboard"} == 0
         for: 5m
         labels: {severity: warning}
         annotations:
           priority: "5"
-          summary: "Cible Prometheus down: {{ $labels.job }}"
-          description: "{{ $labels.instance }} ne répond plus."
+          summary: "Prometheus target unavailable: {{ $labels.job }}"
+          description: "Prometheus cannot scrape {{ $labels.instance }}."
       - alert: PublicEndpointDown
         expr: probe_success{job="blackbox-http"} == 0
         for: 2m
         labels: {severity: critical}
         annotations:
           priority: "8"
-          summary: "Endpoint public down: {{ $labels.instance }}"
-          description: "Le probe HTTP échoue depuis 2 minutes."
+          summary: "Public endpoint check failed: {{ $labels.instance }}"
+          description: "The public HTTPS probe failed."
       - alert: TLSCertExpiringSoon
         expr: probe_ssl_earliest_cert_expiry{job="blackbox-http"} > 0 and probe_ssl_earliest_cert_expiry{job="blackbox-http"} - time() < 14 * 24 * 3600
         for: 1h
         labels: {severity: warning}
         annotations:
           priority: "5"
-          summary: "Certificat bientôt expiré: {{ $labels.instance }}"
-          description: "Expire dans {{ $value | humanizeDuration }}."
+          summary: "Certificate expiring soon: {{ $labels.instance }}"
+          description: "The public certificate has less than 14 days left."
       - alert: PrivateEndpointDown
         expr: probe_success{job="blackbox-private"} == 0
         for: 5m
         labels: {severity: warning}
         annotations:
           priority: "5"
-          summary: "Vhost privé down: {{ $labels.instance }}"
-          description: "Le probe HTTPS privé échoue depuis 5 minutes (Caddy ou son upstream)."
+          summary: "Private endpoint check failed: {{ $labels.instance }}"
+          description: "The private HTTPS probe failed. Check Caddy and its upstream."
       - alert: TLSCertExpiringSoonPrivate
         # One wildcard certificate serves every private vhost: aggregate so one
         # expiring cert does not emit sixteen identical alerts.
@@ -80,16 +80,16 @@ groups:
         labels: {severity: warning}
         annotations:
           priority: "5"
-          summary: "Certificat privé bientôt expiré"
-          description: "Le wildcard *.h.malice.biz expire dans {{ $value | humanizeDuration }}."
+          summary: "Private certificate expiring soon"
+          description: "The wildcard certificate for *.h.malice.biz has less than 14 days left."
       - alert: TCPProbeDown
         expr: probe_success{job="blackbox-tcp"} == 0
         for: 2m
         labels: {severity: critical}
         annotations:
           priority: "8"
-          summary: "Probe TCP en échec: {{ $labels.instance }}"
-          description: "Le DNAT public ne répond plus depuis 2 minutes."
+          summary: "Public TCP check failed: {{ $labels.instance }}"
+          description: "The forwarded port did not accept a TCP connection."
       - alert: DiskFillingSoon
         # The dashboard used to project this from a 7 d slope and keep it
         # silent. Same window here, but with a paging path.
@@ -103,8 +103,8 @@ groups:
         labels: {severity: warning}
         annotations:
           priority: "5"
-          summary: "Disque bientôt plein: {{ $labels.mountpoint }}"
-          description: "La projection à 7 jours de l'espace libre est négative."
+          summary: "Disk may fill within 7 days: {{ $labels.mountpoint }}"
+          description: "At the recent rate, the filesystem on {{ $labels.instance }} could run out of space."
       - alert: DiskUsageHigh
         expr: |
           max by (instance, mountpoint) (
@@ -114,8 +114,8 @@ groups:
         labels: {severity: warning}
         annotations:
           priority: "5"
-          summary: "Disque > 85%: {{ $labels.mountpoint }}"
-          description: "Le filesystem {{ $labels.mountpoint }} sur {{ $labels.instance }} dépasse 85% depuis 10 minutes ({{ $value | humanizePercentage }} utilisés)."
+          summary: "Disk usage above 85%: {{ $labels.mountpoint }}"
+          description: "{{ $labels.mountpoint }} on {{ $labels.instance }} is {{ $value | printf \"%.1f\" }}% full."
       # Per host: a fresh malice marker must never mask a stale chill marker.
       - alert: BackupStale
         expr: time() - max by (host, source) (homelab_backup_last_success_timestamp_seconds) > 48 * 3600
@@ -123,16 +123,16 @@ groups:
         labels: {severity: critical}
         annotations:
           priority: "8"
-          summary: "Sauvegarde restic > 48h: {{ $labels.host }}"
-          description: "La source {{ $labels.source }} sur {{ $labels.host }} n'a pas reussi depuis plus de 48h."
+          summary: "Backup older than 48 hours: {{ $labels.host }}"
+          description: "The {{ $labels.source }} backup on {{ $labels.host }} has not succeeded in over 48 hours."
       - alert: BackupMetricMissing
         expr: absent(homelab_backup_last_success_timestamp_seconds{host="chill-01"}) or absent(homelab_backup_last_success_timestamp_seconds{host="malice"})
         for: 1h
         labels: {severity: warning}
         annotations:
           priority: "5"
-          summary: "Métrique de sauvegarde absente"
-          description: "homelab_backup_last_success_timestamp_seconds manque pour un hôte: le marqueur ou le collecteur textfile est cassé."
+          summary: "Backup metric missing"
+          description: "homelab_backup_last_success_timestamp_seconds is missing for a host. Check the backup marker and textfile collector."
       # Job guard: every timer homelab-metrics can see. A timer that stopped
       # firing, a failed unit and a passed deadline are three different breaks.
       - alert: HomelabJobFailed
@@ -141,80 +141,80 @@ groups:
         labels: {severity: critical}
         annotations:
           priority: "8"
-          summary: "Tâche en échec: {{ $labels.task }} sur {{ $labels.host }}"
-          description: "Le dernier run de {{ $labels.task }} a échoué; consulter homelab_job_last_exit_code et le journal de l'unité."
+          summary: "Job failed: {{ $labels.task }} on {{ $labels.host }}"
+          description: "The last run failed. Check homelab_job_last_exit_code and the service journal."
       - alert: HomelabJobMissed
         expr: homelab_job_missed == 1
         for: 5m
         labels: {severity: critical}
         annotations:
           priority: "8"
-          summary: "Tâche en retard: {{ $labels.task }} sur {{ $labels.host }}"
-          description: "Le timer est actif mais son échéance est passée de plus de 15 minutes."
+          summary: "Job overdue: {{ $labels.task }} on {{ $labels.host }}"
+          description: "The timer is active but missed its scheduled run by more than 15 minutes."
       - alert: HomelabJobTimerInactive
         expr: homelab_job_timer_active == 0
         for: 15m
         labels: {severity: critical}
         annotations:
           priority: "8"
-          summary: "Timer inactif: {{ $labels.task }} sur {{ $labels.host }}"
-          description: "Le timer n'est plus armé: la tâche ne tournera plus jusqu'à réactivation."
+          summary: "Timer inactive: {{ $labels.task }} on {{ $labels.host }}"
+          description: "The timer is no longer armed. The job will not run on schedule until it is reactivated."
       - alert: HomelabJobMetricsMissing
         expr: absent(homelab_job_failed{host="chill-01"}) or absent(homelab_job_failed{host="malice"})
         for: 1h
         labels: {severity: critical}
         annotations:
           priority: "8"
-          summary: "Métriques de tâches absentes"
-          description: "Aucun homelab_job_* pour un hôte: homelab-metrics.timer ou le textfile collector est cassé."
+          summary: "Job metrics missing"
+          description: "Job metrics are missing for a host. Check homelab-metrics.timer and the textfile collector."
       - alert: BackupRepositoryStale
         expr: time() - max by (host, repository) (homelab_backup_latest_snapshot_timestamp_seconds) > 48 * 3600
         for: 10m
         labels: {severity: critical}
         annotations:
           priority: "8"
-          summary: "Dépôt restic périmé: {{ $labels.repository }} sur {{ $labels.host }}"
-          description: "Le snapshot le plus récent du dépôt a plus de 48h."
+          summary: "Restic repository stale: {{ $labels.repository }} on {{ $labels.host }}"
+          description: "The most recent snapshot is older than 48 hours."
       - alert: BackupStatsFailing
         expr: homelab_backup_stats_success == 0
         for: 1h
         labels: {severity: warning}
         annotations:
           priority: "5"
-          summary: "Stats restic en échec: {{ $labels.repository }} sur {{ $labels.host }}"
-          description: "restic snapshots/stats échoue; le marqueur de sauvegarde peut rester frais."
+          summary: "Restic stats collection failed: {{ $labels.repository }} on {{ $labels.host }}"
+          description: "Restic could not collect snapshot statistics. The backup marker may still be current."
       - alert: BackupStatsStale
         expr: time() - homelab_backup_stats_timestamp_seconds > 12 * 3600
         for: 1h
         labels: {severity: warning}
         annotations:
           priority: "5"
-          summary: "Stats restic périmées: {{ $labels.repository }} sur {{ $labels.host }}"
-          description: "Aucun rafraîchissement depuis plus de 12h."
+          summary: "Restic stats stale: {{ $labels.repository }} on {{ $labels.host }}"
+          description: "The stats have not been refreshed in over 12 hours."
       - alert: BackupRepositoryEmpty
         expr: homelab_backup_snapshot_count == 0
         for: 1h
         labels: {severity: critical}
         annotations:
           priority: "8"
-          summary: "Dépôt restic vide: {{ $labels.repository }} sur {{ $labels.host }}"
-          description: "Le dépôt ne contient aucun snapshot."
+          summary: "Restic repository empty: {{ $labels.repository }} on {{ $labels.host }}"
+          description: "The repository contains no snapshots."
       - alert: WireGuardHandshakeStale
         expr: time() - homelab_wireguard_latest_handshake_seconds > 600
         for: 10m
         labels: {severity: warning}
         annotations:
           priority: "5"
-          summary: "Handshake WireGuard > 10 minutes"
-          description: "Le peer {{ $labels.peer }} n'a pas effectué de handshake WireGuard depuis {{ $value | humanizeDuration }}."
+          summary: "WireGuard handshake older than 10 minutes"
+          description: "The last handshake for peer {{ $labels.peer }} was {{ $value | humanizeDuration }} ago."
       - alert: ContainerRestartLoop
         expr: changes(container_start_time_seconds{name!=""}[15m]) > 2
         for: 5m
         labels: {severity: warning}
         annotations:
           priority: "5"
-          summary: "Conteneur redémarré plusieurs fois: {{ $labels.name }}"
-          description: "Le conteneur {{ $labels.name }} a redémarré {{ $value | printf \"%.0f\" }} fois en 15 minutes."
+          summary: "Repeated container restarts: {{ $labels.name }}"
+          description: "The container restarted {{ $value | printf \"%.0f\" }} times in the past 15 minutes."
       # The hypervisor has 32 GiB total; below ~3 GiB it starts reclaiming
       # cache aggressively and the VMs on it get jittery. Alert before the
       # host is forced to make the choice.
@@ -224,8 +224,8 @@ groups:
         labels: {severity: warning}
         annotations:
           priority: "5"
-          summary: "Mémoire hyperviseur < 10%"
-          description: "Il reste {{ $value | humanizePercentage }} de mémoire disponible sur malice."
+          summary: "Malice memory below 10%"
+          description: "{{ $value | humanizePercentage }} of RAM is available on malice."
       # Swap-in means the host is under real pressure: pages were already
       # evicted, so latency is degrading even if MemAvailable looks fine.
       - alert: HypervisorSwapIn
@@ -234,8 +234,8 @@ groups:
         labels: {severity: warning}
         annotations:
           priority: "5"
-          summary: "Swap entrant actif sur malice"
-          description: "{{ $value | printf \"%.0f\" }} pages/s récupérées du swap depuis 10 minutes."
+          summary: "Swap reads on malice"
+          description: "Swap-in is {{ $value | printf \"%.3f\" }} pages/s on average over 5 minutes. The alert fires if that rate stays above zero for 10 minutes."
       # --- Delivery pipeline self-monitoring --------------------------------
       # The bridge exports cumulative counters as GaugeValue. alerts_invalid is
       # only incremented with --debug, so detect dropped alerts as the gap
@@ -249,24 +249,24 @@ groups:
         labels: {severity: critical}
         annotations:
           priority: "8"
-          summary: "Pont Alertmanager: alertes non livrées"
-          description: "{{ $value | printf \"%.0f\" }} alertes reçues n'ont été ni livrées à Gotify ni comptées en échec (annotations manquantes ou payload invalide)."
+          summary: "Alertmanager bridge dropped alerts"
+          description: "{{ $value | printf \"%.0f\" }} alerts were neither delivered to Gotify nor counted as failures in the past 15 minutes. Check annotations and payloads."
       - alert: AlertmanagerBridgeDispatchFailing
         expr: increase(alertmanager_gotify_bridge_alerts_failed[15m]) > 0
         for: 5m
         labels: {severity: critical}
         annotations:
           priority: "8"
-          summary: "Pont Alertmanager: échecs d'envoi vers Gotify"
-          description: "{{ $value | printf \"%.0f\" }} alertes n'ont pas pu être postées à Gotify ces 15 dernières minutes."
+          summary: "Alertmanager bridge could not send alerts"
+          description: "The bridge failed to send {{ $value | printf \"%.0f\" }} alerts to Gotify in the past 15 minutes."
       - alert: GotifyUnhealthy
         expr: alertmanager_gotify_bridge_gotify_up == 0 or alertmanager_gotify_bridge_gotify_health_health == 0
         for: 5m
         labels: {severity: critical}
         annotations:
           priority: "8"
-          summary: "Gotify indisponible ou dégradé"
-          description: "Le bridge ne joint pas /health de Gotify, ou son état n'est pas green: aucune alerte ne peut être livrée."
+          summary: "Gotify unavailable or unhealthy"
+          description: "The bridge cannot reach Gotify's health endpoint, or the endpoint reports an unhealthy status."
       # Local watchdog: host/alert-path-check.sh verifies the whole chain every
       # five minutes independently of Prometheus and writes this textfile
       # gauge. It also fails a systemd unit (OnFailure=notify@), so a dead
@@ -277,8 +277,8 @@ groups:
         labels: {severity: critical}
         annotations:
           priority: "8"
-          summary: "Chaîne de notification locale en échec"
-          description: "Le contrôle local signale un composant Prometheus/Alertmanager/bridge/Gotify en échec, ou le collecteur a disparu."
+          summary: "Local notification path unhealthy"
+          description: "A component of the notification path is unhealthy, or its health metrics are missing."
       - alert: ApplicationUnhealthy
         expr: homelab_app_healthy == 0
         for: 5m
@@ -286,7 +286,7 @@ groups:
         annotations:
           priority: "5"
           summary: "Application unhealthy: {{ $labels.app }}"
-          description: "The authenticated API or fresh container health check has failed for five minutes."
+          description: "The app is not passing its API or container health check."
       - alert: ApplicationHealthStale
         expr: |
           time() - homelab_app_check_timestamp_seconds > 300
@@ -309,15 +309,15 @@ groups:
         annotations:
           priority: "5"
           summary: "Arr health issues: {{ $labels.app }}"
-          description: "The application reports warning/error health entries for fifteen minutes."
+          description: "The application reports one or more warnings or errors."
       - alert: ArrImportBlockedTooLong
         expr: homelab_arr_queue_import_blocked == 1
         for: 24h
         labels: {severity: warning}
         annotations:
           priority: "5"
-          summary: "Arr import blocked for 24h: {{ $labels.app }}"
-          description: "Queue item {{ $labels.queue_id }} has been continuously observed importBlocked/importPending for 24 hours."
+          summary: "Import waiting: {{ $labels.app }}"
+          description: "Queue item {{ $labels.queue_id }} is pending or blocked. The alert fires if it stays pending or blocked for 24 hours."
       - alert: ArrQueueCheckFailed
         expr: homelab_arr_queue_check_success == 0 or absent(homelab_arr_queue_check_success{app="radarr"}) or absent(homelab_arr_queue_check_success{app="sonarr"})
         for: 5m

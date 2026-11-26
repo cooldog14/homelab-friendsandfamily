@@ -415,20 +415,20 @@ ARR_HEALTH = [
 PROMETHEUS_ALERTS = [
     {
         "labels": {"alertname": "ContainerRestartLoop", "severity": "warning", "name": "jellyfin"},
-        "annotations": {"summary": "Conteneur redémarré plusieurs fois: jellyfin"},
+        "annotations": {"summary": "Repeated container restarts: jellyfin"},
         "state": "firing",
         "activeAt": "2026-11-17T19:40:00.000Z",
         "value": "4",
     },
     {
         "labels": {"alertname": "BackupMetricMissing", "severity": "warning", "host": "malice"},
-        "annotations": {"summary": "Métrique de sauvegarde absente"},
+        "annotations": {"summary": "Backup metric missing"},
         "state": "firing",
         "activeAt": "2026-11-17T19:00:00.000Z",
     },
     {
         "labels": {"alertname": "KernelOOMKill", "severity": "critical", "instance": "node-exporter:9100"},
-        "annotations": {"summary": "OOM noyau"},
+        "annotations": {"summary": "Kernel out-of-memory kill"},
         "state": "pending",
         "activeAt": "2026-11-17T19:59:00.000Z",
     },
@@ -472,7 +472,7 @@ class TriageTests(unittest.TestCase):
         # Every firing/pending rule is shown: Prometheus is the only engine.
         self.assertEqual(len(rows), 3)
         names = {row["title"] for row in rows}
-        self.assertTrue(any("sauvegarde" in name.lower() for name in names))
+        self.assertIn(PROMETHEUS_ALERTS[1]["annotations"]["summary"], names)
         by_state = {row["state"]: row for row in rows}
         self.assertEqual(by_state["firing"]["severity"], "warn")
         # A pending critical is not firing yet: amber until it does.

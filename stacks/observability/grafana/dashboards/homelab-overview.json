@@ -12,7 +12,7 @@
     {
       "id": 1,
       "type": "stat",
-      "title": "Cibles UP",
+      "title": "Targets up",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "gridPos": { "h": 5, "w": 6, "x": 0, "y": 0 },
       "targets": [
@@ -57,7 +57,7 @@
     {
       "id": 2,
       "type": "stat",
-      "title": "Probes publiques OK",
+      "title": "Public probes passing",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "gridPos": { "h": 5, "w": 6, "x": 6, "y": 0 },
       "targets": [
@@ -102,7 +102,7 @@
     {
       "id": 3,
       "type": "stat",
-      "title": "Certificat le plus proche",
+      "title": "Next certificate expiry",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "gridPos": { "h": 5, "w": 6, "x": 12, "y": 0 },
       "targets": [
@@ -111,7 +111,7 @@
           "datasource": { "type": "prometheus", "uid": "prometheus" },
           "expr": "min(probe_ssl_earliest_cert_expiry{job=~\"blackbox-http|blackbox-private\"} - time()) / 86400",
           "instant": true,
-          "legendFormat": "jours restants"
+          "legendFormat": "days left"
         }
       ],
       "options": {
@@ -142,7 +142,7 @@
     {
       "id": 4,
       "type": "stat",
-      "title": "Sauvegarde",
+      "title": "Backup age",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "gridPos": { "h": 5, "w": 6, "x": 18, "y": 0 },
       "targets": [
@@ -207,7 +207,7 @@
     {
       "id": 6,
       "type": "timeseries",
-      "title": "Mémoire",
+      "title": "Memory",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 5 },
       "targets": [
@@ -215,7 +215,7 @@
           "refId": "A",
           "datasource": { "type": "prometheus", "uid": "prometheus" },
           "expr": "100 * (1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)",
-          "legendFormat": "RAM utilisée %"
+          "legendFormat": "RAM used (%)"
         }
       ],
       "fieldConfig": {
@@ -257,7 +257,7 @@
     {
       "id": 8,
       "type": "timeseries",
-      "title": "Réseau",
+      "title": "Network",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 13 },
       "targets": [
@@ -286,7 +286,7 @@
     {
       "id": 9,
       "type": "table",
-      "title": "Probes publiques",
+      "title": "Public probes",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "gridPos": { "h": 9, "w": 12, "x": 0, "y": 21 },
       "targets": [
@@ -324,7 +324,7 @@
     {
       "id": 12,
       "type": "table",
-      "title": "Probes privées",
+      "title": "Private probes",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "gridPos": { "h": 9, "w": 12, "x": 12, "y": 21 },
       "targets": [
@@ -362,8 +362,8 @@
     {
       "id": 13,
       "type": "table",
-      "title": "Capacité (7 j)",
-      "description": "Jours avant saturation, projection linéaire sur la fenêtre de 7 jours.",
+      "title": "Capacity forecast",
+      "description": "Days until full at the rate observed over the past 7 days.",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 30 },
       "targets": [
@@ -404,8 +404,8 @@
     {
       "id": 14,
       "type": "timeseries",
-      "title": "Sauvegardes (âge)",
-      "description": "Heures depuis le snapshot le plus récent, par dépôt.",
+      "title": "Snapshot age",
+      "description": "Hours since the most recent snapshot in each repository.",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 30 },
       "targets": [
@@ -429,7 +429,7 @@
     {
       "id": 15,
       "type": "timeseries",
-      "title": "Certificats (jours)",
+      "title": "Certificate days remaining",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "gridPos": { "h": 8, "w": 24, "x": 0, "y": 38 },
       "targets": [
@@ -456,7 +456,7 @@
     {
       "id": 11,
       "type": "table",
-      "title": "Conteneurs",
+      "title": "Containers",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "gridPos": { "h": 14, "w": 24, "x": 0, "y": 46 },
       "targets": [

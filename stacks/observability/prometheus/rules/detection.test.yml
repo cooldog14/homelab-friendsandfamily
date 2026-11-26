@@ -135,3 +135,19 @@ tests:
       - expr: 'count(ALERTS{alertname=~"ArrHealthIssues|ExecutableDownloadPayload|SystemdFailedUnits|ContainerOOMKilled|ContainerOOMMetricsMissing|ArrImportBlockedTooLong",alertstate="firing"})'
         eval_time: 30m
         exp_samples: []
+  - name: low-swap-in-rate-does-not-round-to-zero
+    input_series:
+      - series: 'node_vmstat_pswpin{job="malice"}'
+        values: '0+1x16'
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: HypervisorSwapIn
+        exp_alerts: []
+      - eval_time: 11m
+        alertname: HypervisorSwapIn
+        exp_alerts:
+          - exp_labels: {job: malice, severity: warning}
+            exp_annotations:
+              priority: "5"
+              summary: "Swap reads on malice"
+              description: "Swap-in is 0.017 pages/s on average over 5 minutes. The alert fires if that rate stays above zero for 10 minutes."
