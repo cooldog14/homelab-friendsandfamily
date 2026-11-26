@@ -278,6 +278,10 @@ services:
       - ./state/navidrome:/data
       - /mnt/data/media/music:/music:ro
     restart: unless-stopped
+    networks:
+      default:
+      homelab-edge:
+        aliases: [navidrome]
 
   wrtag:
     image: sentriz/wrtag:v0.30.0

@@ -24,6 +24,14 @@ groups:
           priority: "5"
           summary: "Conteneur OOM: {{ $labels.name }}"
           description: "Le noyau a tué le conteneur au moins une fois pendant l'heure écoulée."
+      - alert: ContainerOOMMetricsMissing
+        expr: absent(container_oom_events_total)
+        for: 10m
+        labels: {severity: warning}
+        annotations:
+          priority: "5"
+          summary: "Container OOM counters missing"
+          description: "The container_oom_events_total series is absent, so the existing OOM rules cannot detect container OOM events."
       - alert: KernelOOMKill
         expr: increase(node_vmstat_oom_kill[1h]) > 0
         for: 1m
@@ -33,7 +41,7 @@ groups:
           summary: "OOM noyau sur {{ $labels.instance }}"
           description: "Le noyau a tué un processus pendant l'heure écoulée."
       - alert: TargetDown
-        expr: up{job=~"prometheus|alertmanager|grafana|cadvisor|blackbox|gotify-bridge"} == 0
+        expr: up{job=~"prometheus|alertmanager|grafana|cadvisor|blackbox|gotify-bridge|dashboard"} == 0
         for: 5m
         labels: {severity: warning}
         annotations:
@@ -134,7 +142,7 @@ groups:
         annotations:
           priority: "8"
           summary: "Tâche en échec: {{ $labels.task }} sur {{ $labels.host }}"
-          description: "Le dernier run de {{ $labels.task }} a échoué (code {{ $labels.exit_code }})."
+          description: "Le dernier run de {{ $labels.task }} a échoué; consulter homelab_job_last_exit_code et le journal de l'unité."
       - alert: HomelabJobMissed
         expr: homelab_job_missed == 1
         for: 5m
@@ -271,3 +279,114 @@ groups:
           priority: "8"
           summary: "Chaîne de notification locale en échec"
           description: "Le contrôle local signale un composant Prometheus/Alertmanager/bridge/Gotify en échec, ou le collecteur a disparu."
+      - alert: ApplicationUnhealthy
+        expr: homelab_app_healthy == 0
+        for: 5m
+        labels: {severity: warning}
+        annotations:
+          priority: "5"
+          summary: "Application unhealthy: {{ $labels.app }}"
+          description: "The authenticated API or fresh container health check has failed for five minutes."
+      - alert: ApplicationHealthStale
+        expr: |
+          time() - homelab_app_check_timestamp_seconds > 300
+          or absent(homelab_app_check_timestamp_seconds{app="jellyseerr"})
+          or absent(homelab_app_check_timestamp_seconds{app="radarr"})
+          or absent(homelab_app_check_timestamp_seconds{app="sonarr"})
+          or absent(homelab_app_check_timestamp_seconds{app="bazarr"})
+          or absent(homelab_app_check_timestamp_seconds{app="navidrome"})
+          or absent(homelab_app_check_timestamp_seconds{app="caddy"})
+        for: 5m
+        labels: {severity: warning}
+        annotations:
+          priority: "5"
+          summary: "Application health stale: {{ $labels.app }}"
+          description: "An expected application health check is missing or more than five minutes old."
+      - alert: ArrHealthIssues
+        expr: homelab_arr_health_issues > 0
+        for: 15m
+        labels: {severity: warning}
+        annotations:
+          priority: "5"
+          summary: "Arr health issues: {{ $labels.app }}"
+          description: "The application reports warning/error health entries for fifteen minutes."
+      - alert: ArrImportBlockedTooLong
+        expr: homelab_arr_queue_import_blocked == 1
+        for: 24h
+        labels: {severity: warning}
+        annotations:
+          priority: "5"
+          summary: "Arr import blocked for 24h: {{ $labels.app }}"
+          description: "Queue item {{ $labels.queue_id }} has been continuously observed importBlocked/importPending for 24 hours."
+      - alert: ArrQueueCheckFailed
+        expr: homelab_arr_queue_check_success == 0 or absent(homelab_arr_queue_check_success{app="radarr"}) or absent(homelab_arr_queue_check_success{app="sonarr"})
+        for: 5m
+        labels: {severity: warning}
+        annotations:
+          priority: "5"
+          summary: "Arr queue check failed: {{ $labels.app }}"
+          description: "Complete queue collection failed or an expected success series is missing."
+      - alert: ArrQueueCheckStale
+        expr: time() - homelab_arr_queue_check_timestamp_seconds > 300 or absent(homelab_arr_queue_check_timestamp_seconds{app="radarr"}) or absent(homelab_arr_queue_check_timestamp_seconds{app="sonarr"})
+        for: 5m
+        labels: {severity: warning}
+        annotations:
+          priority: "5"
+          summary: "Arr queue check stale: {{ $labels.app }}"
+          description: "An expected complete queue collection is missing or more than five minutes old."
+      - alert: ExecutableDownloadPayload
+        expr: homelab_download_executable_files > 0
+        for: 5m
+        labels: {severity: warning}
+        annotations:
+          priority: "5"
+          summary: "Executable payload in downloads"
+          description: "Executable suffixes or headers were found; inspect escaped paths in the payload scanner journal. Nothing was deleted."
+      - alert: DownloadPayloadScanFailed
+        expr: homelab_download_payload_scan_success == 0
+        for: 10m
+        labels: {severity: warning}
+        annotations:
+          priority: "5"
+          summary: "Download payload scan failed"
+          description: "A root is missing or a permission/I/O failure prevents a complete scan; no reassuring zero is published."
+      - alert: DownloadPayloadScanStale
+        expr: time() - homelab_download_payload_scan_timestamp_seconds > 900 or absent(homelab_download_payload_scan_timestamp_seconds) or absent(homelab_download_payload_scan_success)
+        for: 5m
+        labels: {severity: warning}
+        annotations:
+          priority: "5"
+          summary: "Download payload scan stale or missing"
+          description: "The download payload scan timestamp is missing or older than fifteen minutes."
+      - alert: WireGuardCollectionFailed
+        expr: homelab_wireguard_collect_success{host="chill-01",interface="wg0"} == 0 or homelab_wireguard_peer_count{host="chill-01",interface="wg0"} == 0 or absent(homelab_wireguard_collect_success{host="chill-01",interface="wg0"}) or absent(homelab_wireguard_peer_count{host="chill-01",interface="wg0"}) or absent(homelab_wireguard_latest_handshake_seconds{host="chill-01",interface="wg0"})
+        for: 10m
+        labels: {severity: warning}
+        annotations:
+          priority: "5"
+          summary: "WireGuard runtime collection missing or failed"
+          description: "chill-01 wg0 has no observed peers, a failed runtime query, or missing expected metrics."
+      - alert: SystemdFailedUnits
+        expr: homelab_systemd_failed_units > 0
+        for: 5m
+        labels: {severity: warning}
+        annotations:
+          priority: "5"
+          summary: "Failed systemd units: {{ $labels.host }}"
+          description: "At least one systemd unit is failed; inspect systemctl --failed and its journal."
+      - alert: SystemdCollectionFailed
+        expr: homelab_systemd_collect_success == 0 or absent(homelab_systemd_collect_success{host="chill-01"}) or absent(homelab_systemd_collect_success{host="malice"})
+        for: 10m
+        labels: {severity: warning}
+        annotations:
+          priority: "5"
+          summary: "Systemd collection failed: {{ $labels.host }}"
+          description: "The failed-unit collector returned an error or the expected host series is missing."
+      - alert: HostMetricsStale
+        expr: time() - homelab_metrics_timestamp_seconds > 900 or absent(homelab_metrics_timestamp_seconds{host="chill-01"}) or absent(homelab_metrics_timestamp_seconds{host="malice"})
+        for: 5m
+        labels: {severity: warning}
+        annotations:
+          priority: "5"
+          summary: "Host textfile metrics stale: {{ $labels.host }}"
+          description: "The host metric timestamp is missing or older than fifteen minutes."

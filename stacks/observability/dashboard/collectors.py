@@ -18,6 +18,7 @@ from typing import Any, Callable
 
 import clients
 import parsers
+import metrics
 from config import DashboardConfig, Settings
 
 DISK_MOUNTS = ("/", "/mnt/data", "/mnt/pool", "/mnt/fast", "/mnt/vault", "/mnt/backup")
@@ -114,6 +115,7 @@ class Store:
             return {
                 "data": self._data,
                 "updated_at": iso(self._updated),
+                "updated_timestamp_seconds": self._updated,
                 "error": self._error,
             }
 
@@ -207,6 +209,9 @@ class Collectors:
         self.sonarr = clients.Arr("sonarr", sonarr.url, sonarr.key)
         radarr = settings.integration("radarr")
         self.radarr = clients.Arr("radarr", radarr.url, radarr.key)
+        bazarr = settings.integration("bazarr")
+        self.bazarr = clients.Bazarr(bazarr.url, bazarr.key)
+        self.navidrome = clients.Navidrome(settings.navidrome_url)
 
         self.telemetry = Store(10)
         self.infra = Store(15)
@@ -242,6 +247,13 @@ class Collectors:
     def stop(self) -> None:
         for thread in self._threads:
             thread.stop()
+
+    def render_metrics(self, now: float | None = None) -> str:
+        """Render cached stores only; scraping must never perform I/O."""
+        return metrics.render(
+            self.integrations.snapshot(), self.containers.snapshot(),
+            time.time() if now is None else now,
+        )
 
     # -- Prometheus ------------------------------------------------------- #
 
@@ -528,7 +540,7 @@ class Collectors:
 
     def _fetch_integrations(self) -> dict:
         result: dict[str, dict] = {"jellyfin": {}, "jellyseerr": {}, "prowlarr": {},
-                                  "sonarr": {}, "radarr": {}}
+                                  "sonarr": {}, "radarr": {}, "bazarr": {}, "navidrome": {}}
 
         jellyfin = self.jellyfin
         if not jellyfin.configured:
@@ -569,6 +581,7 @@ class Collectors:
             entry["titles"] = self._seerr_titles(payloads)
             if errors:
                 entry["error"] = "; ".join(errors)
+            entry["health_checked_at"] = time.time()
             result["jellyseerr"] = entry
 
         for name, client, kind in (
@@ -576,8 +589,12 @@ class Collectors:
             ("sonarr", self.sonarr, "sonarr"),
             ("radarr", self.radarr, "radarr"),
         ):
+            checked_at = time.time()
             if not client.configured:
-                result[name] = {"configured": False, "error": None}
+                result[name] = {
+                    "configured": False, "error": None,
+                    "health_checked_at": checked_at, "queue_checked_at": checked_at,
+                }
                 continue
             entry = {"configured": True, "error": None}
             errors = []
@@ -589,13 +606,33 @@ class Collectors:
                     entry[key] = call()
                 except clients.ClientError as exc:
                     errors.append(f"{key.split('_')[0]}: {exc}")
+            entry["health_checked_at"] = time.time()
             if kind in ("sonarr", "radarr"):
                 try:
                     entry["queue_payload"] = client.queue(kind)
+                    entry["queue_success"] = True
                 except clients.ClientError as exc:
                     errors.append(f"queue: {exc}")
+                    entry["queue_success"] = False
+                entry["queue_checked_at"] = time.time()
             if errors:
                 entry["error"] = "; ".join(errors)
+            result[name] = entry
+
+        if not self.seerr.configured:
+            result["jellyseerr"]["health_checked_at"] = time.time()
+        for name, client, call in (
+            ("bazarr", self.bazarr, self.bazarr.status),
+            ("navidrome", self.navidrome, self.navidrome.ping),
+        ):
+            configured = bool(client.configured) if name == "bazarr" else bool(self.settings.navidrome_url)
+            entry = {"configured": configured, "error": None}
+            if configured:
+                try:
+                    entry["status_payload"] = call()
+                except clients.ClientError as exc:
+                    entry["error"] = str(exc)
+            entry["health_checked_at"] = time.time()
             result[name] = entry
 
         return result

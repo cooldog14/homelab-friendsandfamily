@@ -1,0 +1,137 @@
+rule_files: [homelab.yml]
+evaluation_interval: 1m
+tests:
+  - name: blocked-item-requires-continuous-24-hours
+    interval: 1m
+    input_series:
+      - series: 'homelab_arr_queue_import_blocked{app="radarr",queue_id="42"}'
+        values: '1x1441'
+    promql_expr_test:
+      - expr: 'count(ALERTS{alertname="ArrImportBlockedTooLong",alertstate="firing"})'
+        eval_time: 23h59m
+        exp_samples: []
+      - expr: 'count(ALERTS{alertname="ArrImportBlockedTooLong",alertstate="firing"})'
+        eval_time: 24h
+        exp_samples: [{labels: '{}', value: 1}]
+  - name: clearing-resets-continuity
+    interval: 1m
+    input_series:
+      - series: 'homelab_arr_queue_import_blocked{app="radarr",queue_id="42"}'
+        values: '1x1429 0x40'
+    promql_expr_test:
+      - expr: 'count(ALERTS{alertname="ArrImportBlockedTooLong",alertstate="firing"})'
+        eval_time: 24h30m
+        exp_samples: []
+  - name: failed-collection-removes-item-and-resets-continuity
+    interval: 1m
+    input_series:
+      - series: 'homelab_arr_queue_import_blocked{app="radarr",queue_id="42"}'
+        values: '1x1429 stale 1x40'
+      - series: 'homelab_arr_queue_check_success{app="radarr"}'
+        values: '1x1429 0 1x40'
+    promql_expr_test:
+      - expr: 'count(ALERTS{alertname="ArrImportBlockedTooLong",alertstate="firing"})'
+        eval_time: 24h30m
+        exp_samples: []
+  - name: missing-expected-collections-page
+    interval: 1m
+    promql_expr_test:
+      - expr: 'count(ALERTS{alertname="ApplicationHealthStale",alertstate="firing"})'
+        eval_time: 5m
+        exp_samples: [{labels: '{}', value: 6}]
+      - expr: 'count(ALERTS{alertname="ArrQueueCheckFailed",alertstate="firing"})'
+        eval_time: 5m
+        exp_samples: [{labels: '{}', value: 2}]
+      - expr: 'count(ALERTS{alertname="WireGuardCollectionFailed",alertstate="firing"})'
+        eval_time: 10m
+        exp_samples: [{labels: '{}', value: 1}]
+      - expr: 'count(ALERTS{alertname="SystemdCollectionFailed",alertstate="firing"})'
+        eval_time: 10m
+        exp_samples: [{labels: '{}', value: 2}]
+      - expr: 'count(ALERTS{alertname="HostMetricsStale",alertstate="firing"})'
+        eval_time: 5m
+        exp_samples: [{labels: '{}', value: 2}]
+      - expr: 'count(ALERTS{alertname="ContainerOOMMetricsMissing",alertstate="firing"})'
+        eval_time: 10m
+        exp_samples: [{labels: '{}', value: 1}]
+      - expr: 'count(ALERTS{alertname="DownloadPayloadScanStale",alertstate="firing"})'
+        eval_time: 5m
+        exp_samples: [{labels: '{}', value: 1}]
+  - name: failed-and-stale-collections-page
+    interval: 1m
+    input_series:
+      - series: 'homelab_app_healthy{app="radarr"}'
+        values: '0x30'
+      - series: 'homelab_app_check_timestamp_seconds{app="radarr"}'
+        values: '0x30'
+      - series: 'homelab_arr_queue_check_success{app="radarr"}'
+        values: '0x30'
+      - series: 'homelab_arr_queue_check_timestamp_seconds{app="radarr"}'
+        values: '0x30'
+      - series: 'homelab_download_payload_scan_success'
+        values: '0x30'
+      - series: 'homelab_download_payload_scan_timestamp_seconds'
+        values: '0x30'
+      - series: 'homelab_metrics_timestamp_seconds{host="chill-01"}'
+        values: '0x30'
+      - series: 'homelab_systemd_collect_success{host="chill-01"}'
+        values: '0x30'
+      - series: 'homelab_systemd_failed_units{host="chill-01"}'
+        values: '1x30'
+      - series: 'homelab_wireguard_collect_success{host="chill-01",interface="wg0"}'
+        values: '0x30'
+      - series: 'homelab_download_executable_files'
+        values: '1x30'
+      - series: 'homelab_arr_health_issues{app="radarr"}'
+        values: '1x30'
+    promql_expr_test:
+      - expr: 'count(ALERTS{alertname="ApplicationUnhealthy",alertstate="firing",app="radarr"})'
+        eval_time: 5m
+        exp_samples: [{labels: '{}', value: 1}]
+      - expr: 'count(ALERTS{alertname="ApplicationHealthStale",alertstate="firing",app="radarr"})'
+        eval_time: 11m
+        exp_samples: [{labels: '{}', value: 1}]
+      - expr: 'count(ALERTS{alertname="ArrQueueCheckStale",alertstate="firing",app="radarr"})'
+        eval_time: 11m
+        exp_samples: [{labels: '{}', value: 1}]
+      - expr: 'count(ALERTS{alertname="ArrQueueCheckFailed",alertstate="firing",app="radarr"})'
+        eval_time: 5m
+        exp_samples: [{labels: '{}', value: 1}]
+      - expr: 'count(ALERTS{alertname="DownloadPayloadScanFailed",alertstate="firing"})'
+        eval_time: 10m
+        exp_samples: [{labels: '{}', value: 1}]
+      - expr: 'count(ALERTS{alertname="DownloadPayloadScanStale",alertstate="firing"})'
+        eval_time: 21m
+        exp_samples: [{labels: '{}', value: 1}]
+      - expr: 'count(ALERTS{alertname="SystemdFailedUnits",alertstate="firing",host="chill-01"})'
+        eval_time: 5m
+        exp_samples: [{labels: '{}', value: 1}]
+      - expr: 'count(ALERTS{alertname="SystemdCollectionFailed",alertstate="firing",host="chill-01"})'
+        eval_time: 10m
+        exp_samples: [{labels: '{}', value: 1}]
+      - expr: 'count(ALERTS{alertname="HostMetricsStale",alertstate="firing",host="chill-01"})'
+        eval_time: 21m
+        exp_samples: [{labels: '{}', value: 1}]
+      - expr: 'count(ALERTS{alertname="ExecutableDownloadPayload",alertstate="firing"})'
+        eval_time: 5m
+        exp_samples: [{labels: '{}', value: 1}]
+      - expr: 'count(ALERTS{alertname="ArrHealthIssues",alertstate="firing"})'
+        eval_time: 15m
+        exp_samples: [{labels: '{}', value: 1}]
+  - name: valid-zero-counts-do-not-alert
+    interval: 1m
+    input_series:
+      - series: 'homelab_arr_health_issues{app="radarr"}'
+        values: '0x30'
+      - series: 'homelab_download_executable_files'
+        values: '0x30'
+      - series: 'homelab_systemd_failed_units{host="chill-01"}'
+        values: '0x30'
+      - series: 'container_oom_events_total{name="fixture"}'
+        values: '0x30'
+      - series: 'homelab_arr_queue_import_blocked{app="radarr",queue_id="42"}'
+        values: '0x30'
+    promql_expr_test:
+      - expr: 'count(ALERTS{alertname=~"ArrHealthIssues|ExecutableDownloadPayload|SystemdFailedUnits|ContainerOOMKilled|ContainerOOMMetricsMissing|ArrImportBlockedTooLong",alertstate="firing"})'
+        eval_time: 30m
+        exp_samples: []
