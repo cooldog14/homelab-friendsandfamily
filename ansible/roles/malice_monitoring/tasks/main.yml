@@ -6,9 +6,11 @@
     update_cache: true
     cache_valid_time: 3600
 
-- name: Install the hypervisor node exporter
+- name: Install the hypervisor exporter and backup dependency
   ansible.builtin.apt:
-    name: prometheus-node-exporter
+    name:
+      - prometheus-node-exporter
+      - restic
     state: present
     install_recommends: false
 

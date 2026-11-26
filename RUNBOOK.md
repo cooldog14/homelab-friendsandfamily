@@ -9,7 +9,31 @@ Best effort, not HA. Recovery after host, VM or disk loss is manual; full-platfo
 RTO is unmeasured. Nightly backups cover `/opt`, `/mnt/fast/dumps`, `/mnt/data`,
 `/etc` and `/root/.ssh`, excluding downloads, movies, TV and raw music staging.
 RPO depends on the latest successful snapshot, not merely the timer schedule.
-Use `make restore-test` to validate recovered artifacts; record scope and timing.
+Use `host/recovery-proof.sh APP_ENV MALICE_ENV` on a machine other than chill-01.
+The two trusted shell escrow records must be owned by the invoking user, mode
+0600, outside this checkout; create password-manager records and sealed offline
+copies. Each must explicitly set `RESTIC_REPOSITORY`, `RESTIC_PASSWORD`,
+`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` and `AWS_DEFAULT_REGION`.
+Install Bash, restic, Python 3, sqlite3, tar and od first. The helper restores only
+selected application dumps, VPS configs and hypervisor configs into a private
+temporary directory, verifies bytes and named artifacts, then removes its own
+directory. Record snapshot IDs and pass/fail, never credentials or contents.
+Do not use `make restore-test` for independent recovery: it requires chill-01
+and restores protected tunnel material into a fixed directory.
+
+Structural integrity is not application recovery. Separately restore the same
+snapshot's SQL/Bolt artifacts to a private disposable workspace. Use the current
+Compose-pinned Immich/Paperless PostgreSQL images, no published ports or
+production networks, and `psql -X -v ON_ERROR_STOP=1` for isolated imports.
+Verify schema/data counts without publishing records. Run disposable Filebrowser
+instances against copies of all three Bolt artifacts. Record those results
+separately; platform RTO remains unmeasured.
+
+Restore order: review hypervisor configuration → rebuild VM 101 and storage
+mounts from git → application databases/state → Compose → private/public edge
+→ alerts. Never overwrite a running PVE cluster database with a restored copy.
+Guest retention is three snapshots per repository; hypervisor retention is
+7 daily / 4 weekly / 6 monthly.
 
 ## Deployment regression
 
