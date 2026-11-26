@@ -27,7 +27,7 @@ services:
       - ./state/jellyfin-config:/config
       # Disposable HLS/transcode cache lives on the fast SSD, not the VM root.
       - /mnt/fast/jellyfin-cache:/cache
-      - /mnt/data:/data
+      - /mnt/data/media/music:/data/media/music:ro
       - /mnt/pool/media/movies:/pool/movies:ro
       - /mnt/pool/media/tv:/pool/tv:ro
     restart: unless-stopped
@@ -223,7 +223,6 @@ services:
       TZ: Europe/Paris
     volumes:
       - ./state/bazarr:/config
-      - /mnt/data:/data
       # Subtitles are written next to the video files (4TB disk).
       - /mnt/pool/media/movies:/pool/movies
       - /mnt/pool/media/tv:/pool/tv
