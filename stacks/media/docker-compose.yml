@@ -421,8 +421,7 @@ services:
       - ./state/slskd:/app
       - ./config/slskd/slskd.yml:/app/slskd.yml:ro
       - ./config/slskd/autotag.sh:/app/scripts/autotag.sh:ro
-      - /mnt/data/media/music:/data/media/music:ro
-      - /mnt/data/media/music/inbox/slskd:/data/media/music/inbox/slskd:rw
+      - /mnt/data:/data
     restart: unless-stopped
 
 networks:
