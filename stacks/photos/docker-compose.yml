@@ -20,9 +20,8 @@ services:
       DB_DATABASE_NAME: immich
       REDIS_HOSTNAME: immich-redis
       UPLOAD_LOCATION: /photos
-    # Photo library lives on the mirror disk (VM /mnt/data = primary 2TB
-    # disk per TODO storage layout), NOT on fast: SSD2 is cache/transcodes
-    # only. A second restic repo on /mnt/backup carries the local copy.
+    # /mnt/data is the takeover bind on the bulk pool. Photos are backed up
+    # to offsite restic and the local repository on /mnt/backup.
     volumes:
       - /mnt/data/photos:/photos
     depends_on:

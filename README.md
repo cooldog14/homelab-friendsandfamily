@@ -25,9 +25,11 @@ application data stay outside git.
 
 ## Operations
 
-Best effort, not HA: the hypervisor, application VM and VPS are single points
-of failure. Nightly restic backups keep three snapshots per repository.
-The restore drill validates sampled artifacts, not a full-platform recovery time.
+Best effort, not HA. Recovery after losing a host or disk is manual. The
+application VM keeps three restic snapshots in each of its local and offsite
+repositories; the hypervisor backup has its own retention policy. The
+[recovery runbook](RUNBOOK.md#recovery-expectations) distinguishes a sampled
+restore from application recovery and a full rebuild.
 
 Start with `make ansible-bootstrap` (Python 3.12 required). It creates the
 gitignored, pinned Ansible environment; hosts use their own system Python.
@@ -36,23 +38,23 @@ gitignored, pinned Ansible environment; hosts use their own system Python.
 |---|---|
 | `make check` | Validates compose files, both Caddy configs, the public/private host list, shell scripts, and the observability rules. This is what CI runs. |
 | `make host` | Applies `ansible/chill.yml` to the application VM (idempotent; a second run reports `changed=0`). |
-| `make vps` | Applies `ansible/vps.yml` to the edge VPS: Caddy sites, firewall policy, NAT and WireGuard. |
+| `make vps` | Applies `ansible/vps.yml` to the edge VPS: packages, SSH, Caddy, firewall, NAT and network units. |
 | `make hypervisor` | Applies `ansible/malice.yml`: tailnet node exporter and host backup/check timers. |
-| `make deploy` | Validates, archives the committed `stacks/` tree, deploys it, re-applies container isolation, and records `.deployed-commit`. |
-| `make edge-reload` | Restarts private Caddy after a route edit; an unchanged Compose file will not restart it. |
-| `make restore-test` | Restores every database dump plus configuration and asserts integrity. |
+| `make deploy` | Validates and reconciles all stacks from committed `HEAD`. Refuses dirty `stacks/`, reapplies container isolation, and records `.deployed-commit`. |
+| `make edge-reload` | Explicitly restarts private Caddy if the route config needs to be reread. |
+| `make restore-test` | Runs a sampled restore on chill-01. Not an independent recovery test; use the runbook procedure for that. |
 | `make tofu-check` | Offline OpenTofu format and validation checks (no credentials needed). |
 | `make tofu-plan` | Read-only plan of the application VM against the hypervisor. |
 | `make ansible-check` | Syntax-checks all playbooks. |
 
 ## Reference
 
-- [Runbook](RUNBOOK.md): troubleshooting and recovery.
-- [TODO](TODO.md): open work and accepted risks.
+- [Runbook](RUNBOOK.md): current procedures for change, recovery and troubleshooting.
+- [TODO](TODO.md): next maintenance priorities, rollout gates and accepted risks.
 - [Automation reference](AGENTS.md): safety rules, topology, storage and access.
 - [VPS contract](vps/README.md) · [OpenTofu policy](tofu/README.md).
-- [Operations history](docs/history/2026-09-11-operations.md):
-  dated incidents, maintenance and verification.
+- [Operations history](docs/history/README.md): dated incidents, maintenance,
+  verification and archived reviews.
 - [Diagram source and rendering](docs/diagram).
 
 ## Credits

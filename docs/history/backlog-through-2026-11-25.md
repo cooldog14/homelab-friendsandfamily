@@ -1,7 +1,11 @@
-# Backlog snapshot — 2026-11-25
+# Backlog archive through 2026-11-25
 
-Historical record of completed work and verification. The current queue is
-[TODO.md](../../TODO.md); statuses below are frozen at archival.
+This compilation includes earlier work and dated verification (including the
+November 18 baseline). The heading date is the archival cutoff, not an audit
+window. Checkboxes, boot/disk instructions, and protocol results are historical;
+use [TODO](../../TODO.md) and the [runbook](../../RUNBOOK.md) for current work.
+
+See the [history index](README.md) for dated entries.
 
 Historical detail is retained separately:
 
@@ -10,8 +14,8 @@ Historical detail is retained separately:
 
 ### 2026-11-25 — alert-path hardening (deployed)
 
-Detail: [operations history](2026-09-11-operations.md), "maintenance
-2026-11-25: harden the whole notification path"; commits `12fa7f6`..`09ed30b` + `3a46e12` are pushed.
+Detail: [notification-path hardening](2026-11-25-notification-hardening.md#maintenance-2026-11-25-harden-the-whole-notification-path).
+Commits `12fa7f6`..`09ed30b` + `3a46e12` are pushed.
 
 - [x] **Deploy the alert-path commits.** Done 2026-11-25. Order used:
   `make vps` → `make hypervisor` → `host/deploy.sh chill-01` → `make host` →

@@ -17,9 +17,8 @@ Constraints:
 
 ## Design
 
-A small VPS is the only internet-facing box. It runs Caddy and nftables and
-nothing else, and it reaches the application host over a static WireGuard
-tunnel.
+A small VPS runs the public edge, not the applications. Caddy, nftables and
+CrowdSec handle ingress; a static WireGuard tunnel reaches the application host.
 
 ```mermaid
 flowchart LR
@@ -38,9 +37,9 @@ Three layers, each with one job:
 2. **The tunnel carries backends only.** The WireGuard link is static, key-only,
    and scoped to the published app ports. It is not an admin path.
 3. **Admin lives on the tailnet.** A second Caddy on the application host serves
-   `*.h.example.com` from a wildcard DNS-01 certificate, listening only on the
-   tunnel address and the tailnet interface. Exact-host matchers decide which
-   port each private name reaches.
+   `*.h.example.com` from a wildcard DNS-01 certificate. It listens on the
+   tailnet address, not the VPS WireGuard path. Exact-host matchers choose
+   the backend for each private name.
 
 The split matters: public vhosts are declared on the VPS, private vhosts on the
 application host. Two Caddies never race for the same name, which would mean two
@@ -72,10 +71,10 @@ public Caddy sites directory.
 
 Two of these cost real hours:
 
-- **The reload trap.** A compose file that did not change is a no-op for
-  `docker compose up -d`, so editing the Caddyfile and re-running the deploy left
-  the old routes live. The fix was a dedicated `make edge-reload` target and the
-  habit of running it after any route edit.
+- **The reload trap.** An unchanged Compose definition is a no-op for
+  `docker compose up -d`, so the original deploy left old routes live after a
+  Caddyfile edit. The current deploy detects Caddyfile changes and restarts
+  Caddy; `make edge-reload` remains an explicit restart.
 - **The ARP blackhole.** After a power cut the router kept an ARP entry pointing
   at a MAC address that no longer existed. Every inbound packet to the app host
   was flooded to the wrong destination and dropped by the guest NIC before the
@@ -88,9 +87,9 @@ Two of these cost real hours:
 
 The edge is verified from the outside in, never assumed:
 
-- A black-box public check curls every declared public vhost over the internet
-  and fails the systemd unit on any non-2xx/3xx answer. It runs on a timer and
-  alerts on failure, so a 502 is noticed in minutes, not days.
+- A black-box public check curls every declared public vhost. It accepts
+  2xx, 3xx, or the expected authentication response `401`. The timer and
+  failure notification catch broken routes such as a `502`.
 - The same host list is linted in CI against the private Caddyfile, so a public
   name can never be duplicated on the private edge.
 - Prometheus `blackbox_exporter` probes the public URLs and the forwarded TCP

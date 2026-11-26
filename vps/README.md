@@ -12,48 +12,40 @@ make vps
 # or: ansible-playbook ansible/vps.yml
 ```
 
-The playbook installs the packages, SSH hardening, Caddy files, nftables
-include, sysctls and the static WireGuard tunnel. `/etc/wireguard/chill0.conf`
-is never in git; write it on the box before the first run. A second run
-reports `changed=0`.
+The playbook manages packages, SSH hardening, Caddy, nftables, sysctls, and
+services. WireGuard identities are provisioned separately; keep
+`/etc/wireguard` contents outside Git and untouched by the playbook. A second
+run on converged hosts reports `changed=0`.
 
 ## Git-owned files
 
-- `/etc/caddy/Caddyfile` from `vps/Caddyfile`
-- `/etc/caddy/sites/*.caddy` from `vps/sites/*.caddy`
-- `/etc/nftables.d/homelab_nat.conf` from `vps/nftables.conf`
+- [`Caddyfile`](Caddyfile) → `/etc/caddy/Caddyfile`
+- [`sites/*.caddy`](sites/) → `/etc/caddy/sites/*.caddy`
+- [`firewall.nft`](firewall.nft) → `/etc/nftables.d/homelab_firewall.conf`
+  (effective `inet firewall` input/forward table)
+- [`nftables.conf`](nftables.conf) → `/etc/nftables.d/homelab_nat.conf`
+  (`ip homelab_nat` forwarding and return NAT)
 
 Public vhosts are git-owned in `vps/sites/*.caddy`: the playbook copies them,
 runs `caddy validate`, reloads only when validation passes, and removes site
 files deleted from git.
 
-`vps/nftables.conf` owns only the `ip homelab_nat` NAT table. It must not flush
-or replace the provider/local firewall ruleset.
+`make vps` persists both includes after the provider base rules and checks
+them with `nft -c` before applying changes. Change the Git-owned source; do
+not hand-edit the live rules or flush the ruleset. The two managed tables
+are replaced independently of CrowdSec and other tables.
 
-## Live firewall contract
+## Public transport
 
-Keep the live VPS input/forward policy aligned with this contract:
+Public services use the IPv4 edge. Caddy serves HTTP/1.1 and HTTP/2 on TCP
+443 and redirects TCP 80 to HTTPS. HTTP/3 is disabled after the
+[November 19 streaming incident](../docs/history/2026-11-17-to-19-operations.md#incident-2026-11-19-feishin-streams-stalled-on-broken-http3quic);
+the Git-owned filter does not open UDP 443. Do not publish AAAA records
+without an end-to-end IPv6 rollout and checks.
 
-| Purpose | Protocol/port | Direction |
-|---|---:|---|
-| SSH admin | TCP `4522` | internet -> VPS |
-| Public HTTP(S) | TCP `80`, `443` | internet -> VPS Caddy |
-| WireGuard backend | UDP `51824` | internet/home -> VPS `chill0` |
-| WireGuard P2P exit | UDP `51820` | home -> VPS `wg0` (gluetun) |
-| Mumble | TCP+UDP `64738` | internet -> DNAT `10.44.0.2` |
-| Neko WebRTC | TCP+UDP `52000` | internet -> DNAT `10.44.0.2` |
-| Screego TURN | TCP+UDP `3478`, UDP `52100-52200` | internet -> DNAT `10.44.0.2` |
-| Minecraft | TCP `25565` | internet -> DNAT `10.44.0.2` |
-| qBittorrent | TCP+UDP `6881` | internet -> DNAT `10.30.0.4` |
-| slskd | TCP+UDP `50300` | internet -> DNAT `10.30.0.4` |
-
-The P2P rows are the only DNATs that do not land on `10.44.0.2`: those
-services run inside gluetun, whose tunnel IP is `10.30.0.4`.
-
-`/etc/nftables.conf` on the box is a boot dump (crowdsec runtime sets
-plus inline tables), not a reappliable config. Make live rule changes
-surgically (`nft delete rule ... handle N`), keep the file text in sync
-for the next boot, and validate with `nft -c -f` before shipping.
-
-Anything else needs a matching Git change and runbook note before it becomes
-permanent.
+SSH to the VPS is key-only on TCP 4522. Caddy speaks to `chill-01` over
+`chill0`. Public non-HTTP forwards and P2P entry ports are defined in
+[`nftables.conf`](nftables.conf): application DNAT lands on `10.44.0.2`;
+P2P DNAT lands on gluetun's `10.30.0.4` via `wg0`. The filter permits
+established traffic, explicit DNAT and that P2P egress, not a general
+route into the application network.
