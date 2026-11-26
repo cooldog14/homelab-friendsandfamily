@@ -9,7 +9,7 @@ soulseek:
     child_limit: 25
 
 directories:
-  # Compose mounts the music share read-only and the Soulseek inbox read-write.
+  # Compose mounts /mnt/data at /data.
   incomplete: /data/media/music/inbox/slskd/incomplete
   downloads: /data/media/music/inbox/slskd/complete
 
