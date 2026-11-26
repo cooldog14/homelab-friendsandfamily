@@ -24,6 +24,10 @@ def queue_row(identifier: int | str, state: str = "importBlocked") -> dict:
     return {"id": identifier, "trackedDownloadState": state, "title": "PRIVATE TITLE", "statusMessages": ["PRIVATE MESSAGE"]}
 
 
+def samples(text: str) -> dict[str, float]:
+    return {key: float(value) for key, value in (line.rsplit(" ", 1) for line in text.splitlines())}
+
+
 def snapshots() -> tuple[dict, dict]:
     entries = {}
     for name in metrics.APPS:
@@ -151,12 +155,24 @@ class MetricsTests(unittest.TestCase):
 
     def test_all_expected_labels_and_real_zero_issue_counts(self) -> None:
         text = self.render()
+        values = samples(text)
         for name in metrics.APPS:
             self.assertIn(f'homelab_app_healthy{{app="{name}"}} 1\n', text)
-            self.assertIn(f'homelab_app_check_timestamp_seconds{{app="{name}"}} 1000\n', text)
+            self.assertEqual(values[f'homelab_app_check_timestamp_seconds{{app="{name}"}}'], 1000)
         for name in metrics.ARR_APPS:
             self.assertIn(f'homelab_arr_queue_check_success{{app="{name}"}} 1\n', text)
             self.assertIn(f'homelab_arr_health_issues{{app="{name}"}} 0\n', text)
+
+    def test_epoch_timestamps_keep_observation_precision(self) -> None:
+        epoch = 1_795_694_701.75
+        self.integrations["updated_timestamp_seconds"] = epoch
+        self.containers["updated_timestamp_seconds"] = epoch
+        self.integrations["data"]["sonarr"].update(
+            health_checked_at=epoch - 0.5, queue_checked_at=epoch - 0.25,
+        )
+        values = samples(self.render(now=epoch + 1))
+        self.assertEqual(values['homelab_app_check_timestamp_seconds{app="sonarr"}'], epoch - 0.5)
+        self.assertEqual(values['homelab_arr_queue_check_timestamp_seconds{app="sonarr"}'], epoch - 0.25)
 
     def test_only_two_qualifying_states_without_private_metadata(self) -> None:
         entry = self.integrations["data"]["sonarr"]
@@ -235,12 +251,13 @@ class MetricsTests(unittest.TestCase):
 
     def test_empty_and_expired_cache_is_failed_and_timestamps_do_not_advance(self) -> None:
         text = metrics.render({"data": None}, {"data": None}, 1001)
+        values = samples(text)
         for name in metrics.APPS:
             self.assertIn(f'homelab_app_healthy{{app="{name}"}} 0\n', text)
-            self.assertIn(f'homelab_app_check_timestamp_seconds{{app="{name}"}} 0\n', text)
+            self.assertEqual(values[f'homelab_app_check_timestamp_seconds{{app="{name}"}}'], 0)
         expired = self.render(now=1301)
         self.assertNotIn('} 1\n', expired)
-        self.assertIn('homelab_app_check_timestamp_seconds{app="sonarr"} 1000\n', expired)
+        self.assertEqual(samples(expired)['homelab_app_check_timestamp_seconds{app="sonarr"}'], 1000)
 
     def test_render_does_not_mutate_inputs(self) -> None:
         original = copy.deepcopy((self.integrations, self.containers))
@@ -274,11 +291,17 @@ class CollectorMetricsTests(unittest.TestCase):
         first = collector._fetch_integrations()
         self.assertTrue(first["sonarr"]["queue_success"])
         collector.sonarr.queue.side_effect = clients.ClientError("HTTP 503")
+        collector.radarr.queue.return_value = {"records": [], "totalRecords": 0}
         second = collector._fetch_integrations()
         self.assertFalse(second["sonarr"]["queue_success"])
         self.assertNotIn("queue_payload", second["sonarr"])
         self.assertIsNotNone(second["sonarr"]["error"])
         self.assertGreater(second["sonarr"]["queue_checked_at"], 0)
+        collector.integrations.set_ok(second)
+        pipeline = snapshot_module.build_snapshot(collector, collector.config, collector.settings)["pipeline"]
+        self.assertIn("HTTP 503", pipeline["sonarr"]["error"])
+        self.assertNotIn("queue", pipeline["sonarr"])
+        self.assertEqual(pipeline["radarr"]["queue"], {"total": 0, "stalled": []})
 
     def test_unconfigured_apps_are_stamped_without_network_calls(self) -> None:
         collector = self.collectors()
