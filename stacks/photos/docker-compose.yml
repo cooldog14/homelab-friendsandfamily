@@ -44,7 +44,7 @@ services:
       - ./state/immich/model-cache:/cache
 
   immich-redis:
-    image: redis:7.4.11-alpine
+    image: redis:8.0.0-alpine
     security_opt:
       - no-new-privileges:true
     # The alpine entrypoint drops from root with setpriv: without SETUID/SETGID
