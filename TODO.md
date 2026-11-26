@@ -38,9 +38,10 @@ branch. Add the private probe when its route is integrated.
   backups, and public checks.
 - [ ] Decide whether to disable Tailscale key expiry for chill-01 and malice
   before March 2027. Leave offline admin devices registered.
-- [ ] Check certificate issuers before adding CAA and rule out inbound mail
-  before adding null MX. DNSSEC needs both DNS and registrar access. Keep
-  the [public transport policy](vps/README.md#public-transport).
+- [ ] Decide whether to keep Cloudflare Universal SSL before adding CAA. It
+  [adds issuers to the DNS answers](vps/README.md#dns-certificate-policy).
+  Rule out inbound mail before adding null MX. DNSSEC needs both DNS and
+  registrar access.
 - [ ] Check the latest restic snapshot and get cleanup approval first. Prune
   only the build cache and delete only DB backup files proven obsolete.
 

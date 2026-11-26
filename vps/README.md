@@ -39,3 +39,13 @@ SSH is key-only on port 4522. Caddy reaches chill-01 through chill0. The
 to gluetun at 10.30.0.4 through wg0. The firewall allows established traffic,
 explicit port forwards, and P2P egress. It does not allow general access to
 the app network.
+
+## DNS certificate policy
+
+Public Caddy uses Let's Encrypt with ZeroSSL as a fallback. Private Caddy
+uses Let's Encrypt for the wildcard. Keep both public issuers allowed if
+adding CAA: letsencrypt.org and sectigo.com.
+
+Cloudflare [adds its own issuers](https://developers.cloudflare.com/ssl/edge-certificates/caa-records/#caa-records-added-by-cloudflare)
+while Universal SSL is enabled. An allowlist in the dashboard may be wider
+in public DNS. Check the authoritative answers before relying on it.

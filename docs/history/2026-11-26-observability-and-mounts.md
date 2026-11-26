@@ -93,3 +93,12 @@ left uncommitted.
 - No production changes. Owner Music Manager work was not committed or
   deployed; its private-probe mismatch and absent dashboard Bazarr key
   remain rollout gates.
+
+## CAA trial
+
+Public Caddy uses Let's Encrypt with a ZeroSSL fallback. Private Caddy uses
+Let's Encrypt. Adding those two apex CAA records caused Cloudflare to
+publish extra issuers, so both records were removed. Both authoritative
+servers and two public resolvers returned no apex CAA after rollback.
+Public Jellyfin, the private dashboard, and Storage Share still served
+HTTPS. Universal SSL, mail records, and DNSSEC were left unchanged.
