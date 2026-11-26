@@ -322,7 +322,7 @@ def _media_section(integrations: dict, config: DashboardConfig) -> dict:
     }
 
 
-def _pipeline_section(integrations: dict) -> dict:
+def _pipeline_section(integrations: dict, refresh_error: str | None = None) -> dict:
     def arr_entry(name: str, kind: str | None = None) -> dict:
         entry = integrations.get(name) or {}
         if not entry.get("configured"):
@@ -335,7 +335,9 @@ def _pipeline_section(integrations: dict) -> dict:
             "errors": health["errors"],
             "warnings": health["warnings"],
         }
-        if kind:
+        if refresh_error and not result["error"]:
+            result["error"] = refresh_error
+        if kind and not refresh_error:
             queue = parsers.normalize_arr_queue(entry.get("queue_payload"), kind)
             result["queue"] = {
                 "total": queue["total"],
@@ -849,7 +851,7 @@ def build_snapshot(
     hosts = _build_hosts(config, infra_data)
     groups = _build_groups(config, services, hosts)
     media = _media_section(integrations_data, config)
-    pipeline = _pipeline_section(integrations_data)
+    pipeline = _pipeline_section(integrations_data, integrations_store.get("error"))
     backups = _backups_section(infra_data, moment)
     network = _network_section(config, routes_data, infra_data, network_data, moment)
     inventory = _inventory_section(inventory_data, services)

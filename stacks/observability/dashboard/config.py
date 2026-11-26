@@ -43,6 +43,7 @@ class Settings:
     bind: str = "0.0.0.0"
     port: int = 8080
     timezone: str = "Europe/Paris"
+    navidrome_url: str = "http://navidrome:4533"
     integrations: tuple[Integration, ...] = field(default_factory=tuple)
 
     @property
@@ -78,6 +79,7 @@ class Settings:
             bind=get("BIND", "0.0.0.0"),
             port=int(get("PORT", "8080") or 8080),
             timezone=get("TZ", "Europe/Paris"),
+            navidrome_url=get("NAVIDROME_URL", "http://navidrome:4533"),
             integrations=(
                 Integration(
                     "jellyfin",
@@ -103,6 +105,11 @@ class Settings:
                     "radarr",
                     get("RADARR_URL", "http://radarr:7878"),
                     get("RADARR_API_KEY"),
+                ),
+                Integration(
+                    "bazarr",
+                    get("BAZARR_URL", "http://bazarr:6767"),
+                    get("BAZARR_API_KEY"),
                 ),
             ),
         )

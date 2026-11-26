@@ -10,6 +10,7 @@ from __future__ import annotations
 import http.client
 import json
 import math
+import time
 import socket
 import urllib.error
 import urllib.parse
@@ -284,8 +285,10 @@ class Seerr:
         )
         return self._get(f"/api/v1/request?{query}")
 
-    def status(self) -> Any:
-        return self._get("/api/v1/status")
+    def status(self) -> dict:
+        payload = self._get("/api/v1/status")
+        _require_version(payload, "version", "jellyseerr")
+        return payload
 
     def title(self, media_type: str, tmdb_id: Any) -> str | None:
         try:
@@ -317,15 +320,115 @@ class Arr:
             timeout=self.timeout,
         )
 
-    def health(self) -> Any:
-        return self._get("/health")
+    def health(self) -> list[dict]:
+        payload = self._get("/health")
+        if not isinstance(payload, list) or any(
+            not isinstance(row, dict) or not isinstance(row.get("type"), str)
+            for row in payload
+        ):
+            raise ClientError(f"{self.name}: unexpected health payload")
+        return payload
 
-    def status(self) -> Any:
-        return self._get("/system/status")
+    def status(self) -> dict:
+        payload = self._get("/system/status")
+        _require_version(payload, "version", self.name)
+        return payload
 
-    def queue(self, kind: str) -> Any:
-        if kind == "sonarr":
-            flags = "includeUnknownSeriesItems=true&includeSeries=true"
-        else:
-            flags = "includeUnknownMovieItems=true&includeMovie=true"
-        return self._get(f"/queue?page=1&pageSize=50&{flags}")
+    def queue(self, kind: str) -> dict:
+        """Return one complete, consistent queue or fail without partial data."""
+        flags = (
+            "includeUnknownSeriesItems=true&includeSeries=true"
+            if kind == "sonarr"
+            else "includeUnknownMovieItems=true&includeMovie=true"
+        )
+        records: list[dict] = []
+        identifiers: set[str] = set()
+        total: int | None = None
+        first: dict = {}
+        page = 1
+        deadline = time.monotonic() + 30
+        while True:
+            if time.monotonic() >= deadline:
+                raise ClientError(f"{self.name}: queue collection deadline exceeded")
+            payload = self._get(f"/queue?page={page}&pageSize=50&{flags}")
+            if time.monotonic() >= deadline:
+                raise ClientError(f"{self.name}: queue collection deadline exceeded")
+            if not isinstance(payload, dict):
+                raise ClientError(f"{self.name}: unexpected queue payload")
+            count = payload.get("totalRecords")
+            rows = payload.get("records")
+            if (
+                type(count) is not int or not 0 <= count <= 100_000
+                or type(payload.get("page")) is not int or payload["page"] != page
+                or type(payload.get("pageSize")) is not int or payload["pageSize"] != 50
+                or not isinstance(rows, list)
+            ):
+                raise ClientError(f"{self.name}: malformed queue pagination")
+            if total is None:
+                total = count
+                first = payload
+            if count != total or len(rows) != min(50, total - len(records)):
+                raise ClientError(f"{self.name}: incomplete or changing queue")
+            for row in rows:
+                if not isinstance(row, dict):
+                    raise ClientError(f"{self.name}: malformed queue record")
+                identifier = row.get("id")
+                if (
+                    isinstance(identifier, bool)
+                    or not isinstance(identifier, (int, str))
+                    or not str(identifier)
+                    or str(identifier) in identifiers
+                    or ("trackedDownloadState" in row and not isinstance(row["trackedDownloadState"], str))
+                ):
+                    raise ClientError(f"{self.name}: malformed or repeated queue record")
+                identifiers.add(str(identifier))
+            records.extend(rows)
+            if len(records) == total:
+                return {**first, "records": records, "totalRecords": total}
+            page += 1
+
+
+def _require_version(payload: Any, key: str, app: str) -> None:
+    if not isinstance(payload, dict) or not isinstance(payload.get(key), str) or not payload[key].strip():
+        raise ClientError(f"{app}: unexpected status payload")
+
+
+class Bazarr:
+    def __init__(self, url: str, key: str, timeout: float = 8.0) -> None:
+        self.url = url.rstrip("/")
+        self.key = key
+        self.timeout = timeout
+
+    @property
+    def configured(self) -> bool:
+        return bool(self.url and self.key)
+
+    def status(self) -> dict:
+        payload = http_json(
+            f"{self.url}/api/system/status",
+            headers={"X-API-KEY": self.key, "Accept": "application/json"},
+            timeout=self.timeout,
+        )
+        data = payload.get("data") if isinstance(payload, dict) else None
+        _require_version(data, "bazarr_version", "bazarr")
+        return payload
+
+
+class Navidrome:
+    def __init__(self, url: str, timeout: float = 8.0) -> None:
+        self.url = url.rstrip("/")
+        self.timeout = timeout
+
+    def ping(self) -> bool:
+        # Navidrome 0.64.2 /ping returns a single dot, not JSON or a login page.
+        request = urllib.request.Request(f"{self.url}/ping", headers={"User-Agent": USER_AGENT})
+        try:
+            with urllib.request.urlopen(request, timeout=self.timeout) as response:
+                body = response.read(1024)
+        except urllib.error.HTTPError as exc:
+            raise ClientError(f"HTTP {exc.code}") from exc
+        except (urllib.error.URLError, OSError, http.client.HTTPException) as exc:
+            raise ClientError(str(getattr(exc, "reason", exc))) from exc
+        if body != b".":
+            raise ClientError("navidrome: unexpected ping payload")
+        return True

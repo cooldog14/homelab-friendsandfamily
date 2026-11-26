@@ -147,6 +147,11 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/snapshot":
             self._snapshot()
             return
+        if path == "/metrics":
+            body = self.dashboard.collectors.render_metrics().encode("utf-8")
+            self._headers(HTTPStatus.OK, "text/plain; version=0.0.4; charset=utf-8", len(body))
+            self.wfile.write(body)
+            return
         if path in STATIC_FILES:
             self._static(*STATIC_FILES[path])
             return
