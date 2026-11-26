@@ -12,10 +12,6 @@ A dedicated Proxmox user and token, never the root password:
 ```sh
 ssh <hypervisor> 'pveum user add tofu@pve --comment "OpenTofu homelab"'
 ssh <hypervisor> 'pveum acl modify / --users tofu@pve --roles PVEAuditor'
-ssh <hypervisor> 'pveum acl modify /vms/101 --users tofu@pve --roles PVEVMAdmin'
-ssh <hypervisor> 'pveum acl modify /storage/local-lvm --users tofu@pve --roles Datastore.AllocateSpace'
-ssh <hypervisor> 'pveum role add TofuMapping -privs "Mapping.Audit Mapping.Modify"'
-ssh <hypervisor> 'pveum acl modify /mapping --users tofu@pve --roles TofuMapping'
 ssh <hypervisor> 'pveum user token add tofu@pve homelab --privsep 0'
 ```
 
@@ -30,6 +26,20 @@ PROXMOX_VE_INSECURE=true
 
 `PROXMOX_VE_INSECURE=true` accepts the hypervisor's self-signed certificate:
 the endpoint is reached over the private admin network, not the internet.
+
+`PVEAuditor` at `/` is the entire read-only policy, including `Mapping.Audit`.
+Do not grant VM configuration/power/allocation or `Mapping.Modify` privileges.
+Intentional infrastructure changes use existing root administration, not this
+token. For the previously observed grants, remove only these exact tuples:
+
+```sh
+ssh <hypervisor> 'pveum acl delete /vms/101 --users tofu@pve --roles PVEVMAdmin'
+ssh <hypervisor> 'pveum acl delete /mapping --users tofu@pve --roles TofuMapping'
+```
+
+Inspect effective user/token privileges afterward and run `make tofu-plan`
+with the private environment loaded. Never test authorization by attempting
+a destructive API operation. These instructions do not prove live ACL removal.
 
 ## Workflow
 
@@ -62,13 +72,9 @@ tofu -chdir=tofu import proxmox_virtual_environment_vm.chill_01 <node>/101
   cloud-init `user_account`, provider-only flags) are ignored by
   `lifecycle.ignore_changes` and stay documentation-only.
 
-**Never run `tofu apply` against this VM.** `prevent_destroy` blocks the worst
-case; it does not make an apply safe. The only scoped apply ever run is the PCI
-mapping, which is a cluster object:
-
-```sh
-tofu -chdir=tofu apply -target=proxmox_virtual_environment_hardware_mapping_pci.igpu
-```
+**Never run `tofu apply`.** `prevent_destroy` is not an authorization boundary;
+the token must also remain read-only. The PCI mapping's historical bootstrap
+does not authorize future targeted applies.
 
 The resource is spelled with the `proxmox_virtual_environment_` prefix on
 purpose: `proxmox_hardware_mapping_pci` is the v1 name, and this repository is
