@@ -1,7 +1,7 @@
 # TODO
 
 Open work only. Record incidents and drill results via [RUNBOOK.md](RUNBOOK.md).
-Completed work and detailed verification: [2026-11-25 snapshot](docs/history/2026-11-25-backlog.md).
+Completed work and verification: [2026-11-25 snapshot](docs/history/2026-11-25-backlog.md) and the 2026-11-26 continuation in [operations history](docs/history/2026-09-11-operations.md).
 
 ## Safety and recovery
 
@@ -13,22 +13,32 @@ Completed work and detailed verification: [2026-11-25 snapshot](docs/history/202
   installed but `7.0.14-26-pve` boots; ESP `sde2` is not mounted at `/boot/efi`.
   Mount it, persist `vfat umask=0077`, run `grub-install` and `update-grub`.
   Verify the intended kernel and guest autostart after reboot.
-- [ ] Confirm Healthchecks delivery channel and 5m period / 15m grace;
-  prove a real `/fail` notifies and a recovery ping clears it.
-- [ ] Exercise a harmless real failure and confirm both `notify@` → Gotify
-  and `HomelabJobFailed` → bridge → Gotify. A synthetic POST is insufficient.
+- [ ] Confirm Healthchecks' external notification channel and 5m period / 15m
+  grace; prove a real `/fail` notification and recovery. No authorized account
+  or receipt was available 2026-11-26.
+- [ ] After an authorized receipt is available, exercise a harmless real failure
+  and confirm `notify@` → Gotify and `HomelabJobFailed` → bridge → Gotify.
 - [ ] Repeat the restore drill quarterly; record scope, timing and result.
 
 ## Instrumentation and hygiene
 
-- [ ] Add app-level health instrumentation where Docker has none: Caddy admin,
-  Jellyseerr, Navidrome, Radarr/Sonarr/Bazarr.
-- [ ] Alert on Sonarr/Radarr `importBlocked`/`importPending` items older than
-  24h and executable payloads under `/mnt/data/downloads`.
-- [ ] Narrow the eight broad `/mnt/data` mounts; add Filebrowser proxy-header handling.
-- [ ] Add HSTS/baseline headers, CAA, DNSSEC and null MX; document IPv4-only public service.
-- [ ] Remove chill-01's old build cache and DB `.bak` files only after checking
-  the latest restic snapshot.
+- [ ] Deploy and verify app health instrumentation (Caddy admin, Jellyseerr,
+  Navidrome, Radarr/Sonarr/Bazarr). Source committed 2026-11-26; rollout is
+  blocked by the `music.h.malice.biz` private-probe contract and missing live
+  `DASHBOARD_BAZARR_API_KEY`.
+- [ ] Deploy and verify `ArrImportBlockedTooLong`, executable-payload, and
+  `ContainerOOMMetricsMissing` rules. The scanner/timer are live and successful;
+  Prometheus rules are committed but not deployed while the private-probe
+  contract fails.
+- [ ] Deploy and workflow-test the committed mount narrowing and Filebrowser
+  proxy identity; source checks passed 2026-11-26, but stack rollout is blocked
+  by the private-probe contract.
+- [ ] Add CAA, DNSSEC/DS, and null MX; document IPv4-only public service.
+  HSTS/baseline headers and HTTP/3 were already deployed and verified. Public
+  DNS queries on 2026-11-26 returned no CAA, DS, or MX answer; no DNS edits made.
+- [ ] Review the chill-01 build cache (846.4 MB reclaimable) and five DB `.bak`
+  files (27,726,447 bytes observed 2026-11-26). Do not delete until the latest
+  restic snapshot is verified and cleanup is explicitly approved.
 - [ ] Decide whether to disable Tailscale key expiry for chill-01 and malice
   before March 2027. Keep existing offline admin devices registered unless
   explicitly revoked.
