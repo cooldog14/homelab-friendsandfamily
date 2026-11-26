@@ -80,11 +80,11 @@ commits and services were involved and whether any app data was restored.
 
 ## Mount narrowing rollout
 
-Before deploying, integrate the owner's stack changes, resolve private probe
-mismatches, pass make check, and set dashboard keys privately. Compare the
-candidate with the deployed config. Confirm it includes just one mount batch
-and verify the live paths. Stop if the current setup differs unexpectedly.
-Never move media on disk.
+Compare the committed candidate with the live config. Stop if it would overwrite
+unfinished owner work or if the live setup differs unexpectedly. Resolve private
+probe mismatches, pass make check, and set dashboard keys privately. Confirm the
+candidate adds only one mount batch and verify its live paths. Never move media
+on disk.
 
 Start with Jellyfin and Bazarr (commit 46b5858). The
 [November 26 record](docs/history/2026-11-26-observability-and-mounts.md#maintenance-2026-11-26-review-fixes)

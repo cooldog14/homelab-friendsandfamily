@@ -13,19 +13,15 @@ Current work only. See the [runbook](RUNBOOK.md) for procedures and
   Prove failure and recovery using the [notification drills](RUNBOOK.md#notification-drills)
   when authorized readback is available.
 
-## Before deploying
+## Next deployments
 
-The [November 26 record](docs/history/2026-11-26-observability-and-mounts.md)
-shows what went live and what was only tested in source. Before deploying,
-resolve the owner's music.h.malice.biz route mismatch in the private probe
-list and set DASHBOARD_BAZARR_API_KEY privately in the live dashboard environment.
+The [November 26 rollout](docs/history/2026-11-26-media-and-monitoring-rollout.md)
+records the live media and monitoring checks. Music Manager stays on its own
+branch. Add the private probe when its route is integrated.
 
-- [ ] Deploy and check app health, Arr import delays, executable download
-  payloads, and missing OOM counters. The download scanner is running.
-  Prometheus collection and alerts still need live proof.
-- [ ] [Roll out one mount batch at a time](RUNBOOK.md#mount-narrowing-rollout).
-  Start with Jellyfin and Bazarr. Keep Filebrowser header trust off on
-  shared Docker networks.
+- [ ] [Continue one mount batch at a time](RUNBOOK.md#mount-narrowing-rollout).
+  Check qBittorrent and Arr paths and test a disposable import next. Keep
+  Filebrowser header trust off on shared Docker networks.
 - [ ] Deploy the Worker logging fix with authorized Cloudflare access. Check
   that a scheduled heartbeat succeeds.
 

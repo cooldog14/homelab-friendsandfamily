@@ -9,6 +9,7 @@ Dates below refer to the entries, not to every earlier event cited in them.
 
 ### 2026
 
+- [November 26: Jellyfin, Bazarr, and monitoring rollout](2026-11-26-media-and-monitoring-rollout.md)
 - [November 26: host rollout, source-only fixes, and remaining gates](2026-11-26-observability-and-mounts.md)
 - [November 25: notification-path hardening and live verification](2026-11-25-notification-hardening.md)
 - [November 24: restored Gotify delivery and private probes](2026-11-24-alert-recovery.md)
