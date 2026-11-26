@@ -1,5 +1,7 @@
 {
 	email admin@malice.biz
+	# Own HTTP redirects so they carry the same headers as HTTPS responses.
+	auto_https disable_redirects
 	# QUIC/UDP is unreliable or blocked on some client networks (the
 	# workstation's Tailscale falls back to a DERP relay). Large HTTP/3
 	# responses then die with "writing: deadline exceeded" mid-stream while
@@ -70,6 +72,12 @@
 	import public_headers
 	import log_redacted
 	reverse_proxy 10.44.0.2:{args[0]}
+}
+
+# Explicit HTTP-only redirect; no backend is served over plaintext.
+http://*.malice.biz {
+	import public_headers
+	redir https://{host}{uri} 308
 }
 
 import /etc/caddy/sites/*.caddy
