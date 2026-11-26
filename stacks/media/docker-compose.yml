@@ -106,7 +106,7 @@ services:
       WEBUI_EXTERNAL_ACCESS: "true"
     volumes:
       - ./state/qbittorrent:/config
-      - /mnt/data/downloads:/data/downloads:rw
+      - /mnt/data:/data
       - /mnt/pool/downloads:/pool/downloads
     restart: unless-stopped
 
@@ -171,7 +171,7 @@ services:
       TZ: Europe/Paris
     volumes:
       - ./state/radarr:/config
-      - /mnt/data/downloads:/data/downloads:rw
+      - /mnt/data:/data
       - /mnt/pool/media/movies:/pool/movies
       - /mnt/pool/downloads:/pool/downloads
 
@@ -197,7 +197,7 @@ services:
       TZ: Europe/Paris
     volumes:
       - ./state/sonarr:/config
-      - /mnt/data/downloads:/data/downloads:rw
+      - /mnt/data:/data
       - /mnt/pool/media/tv:/pool/tv
       - /mnt/pool/downloads:/pool/downloads
 
