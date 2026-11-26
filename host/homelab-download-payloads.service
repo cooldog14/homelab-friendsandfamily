@@ -1,0 +1,9 @@
+[Unit]
+Description=Detect executable payloads in download directories
+OnFailure=notify@%n.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/homelab-download-payloads
+Nice=10
+IOSchedulingClass=idle

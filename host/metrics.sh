@@ -14,6 +14,9 @@ LC_ALL=C
 export LC_ALL
 
 HOST=${HOST_LABEL:-$(hostname)}
+case "$HOST" in
+  ''|*[!a-zA-Z0-9_.-]*) echo 'invalid host label' >&2; exit 1 ;;
+esac
 now=$(date +%s)
 
 marker() {
@@ -71,7 +74,41 @@ job_metrics() {
   echo "homelab_job_missed{host=\"$HOST\",task=\"$task\"} $missed"
 }
 
+systemd_metrics() {
+  if failed_units=$(systemctl list-units --failed --all --no-legend --plain --no-pager 2>/dev/null); then
+    count=$(printf '%s\n' "$failed_units" | awk 'NF { n++ } END { print n+0 }')
+    echo "homelab_systemd_failed_units{host=\"$HOST\"} $count"
+    echo "homelab_systemd_collect_success{host=\"$HOST\"} 1"
+  else
+    echo "homelab_systemd_collect_success{host=\"$HOST\"} 0"
+  fi
+}
+
+wireguard_metrics() {
+  [ "$HOST" = chill-01 ] || return 0
+  success=0
+  count=0
+  if handshakes=$(wg show wg0 latest-handshakes 2>/dev/null); then
+    # Validate the complete runtime response before emitting any peer samples.
+    if printf '%s\n' "$handshakes" | awk '
+      NF == 0 { next }
+      NF != 2 || $1 !~ /^[A-Za-z0-9+\/=]+$/ || $2 !~ /^[0-9]+$/ { exit 1 }
+    '; then
+      success=1
+      count=$(printf '%s\n' "$handshakes" | awk 'NF { n++ } END { print n+0 }')
+      printf '%s\n' "$handshakes" | while read -r peer ts; do
+        [ -n "$peer" ] || continue
+        echo "homelab_wireguard_latest_handshake_seconds{host=\"$HOST\",interface=\"wg0\",peer=\"$peer\"} $ts"
+      done
+      echo "homelab_wireguard_peer_count{host=\"$HOST\",interface=\"wg0\"} $count"
+    fi
+  fi
+  echo "homelab_wireguard_collect_success{host=\"$HOST\",interface=\"wg0\"} $success"
+}
+
 {
+  echo "homelab_metrics_timestamp_seconds{host=\"$HOST\"} $now"
+  systemd_metrics
   echo '# HELP homelab_backup_last_success_timestamp_seconds Derniere sauvegarde restic reussie'
   echo '# TYPE homelab_backup_last_success_timestamp_seconds gauge'
   marker homelab /var/lib/homelab-backup.last-ok
@@ -79,12 +116,7 @@ job_metrics() {
 
   echo '# HELP homelab_wireguard_latest_handshake_seconds Dernier handshake WireGuard par pair'
   echo '# TYPE homelab_wireguard_latest_handshake_seconds gauge'
-  if command -v wg >/dev/null 2>&1; then
-    wg show wg0 latest-handshakes 2>/dev/null | while read -r peer ts; do
-      [ -n "$peer" ] || continue
-      echo "homelab_wireguard_latest_handshake_seconds{peer=\"$peer\"} $ts"
-    done
-  fi
+  wireguard_metrics
 
   echo '# HELP homelab_job_timer_active Timer systemd arme (1) ou non (0)'
   echo '# TYPE homelab_job_timer_active gauge'
@@ -110,5 +142,6 @@ job_metrics() {
   job_metrics homelab-music-import.timer homelab-music-import.service music-import
   job_metrics homelab-alert-check.timer homelab-alert-check.service alert-check
   job_metrics homelab-pipeline-check.timer homelab-pipeline-check.service pipeline-check
+  job_metrics homelab-download-payloads.timer homelab-download-payloads.service download-payloads
 } > "$tmp"
 mv "$tmp" "$DIR/homelab.prom"
