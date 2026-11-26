@@ -337,7 +337,7 @@ def _pipeline_section(integrations: dict, refresh_error: str | None = None) -> d
         }
         if refresh_error and not result["error"]:
             result["error"] = refresh_error
-        if kind and not refresh_error:
+        if kind and not refresh_error and entry.get("queue_success") is True:
             queue = parsers.normalize_arr_queue(entry.get("queue_payload"), kind)
             result["queue"] = {
                 "total": queue["total"],

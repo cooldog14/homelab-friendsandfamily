@@ -107,7 +107,7 @@ def render(integrations: dict, containers: dict, now: float) -> str:
         labels = f'app="{_label(app)}"'
         if queue_id is not None:
             labels += f',queue_id="{_label(queue_id)}"'
-        samples.append(f"homelab_{name}{{{labels}}} {value:g}")
+        samples.append(f"homelab_{name}{{{labels}}} {value}")
 
     for app in APPS:
         entry = entries.get(app) or {}
