@@ -3,7 +3,8 @@
 http:
   port: 80
   baseURL: "/"
-  trustProxyHeaders: true
+  # The backends share Docker networks; Caddy is not their only HTTP peer.
+  trustProxyHeaders: false
 server:
   logging:
     - levels: "info|warning|error"

@@ -34,11 +34,7 @@ fiesta.malice.biz {
 	}
 }
 upload.malice.biz {
-	import public_headers
-	import log_redacted
-	reverse_proxy 10.44.0.2:8087 {
-		header_up X-Real-IP {http.request.remote.host}
-	}
+	import public_proxy 8087
 }
 nvdr.malice.biz {
 	import public_proxy 4533
